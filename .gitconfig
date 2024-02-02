@@ -1,0 +1,22 @@
+[commit]
+	gpgSign = true
+[user]
+	name = Christopher Yovanovitch
+	email = yovano_c@outlook.com
+	signingkey = 2F3A4F3E69578E59A315FDF191A2412D05288B2F
+[core]
+	editor = code-insiders --wait
+[tag]
+	gpgSign = true
+    forceSignAnnotated = true
+[alias]
+    uncommit = reset --soft HEAD^
+[pull]
+    rebase = true
+[init]
+    defaultBranch = main
+[filter "lfs"]
+    clean = git-lfs clean -- %f
+    smudge = git-lfs smudge -- %f
+    process = git-lfs filter-process
+    required = true
