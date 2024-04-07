@@ -26,9 +26,12 @@ tools=(
   cloc
   speedtest
   protobuf
+  hyperfine
   ripgrep
+  fd
   btop
   eza
+  fzf
   oha
   fnm
   zoxide
