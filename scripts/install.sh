@@ -1,7 +1,6 @@
 #!/bin/sh
 
-# Install ZSH
-echo "Installing ZSH ..."
+echo "Installing ohmyzsh ..."
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 mkdir ~/Pictures/Screenshots
@@ -21,15 +20,15 @@ tools=(
   pinentry-mac
   gnupg
   gnupg2
-  cloc
+  tokei
   neovim
-  cloc
   speedtest
   protobuf
   hyperfine
   ripgrep
   fd
   btop
+  wget
   eza
   fzf
   oha
@@ -48,9 +47,10 @@ brew install ${tools[@]}
 # Apps
 apps=(
   discord
-  visual-studio-code-insiders
+  visual-studio-code@insiders
   postico
   orbstack
+  medis
   ledger-live
 )
 
