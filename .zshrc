@@ -144,7 +144,7 @@ alias lt="eza --icons --tree"
 alias lz="eza --icons -la -s=size"
 alias k="clear"
 alias wip="git add . && git commit -m 'wip' && git push"
-alias up="rustup update && bun upgrade && brew update && brew upgrade --greedy && omz update"
+alias up="rustup update && bun upgrade && brew update && brew upgrade --greedy"
 alias rmnode="find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +"
 alias rmnext="find . -name '.next' -type d -prune -exec rm -rf '{}' +"
 alias rmdist="find . -name 'dist' -type d -prune -exec rm -rf '{}' +"
@@ -188,3 +188,5 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
+
+test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
