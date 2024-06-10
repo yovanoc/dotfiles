@@ -34,10 +34,10 @@ tools=(
   oha
   fnm
   zoxide
-  starship
   tmux
   lazygit
   stow
+  jandedobbeleer/oh-my-posh/oh-my-posh
 )
 
 # Install Tools
