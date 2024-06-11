@@ -1,21 +1,16 @@
 #!/bin/sh
 
-echo "Installing ohmyzsh ..."
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-
 mkdir ~/Pictures/Screenshots
 defaults write com.apple.screencapture location ~/Pictures/Screenshots
 defaults write com.apple.finder AppleShowAllFiles YES
 defaults write NSGlobalDomain WebKitDeveloperExtras -bool true
 
-# Tapping cask versions and fonts
-brew tap homebrew/cask-versions
-brew tap homebrew/cask-fonts
+# Tapping repos
 brew tap teamookla/speedtest
 
 # Tools
 tools=(
-  github/gh/gh
+  gh
   watch
   pinentry-mac
   gnupg
