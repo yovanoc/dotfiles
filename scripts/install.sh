@@ -46,6 +46,8 @@ apps=(
   orbstack
   medis
   ledger-live
+  raycast
+  arc
 )
 
 # Install apps to /Applications
@@ -60,6 +62,9 @@ fonts=(
   font-jetbrains-mono
   font-jetbrains-mono-nerd-font
   font-monaspace
+  font-geist
+  font-geist-mono
+  font-geist-mono-nerd-font
 )
 
 # Install Fonts
@@ -77,4 +82,4 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 
-echo "Install Vercel Geist Fonts, Raycast & Arc Browser and happy hacking!"
+echo "All done! Happy hacking!"
