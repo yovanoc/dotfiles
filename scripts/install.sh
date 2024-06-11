@@ -14,7 +14,6 @@ tools=(
   watch
   pinentry-mac
   gnupg
-  gnupg2
   tokei
   neovim
   speedtest

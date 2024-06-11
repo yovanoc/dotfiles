@@ -3,7 +3,7 @@
 [user]
 	name = Christopher Yovanovitch
 	email = yovano_c@outlook.com
-	signingkey = 2F3A4F3E69578E59A315FDF191A2412D05288B2F
+	signingkey = 0266EAC0A0CCF969E35FB8A2D351227705396FF0
 [core]
 	editor = code-insiders --wait
 [tag]
@@ -22,3 +22,5 @@
     required = true
 [push]
 	autoSetupRemote = true
+[gpg]
+	program = gpg
