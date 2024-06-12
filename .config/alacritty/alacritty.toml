@@ -1,0 +1,6 @@
+import = [
+  "~/.config/alacritty/catppuccin-mocha.toml"
+]
+
+font.size = 20.0
+font.normal.family = "GeistMono Nerd Font Mono"

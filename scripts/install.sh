@@ -5,6 +5,11 @@ defaults write com.apple.screencapture location ~/Pictures/Screenshots
 defaults write com.apple.finder AppleShowAllFiles YES
 defaults write NSGlobalDomain WebKitDeveloperExtras -bool true
 
+
+# Install Homebrew
+echo "Installing Homebrew..."
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
 # Tapping repos
 brew tap teamookla/speedtest
 
@@ -40,6 +45,7 @@ brew install ${tools[@]}
 
 # Apps
 apps=(
+  alacritty
   discord
   visual-studio-code@insiders
   postico
@@ -53,7 +59,7 @@ apps=(
 # Install apps to /Applications
 # Default is: /Users/$user/Applications
 echo "Installing Apps..."
-brew install --appdir="/Applications" ${apps[@]}
+brew install --appdir="/Applications" --cask ${apps[@]}
 
 # Fonts
 fonts=(
