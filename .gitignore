@@ -5,3 +5,6 @@
 
 # NVIM
 .config/nvim/lazy-lock.json
+
+# Random
+.config/raycast
