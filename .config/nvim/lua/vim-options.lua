@@ -6,3 +6,7 @@ vim.keymap.set("i", "jj", "<Esc>", {
 vim.keymap.set("n", "<leader>q", "<cmd>q<CR>", {
 	desc = "Quit",
 })
+
+if vim.fn.has("termguicolors") == 1 then
+	vim.opt.termguicolors = true
+end
