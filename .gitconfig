@@ -1,20 +1,23 @@
 [commit]
 	gpgSign = true
+[gpg]
+	program = gpg
+[init]
+    defaultBranch = main
 [user]
 	name = Christopher Yovanovitch
 	email = yovano_c@outlook.com
 	signingkey = 0266EAC0A0CCF969E35FB8A2D351227705396FF0
 [core]
 	editor = code-insiders --wait
+    pager = delta
 [tag]
 	gpgSign = true
     forceSignAnnotated = true
 [alias]
-    uncommit = reset --soft HEAD^
+    undo = reset --soft HEAD^
 [pull]
     rebase = true
-[init]
-    defaultBranch = main
 [filter "lfs"]
     clean = git-lfs clean -- %f
     smudge = git-lfs smudge -- %f
@@ -22,5 +25,6 @@
     required = true
 [push]
 	autoSetupRemote = true
-[gpg]
-	program = gpg
+    default = current
+[delta]
+    line-numbers = true

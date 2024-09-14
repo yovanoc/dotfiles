@@ -24,6 +24,9 @@ tools=(
   speedtest
   protobuf
   hyperfine
+  helmfile
+  kustomize
+  argocd
   ripgrep
   fd
   btop
@@ -36,6 +39,7 @@ tools=(
   tmux
   lazygit
   stow
+  delta
   jandedobbeleer/oh-my-posh/oh-my-posh
 )
 
