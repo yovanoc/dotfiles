@@ -12,6 +12,7 @@
 .config/argocd
 .config/btop
 .config/gh
+.config/stripe
 .config/wireshark
 .config/zed
 .config/ILSpy.xml
