@@ -8,6 +8,7 @@
 
 # Random
 .DS_Store
+.config/configstore
 .config/raycast
 .config/argocd
 .config/btop

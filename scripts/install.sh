@@ -18,6 +18,7 @@ tools=(
   gh
   watch
   pinentry-mac
+  cmake
   gnupg
   tokei
   neovim
