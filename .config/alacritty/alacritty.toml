@@ -1,12 +1,13 @@
-import = ["~/.config/alacritty/catppuccin-mocha.toml"]
+[general]
 live_config_reload = true
+import = ["~/.config/alacritty/tokyo-night.toml"]
 
 [env]
 TERM = "xterm-256color"
 COLORTERM = "truecolor"
 
 [font]
-size = 22.0
+size = 16.0
 
 [font.bold]
 family = "GeistMono Nerd Font Mono"
@@ -236,9 +237,9 @@ style = "Regular"
 
 [window]
 # decorations = "buttonless"
-dynamic_padding = false
+dynamic_padding = true
 opacity = 0.9
 
 [window.padding]
-x = 25
-y = 20
+# x = 25
+# y = 20
