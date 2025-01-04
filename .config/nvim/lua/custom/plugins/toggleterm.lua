@@ -13,7 +13,7 @@ return {
       insert_mappings = true, -- Open terminal with insert mode mappings
       terminal_mappings = true, -- Apply key mappings for terminals
       persist_size = true,
-      direction = 'horizontal', -- Terminal type (float, horizontal, vertical)
+      direction = 'float', -- Terminal type (float, horizontal, vertical)
       close_on_exit = true, -- Close terminal when process exits
       shell = vim.o.shell, -- Shell to use
     }

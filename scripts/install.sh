@@ -41,7 +41,10 @@ tools=(
   lazygit
   stow
   delta
+  pass
+  ghostty
   jandedobbeleer/oh-my-posh/oh-my-posh
+  lazydocker
 )
 
 # Install Tools
