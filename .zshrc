@@ -124,8 +124,8 @@ function port() {
 alias zshconfig="code-insiders $HOME/.zshrc"
 
 # Python 3
-alias pip=/usr/bin/pip3
-alias python=/usr/bin/python3
+# alias pip=/usr/bin/pip3
+# alias python=/usr/bin/python3
 
 # Aliases
 alias c="code-insiders ."
@@ -142,6 +142,7 @@ alias rmnext="find . -name '.next' -type d -prune -exec rm -rf '{}' +"
 alias rmdist="find . -name 'dist' -type d -prune -exec rm -rf '{}' +"
 alias rmturbo="find . -name '.turbo' -type d -prune -exec rm -rf '{}' +"
 alias rmstore="find . -name '.DS_Store' -type f -delete"
+alias rmtarget="find . -name 'target' -type d -prune -exec rm -rf '{}' +"
 alias rmts="find . -name 'tsconfig.tsbuildinfo' -type f -delete"
 alias rmall="rmnode && rmnext && rmdist && rmstore && rmts && rmturbo"
 alias pclean="pnpm clean && rmall && rm pnpm-lock.yaml && pnpm i && pnpm build && pnpm format"
@@ -185,3 +186,8 @@ esac
 # pnpm end
 
 export PATH="$HOME/.local/bin:$PATH"
+
+# Add deno completions to search path
+if [[ ":$FPATH:" != *":/Users/yovanoc/.zsh/completions:"* ]]; then export FPATH="/Users/yovanoc/.zsh/completions:$FPATH"; fi
+
+. "/Users/yovanoc/.deno/env"
