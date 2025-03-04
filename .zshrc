@@ -25,7 +25,8 @@ autoload -Uz compinit && compinit
 zinit cdreplay -q
 
 if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
-    eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/themes/catppuccin_mocha.omp.json)"
+eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/themes/tokyonight_storm.omp.json)"
+    # eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/themes/catppuccin_mocha.omp.json)"
     # eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/themes/zen.toml)"
 fi
 

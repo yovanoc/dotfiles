@@ -5,8 +5,6 @@
 
 # NVIM
 .config/nvim/lazy-lock.json
-# ohmyposh
-.config/ohmyposh
 # packer
 .config/packer
 
