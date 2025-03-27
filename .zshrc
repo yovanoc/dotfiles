@@ -25,7 +25,8 @@ autoload -Uz compinit && compinit
 zinit cdreplay -q
 
 if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
-eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/themes/tokyonight_storm.omp.json)"
+    # eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/themes/tokyonight_storm.omp.json)"
+    eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/themes/tokyonight_storm.omp_mine.json)"
     # eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/themes/catppuccin_mocha.omp.json)"
     # eval "$(oh-my-posh init zsh --config $HOME/.config/ohmyposh/themes/zen.toml)"
 fi
@@ -192,3 +193,6 @@ export PATH="$HOME/.local/bin:$PATH"
 if [[ ":$FPATH:" != *":/Users/yovanoc/.zsh/completions:"* ]]; then export FPATH="/Users/yovanoc/.zsh/completions:$FPATH"; fi
 
 . "/Users/yovanoc/.deno/env"
+
+# Added by Windsurf
+export PATH="/Users/yovanoc/.codeium/windsurf/bin:$PATH"

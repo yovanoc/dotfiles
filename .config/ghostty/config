@@ -1,5 +1,5 @@
 font-family = GeistMono Nerd Font Mono
-font-size = 16
+font-size = 28
 theme = tokyonight
 shell-integration-features = no-cursor,sudo,no-title
 cursor-style = block
@@ -22,7 +22,7 @@ keybind = cmd+s>x=close_surface
 
 keybind = cmd+s>n=new_window
 
-# tabs 
+# tabs
 keybind = cmd+s>c=new_tab
 keybind = cmd+s>shift+l=next_tab
 keybind = cmd+s>shift+h=previous_tab
