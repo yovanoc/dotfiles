@@ -1,3 +1,6 @@
 return {
-  'github/copilot.vim',
+  "github/copilot.vim",
+  event = "InsertEnter",
+  config = function()
+  end,
 }

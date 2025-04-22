@@ -122,6 +122,11 @@ function port() {
     ps aux | grep -i $1 | grep -v grep
 }
 
+function paste() {
+    local file=${1:-/dev/stdin}
+    curl --data-binary @${file} https://paste.rs
+}
+
 # Basics
 alias zshconfig="code-insiders $HOME/.zshrc"
 
