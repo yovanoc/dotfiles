@@ -127,6 +127,10 @@ function paste() {
     curl --data-binary @${file} https://paste.rs
 }
 
+function cdgr() {
+  cd "$(git rev-parse --show-toplevel)" || echo "Not a git repository"
+}
+
 # Basics
 alias zshconfig="code-insiders $HOME/.zshrc"
 

@@ -1,5 +1,5 @@
 font-family = GeistMono Nerd Font Mono
-font-size = 28
+font-size = 30
 theme = tokyonight
 shell-integration-features = no-cursor,sudo,no-title
 cursor-style = block
