@@ -1,5 +1,5 @@
 font-family = GeistMono Nerd Font Mono
-font-size = 30
+font-size = 24
 theme = tokyonight
 shell-integration-features = no-cursor,sudo,no-title
 cursor-style = block
@@ -7,7 +7,7 @@ adjust-cell-height = 25%
 # background-opacity = 0.96
 
 mouse-hide-while-typing = true
-mouse-scroll-multiplier = 2
+mouse-scroll-multiplier = 1.5
 
 macos-titlebar-style = transparent
 window-padding-balance = true
