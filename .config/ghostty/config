@@ -1,7 +1,7 @@
 font-family = GeistMono Nerd Font Mono
-font-size = 24
+font-size = 22
 theme = tokyonight
-shell-integration-features = no-cursor,sudo,no-title
+shell-integration-features = no-cursor,sudo,no-title,ssh-terminfo,ssh-env
 cursor-style = block
 adjust-cell-height = 25%
 # background-opacity = 0.96
