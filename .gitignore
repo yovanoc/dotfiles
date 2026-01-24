@@ -8,6 +8,8 @@
 # packer
 .config/packer
 
+.DS_Store
+
 # Random
 .DS_Store
 .config/configstore
@@ -22,3 +24,6 @@
 .config/github-copilot
 .config/flutter
 .config/neonctl
+.config/better-auth
+.config/uv
+.config/mole

@@ -11,6 +11,7 @@
 [core]
 	editor = code-insiders --wait
     pager = delta
+	excludesfile = /Users/yovanoc/.gitignore
 [tag]
 	gpgSign = true
     forceSignAnnotated = true
@@ -28,3 +29,5 @@
     default = current
 [delta]
     line-numbers = true
+[rerere]
+    enabled = true

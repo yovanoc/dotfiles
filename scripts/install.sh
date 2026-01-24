@@ -45,6 +45,8 @@ tools=(
   ghostty
   jandedobbeleer/oh-my-posh/oh-my-posh
   lazydocker
+  hyperfine
+  opencode
 )
 
 # Install Tools
