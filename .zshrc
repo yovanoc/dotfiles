@@ -37,6 +37,103 @@ bindkey '^p' history-search-backward
 bindkey '^n' history-search-forward
 bindkey '^[w' kill-region
 
+# Open the current command in your $EDITOR (e.g., neovim)
+# Press Ctrl+X followed by Ctrl+E to trigger
+autoload -Uz edit-command-line
+zle -N edit-command-line
+bindkey '^X^E' edit-command-line
+
+# Press Ctrl+_ (Ctrl+Underscore) to undo
+# This is built-in, no configuration needed!
+# Redo widget exists but has no default binding:
+bindkey '^Y' redo # Bind Ctrl+Y to redo
+
+# Expands history expressions like !! or !$ when you press space
+bindkey ' ' magic-space
+
+# autoload -Uz add-zsh-hook
+# function auto_nvm() {
+#     [[ -f .nvmrc ]] && nvm use
+# }
+# add-zsh-hook chpwd auto_nvm
+
+# Just type the filename to open it with the associated program
+alias -s json=jless
+alias -s md=bat
+alias -s go='$EDITOR'
+alias -s rs='$EDITOR'
+alias -s txt=bat
+alias -s log=bat
+alias -s js='$EDITOR'
+alias -s ts='$EDITOR'
+alias -s html=open  # macOS: open in default browser
+
+# Global Aliases - Use Anywhere in Commands
+# Redirect stderr to /dev/null
+alias -g NE='2>/dev/null'
+# Redirect stdout to /dev/null
+alias -g NO='>/dev/null'
+# Redirect both stdout and stderr to /dev/null
+alias -g NUL='>/dev/null 2>&1'
+# Pipe to jq
+alias -g J='| jq'
+# Copy output to clipboard (macOS)
+alias -g C='| pbcopy'
+# Copy output to clipboard (Linux with xclip)
+# alias -g C='| xclip -selection clipboard'
+
+# zmv - Advanced Batch Rename/Move
+# Enable zmv
+autoload -Uz zmv
+# Usage examples:
+# zmv '(*).log' '$1.txt'           # Rename .log to .txt
+# zmv -w '*.log' '*.txt'           # Same thing, simpler syntax
+# zmv -n '(*).log' '$1.txt'        # Dry run (preview changes)
+# zmv -i '(*).log' '$1.txt'        # Interactive mode (confirm each)
+# Helpful aliases for zmv
+alias zcp='zmv -C'  # Copy with patterns
+alias zln='zmv -L'  # Link with patterns
+
+# Named Directories - Bookmark Folders
+# Access with ~name syntax, e.g., cd ~yt or ls ~yt
+hash -d pj=~/projects
+hash -d dot=~/.dotfiles
+hash -d dl=~/Downloads
+
+# Custom widgets
+# Clear screen but keep current command buffer
+function clear-screen-and-scrollback() {
+    echoti civis >"$TTY"
+    printf '%b' '\e[H\e[2J\e[3J' >"$TTY"
+    echoti cnorm >"$TTY"
+    zle redisplay
+}
+zle -N clear-screen-and-scrollback
+bindkey '^X^L' clear-screen-and-scrollback
+
+# Copy current command buffer to clipboard (macOS)
+function copy-buffer-to-clipboard() {
+    echo -n "$BUFFER" | pbcopy
+    zle -M "Copied to clipboard"
+}
+zle -N copy-buffer-to-clipboard
+bindkey '^X^C' copy-buffer-to-clipboard
+
+# For Linux with wl-copy:
+# function copy-buffer-to-clipboard() {
+#   echo -n "$BUFFER" | wl-copy
+#   zle -M "Copied to clipboard"
+# }
+
+# Hotkey Insertions - Text Snippets
+# Insert git commit template (Ctrl+X, G, C)
+# \C-b moves cursor back one position
+bindkey -s '^Xgc' 'git commit -m ""\C-b'
+# More examples:
+bindkey -s '^Xgp' 'git push origin '
+bindkey -s '^Xgs' 'git status\n'
+bindkey -s '^Xgl' 'git log --oneline -n 10\n'
+
 # History
 HISTSIZE=5000
 HISTFILE=~/.zsh_history
@@ -69,16 +166,16 @@ export FORCE_COLOR=1
 export MY_NAME="Christopher Yovanovitch"
 export MY_EMAIL="yovano_c@outlook.com"
 
-# GIT
-GIT_AUTHOR_NAME=$MY_NAME
-GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
-git config --global user.name "$GIT_AUTHOR_NAME"
-GIT_AUTHOR_EMAIL=$MY_EMAIL
-GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
-git config --global user.email "$GIT_AUTHOR_EMAIL"
-git config --global core.editor "code-insiders --wait"
-git config --global commit.gpgSign true
-git config --global tag.gpgSign true
+# GIT - Already in .gitconfig not needed here
+# GIT_AUTHOR_NAME=$MY_NAME
+# GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+# git config --global user.name "$GIT_AUTHOR_NAME"
+# GIT_AUTHOR_EMAIL=$MY_EMAIL
+# GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+# git config --global user.email "$GIT_AUTHOR_EMAIL"
+# git config --global core.editor "code-insiders --wait"
+# git config --global commit.gpgSign true
+# git config --global tag.gpgSign true
 
 # Create a new directory and enter it
 function mkd() {
@@ -128,7 +225,7 @@ function paste() {
 }
 
 function cdgr() {
-  cd "$(git rev-parse --show-toplevel)" || echo "Not a git repository"
+    cd "$(git rev-parse --show-toplevel)" || echo "Not a git repository"
 }
 
 # Basics
@@ -147,7 +244,7 @@ alias lt="eza --icons --tree"
 alias lz="eza --icons -la -s=size"
 alias k="clear"
 alias wip="git add . && git commit -m 'wip' && git push"
-alias up="rustup update && bun upgrade && brew update && brew upgrade --greedy"
+alias up="rustup update && bun upgrade && brew update --force && brew upgrade --greedy"
 alias rmnode="find . -name 'node_modules' -type d -prune -exec rm -rf '{}' +"
 alias rmnext="find . -name '.next' -type d -prune -exec rm -rf '{}' +"
 alias rmdist="find . -name 'dist' -type d -prune -exec rm -rf '{}' +"
@@ -155,7 +252,7 @@ alias rmturbo="find . -name '.turbo' -type d -prune -exec rm -rf '{}' +"
 alias rmstore="find . -name '.DS_Store' -type f -delete"
 alias rmtarget="find . -name 'target' -type d -prune -exec rm -rf '{}' +"
 alias rmts="find . -name 'tsconfig.tsbuildinfo' -type f -delete"
-alias rmall="rmnode && rmnext && rmdist && rmstore && rmts && rmturbo"
+alias rmall="rmnode && rmnext && rmdist && rmstore && rmts && rmturbo && rmtarget"
 alias pclean="pnpm clean && rmall && rm pnpm-lock.yaml && pnpm i && pnpm build && pnpm format"
 alias p="pnpm"
 alias s="source $HOME/.zshrc"
@@ -170,6 +267,10 @@ alias dkcpstop="docker-compose stop"
 alias dk-clean-unused='docker system prune --all --force --volumes'
 alias dk-clean-all='docker stop $(docker container ls -a -q) && docker system prune -a -f --volumes'
 alias dk-clean-containers='docker container stop $(docker container ls -a -q) && docker container rm $(docker container ls -a -q)'
+alias dk-clean='dk-clean-unused && docker builder prune -af && docker buildx prune -af'
+alias brew-clean='brew cleanup --prune=all && brew autoremove'
+alias soft-clean='dk-clean && brew-clean'
+alias clean='soft-clean && rmall'
 alias kb="kubectl"
 alias mk="minikube"
 alias lzd="lazydocker"
@@ -205,3 +306,6 @@ if [[ ":$FPATH:" != *":/Users/yovanoc/.zsh/completions:"* ]]; then export FPATH=
 
 # Added by Windsurf
 export PATH="/Users/yovanoc/.codeium/windsurf/bin:$PATH"
+
+autoload -U +X bashcompinit && bashcompinit
+complete -o nospace -C /opt/homebrew/bin/terraform terraform

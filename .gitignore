@@ -3,8 +3,6 @@
 !.gnupg/gpg-agent.conf
 !.gnupg/gpg.conf
 
-# NVIM
-.config/nvim/lazy-lock.json
 # packer
 .config/packer
 
@@ -12,6 +10,9 @@
 
 # Random
 .DS_Store
+.cachebro
+
+# Configurations
 .config/configstore
 .config/raycast
 .config/argocd
@@ -27,3 +28,13 @@
 .config/better-auth
 .config/uv
 .config/mole
+.config/monocle
+
+# opencode
+
+.config/opencode/*
+!.config/opencode/AGENTS.md
+!.config/opencode/skills
+!.config/opencode/plugins
+!.config/opencode/opencode.jsonc
+!.config/opencode/oh-my-openagent.jsonc

@@ -1,0 +1,23 @@
+[default]
+file = "~/Projects/bank-beancount/chris/beancount_data/ledger.beancount"
+
+editor = "nvim"
+
+[commands.query.output]
+format = "text"
+
+[commands.report.output]
+format = "text"
+
+# # Profiles for different ledgers
+# [profiles.personal]
+# file = "~/finances/personal.beancount"
+
+# [profiles.business]
+# file = "~/finances/business.beancount"
+
+# Command aliases
+[aliases]
+bal = "report balances"
+is = "report income"
+bs = "report balsheet"
