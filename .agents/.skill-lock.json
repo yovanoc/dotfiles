@@ -6,9 +6,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/vercel-labs/skills.git",
       "skillPath": "skills/find-skills/SKILL.md",
-      "skillFolderHash": "c2f31172b6f256272305a5e6e7228b258446899f",
+      "skillFolderHash": "3013fdeb8a11b10b1eb795ec3ae8bfca38f7c26d",
       "installedAt": "2026-01-27T07:34:21.449Z",
-      "updatedAt": "2026-01-27T07:34:21.449Z"
+      "updatedAt": "2026-05-08T07:08:37.534Z"
     },
     "caveman": {
       "source": "mattpocock/skills",
@@ -139,6 +139,105 @@
       "pluginName": "mattpocock-skills",
       "installedAt": "2026-05-07T21:00:13.255Z",
       "updatedAt": "2026-05-07T21:00:13.255Z"
+    },
+    "deploy-to-vercel": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/deploy-to-vercel/SKILL.md",
+      "skillFolderHash": "1378aa506439f26c809dbcfc61515cbd70f93d69",
+      "installedAt": "2026-05-08T07:10:10.657Z",
+      "updatedAt": "2026-05-08T07:11:07.147Z"
+    },
+    "vercel-cli-with-tokens": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/vercel-cli-with-tokens/SKILL.md",
+      "skillFolderHash": "279c8760375cb6a47a4a8a312b652b0745c6d776",
+      "installedAt": "2026-05-08T07:10:10.658Z",
+      "updatedAt": "2026-05-08T07:11:07.148Z"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/composition-patterns/SKILL.md",
+      "skillFolderHash": "bf90d0a4b83ea054653350f9c67f6de235d3a368",
+      "installedAt": "2026-05-08T07:10:10.658Z",
+      "updatedAt": "2026-05-08T07:11:07.146Z"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "skillFolderHash": "343db72180d05814949fef7d46be96b5c6ee86b3",
+      "installedAt": "2026-05-08T07:10:10.658Z",
+      "updatedAt": "2026-05-08T07:11:07.147Z"
+    },
+    "vercel-react-native-skills": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/react-native-skills/SKILL.md",
+      "skillFolderHash": "8b4c6a51914e2111ab6f4f00cb81778652aa241d",
+      "installedAt": "2026-05-08T07:10:10.659Z",
+      "updatedAt": "2026-05-08T07:11:07.147Z"
+    },
+    "vercel-react-view-transitions": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/react-view-transitions/SKILL.md",
+      "skillFolderHash": "4d46c637057aae90b9ec5280190c25dc0d90ec28",
+      "installedAt": "2026-05-08T07:10:10.659Z",
+      "updatedAt": "2026-05-08T07:11:07.148Z"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/agent-skills.git",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "skillFolderHash": "3116f3e62dbd02b44a598b1aa690d2a8938e8f89",
+      "installedAt": "2026-05-08T07:10:10.659Z",
+      "updatedAt": "2026-05-08T07:11:07.148Z"
+    },
+    "next-best-practices": {
+      "source": "vercel-labs/next-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/next-skills.git",
+      "skillPath": "skills/next-best-practices/SKILL.md",
+      "skillFolderHash": "a236d702277c5364cf6f540712a8dddb46e79a46",
+      "installedAt": "2026-05-08T07:11:53.928Z",
+      "updatedAt": "2026-05-08T07:15:37.857Z"
+    },
+    "next-cache-components": {
+      "source": "vercel-labs/next-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/next-skills.git",
+      "skillPath": "skills/next-cache-components/SKILL.md",
+      "skillFolderHash": "a6f29564b9228af553737bd437c7016fc3dc44e0",
+      "installedAt": "2026-05-08T07:11:53.929Z",
+      "updatedAt": "2026-05-08T07:15:37.857Z"
+    },
+    "next-upgrade": {
+      "source": "vercel-labs/next-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel-labs/next-skills.git",
+      "skillPath": "skills/next-upgrade/SKILL.md",
+      "skillFolderHash": "962598faa417cf3b6c03ec2e5cbe0aa0aeb2c4a9",
+      "installedAt": "2026-05-08T07:11:53.929Z",
+      "updatedAt": "2026-05-08T07:15:37.858Z"
+    },
+    "turborepo": {
+      "source": "vercel/turborepo",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/vercel/turborepo.git",
+      "skillPath": "skills/turborepo/SKILL.md",
+      "skillFolderHash": "5b7541e7a58415d4a1bb06e698abf0c2bddb4152",
+      "installedAt": "2026-05-08T07:13:02.648Z",
+      "updatedAt": "2026-05-08T07:13:02.648Z"
     }
   },
   "dismissed": {
