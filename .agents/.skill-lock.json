@@ -238,6 +238,24 @@
       "skillFolderHash": "5b7541e7a58415d4a1bb06e698abf0c2bddb4152",
       "installedAt": "2026-05-08T07:13:02.648Z",
       "updatedAt": "2026-05-08T07:13:02.648Z"
+    },
+    "logging-best-practices": {
+      "source": "boristane/agent-skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/boristane/agent-skills.git",
+      "skillPath": "skills/logging-best-practices/SKILL.md",
+      "skillFolderHash": "075c83b8bf75e6f7b7ac97b8cf752f819da7cdb7",
+      "installedAt": "2026-05-08T18:28:20.996Z",
+      "updatedAt": "2026-05-08T18:28:20.996Z"
+    },
+    "effect-ts": {
+      "source": "Effect-TS/skills",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/Effect-TS/skills.git",
+      "skillPath": "skills/effect-ts/SKILL.md",
+      "skillFolderHash": "0312199a5ef4d6f2d7be6115c058320bd9ad0d18",
+      "installedAt": "2026-05-14T17:30:32.067Z",
+      "updatedAt": "2026-05-14T17:30:32.067Z"
     }
   },
   "dismissed": {

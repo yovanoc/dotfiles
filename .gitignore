@@ -15,6 +15,7 @@
 # Configurations
 .config/configstore
 .config/raycast
+.config/raycast-x
 .config/argocd
 .config/btop
 .config/gh
@@ -37,4 +38,5 @@
 !.config/opencode/skills
 !.config/opencode/plugins
 !.config/opencode/opencode.jsonc
+!.config/opencode/tui.jsonc
 !.config/opencode/oh-my-openagent.jsonc
