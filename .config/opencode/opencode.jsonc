@@ -6,7 +6,6 @@
     "oh-my-openagent@4.0.0",
     "true-mem@latest",
     "context-mode@latest",
-    "@mohak34/opencode-notifier@latest",
     // "opencode-wakatime@latest",
     "opencode-scheduler@latest"
   ],
@@ -32,7 +31,13 @@
     },
     "monocle-studio": {
       "type": "remote",
-      "url": "http://localhost:4200/mcp"
+      "url": "http://localhost:4200/mcp",
+      "enabled": true
+    },
+    "cloudflare-api": {
+      "type": "remote",
+      "url": "https://mcp.cloudflare.com/mcp",
+      "enabled": true,
     }
   },
   "permission": {
@@ -155,6 +160,8 @@
       "zip *": "allow",
       "zoxide *": "allow",
       "rtk *": "allow",
+      "python3 *": "allow",
+      "python *": "allow",
     },
     "edit": "allow",
     "webfetch": "allow"

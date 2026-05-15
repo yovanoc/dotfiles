@@ -29,6 +29,7 @@
 .config/better-auth
 .config/uv
 .config/mole
+.config/fish
 .config/monocle
 
 # opencode
