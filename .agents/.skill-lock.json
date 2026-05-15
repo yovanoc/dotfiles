@@ -45,10 +45,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
-      "skillFolderHash": "2969a1224c70fe41b9dd2ddbe32c2ec62f2815bd",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "3c4ac970c404e8d32c24f2725bfe679e455a925b",
       "installedAt": "2026-05-07T21:00:13.251Z",
-      "updatedAt": "2026-05-07T21:00:13.251Z"
+      "updatedAt": "2026-05-15T06:56:06.058Z"
     },
     "improve-codebase-architecture": {
       "source": "mattpocock/skills",
@@ -65,10 +64,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/prototype/SKILL.md",
-      "skillFolderHash": "0b1153347deb6369b3070f5de6a712cc1d2087a2",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "c91bdc5d02d42ed88a3082a8fa83338895b55bd4",
       "installedAt": "2026-05-07T21:00:13.252Z",
-      "updatedAt": "2026-05-07T21:00:13.252Z"
+      "updatedAt": "2026-05-15T06:56:07.810Z"
     },
     "setup-matt-pocock-skills": {
       "source": "mattpocock/skills",
@@ -235,9 +233,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/vercel/turborepo.git",
       "skillPath": "skills/turborepo/SKILL.md",
-      "skillFolderHash": "5b7541e7a58415d4a1bb06e698abf0c2bddb4152",
+      "skillFolderHash": "4df4745eeb35dd0e3d53810d7ba63c934cff5454",
       "installedAt": "2026-05-08T07:13:02.648Z",
-      "updatedAt": "2026-05-08T07:13:02.648Z"
+      "updatedAt": "2026-05-15T06:56:09.820Z"
     },
     "logging-best-practices": {
       "source": "boristane/agent-skills",
