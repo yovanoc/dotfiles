@@ -233,9 +233,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/vercel/turborepo.git",
       "skillPath": "skills/turborepo/SKILL.md",
-      "skillFolderHash": "4df4745eeb35dd0e3d53810d7ba63c934cff5454",
+      "skillFolderHash": "d540b4bad3380770c7d252dd72559524adf29e88",
       "installedAt": "2026-05-08T07:13:02.648Z",
-      "updatedAt": "2026-05-15T06:56:09.820Z"
+      "updatedAt": "2026-05-18T14:29:32.362Z"
     },
     "logging-best-practices": {
       "source": "boristane/agent-skills",
@@ -251,9 +251,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/Effect-TS/skills.git",
       "skillPath": "skills/effect-ts/SKILL.md",
-      "skillFolderHash": "0312199a5ef4d6f2d7be6115c058320bd9ad0d18",
+      "skillFolderHash": "2750e6e5b1b7e87c7af25eec1ff84d0c1bfbc777",
       "installedAt": "2026-05-14T17:30:32.067Z",
-      "updatedAt": "2026-05-14T17:30:32.067Z"
+      "updatedAt": "2026-05-17T00:57:18.214Z"
     }
   },
   "dismissed": {

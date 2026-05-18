@@ -31,6 +31,7 @@
 .config/mole
 .config/fish
 .config/monocle
+.config/tokscale
 
 # opencode
 
