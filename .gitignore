@@ -39,6 +39,7 @@
 !.config/opencode/AGENTS.md
 !.config/opencode/skills
 !.config/opencode/plugins
+!.config/opencode/commands
 !.config/opencode/opencode.jsonc
 !.config/opencode/tui.jsonc
 !.config/opencode/oh-my-openagent.jsonc

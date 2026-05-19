@@ -3,12 +3,18 @@
   "model": "opencode/minimax-m2.5-free",
   "autoupdate": true,
   "plugin": [
-    "oh-my-openagent@4.0.0",
+    "oh-my-openagent@latest",
     "true-mem@latest",
     "context-mode@latest",
     // "opencode-wakatime@latest",
-    "opencode-scheduler@latest"
+    "opencode-scheduler@latest",
+    "opencode-claude-auth@latest"
   ],
+  "agent": {
+    "build": {
+      "enable1mContext": true
+    }
+  },
   "mcp": {
     "cachebro": {
       "type": "local",
