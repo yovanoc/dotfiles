@@ -16,9 +16,8 @@
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/productivity/caveman/SKILL.md",
       "skillFolderHash": "17972a1bdbf5909b9dbdc435ad348f0bf45f8664",
-      "pluginName": "mattpocock-skills",
       "installedAt": "2026-05-07T21:00:13.247Z",
-      "updatedAt": "2026-05-07T21:00:13.247Z"
+      "updatedAt": "2026-06-04T05:47:10.549Z"
     },
     "diagnose": {
       "source": "mattpocock/skills",
@@ -45,19 +44,18 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
-      "skillFolderHash": "3c4ac970c404e8d32c24f2725bfe679e455a925b",
+      "skillFolderHash": "2c3a4e48571bfe42203ed7b49cae85f31ef4b6f2",
       "installedAt": "2026-05-07T21:00:13.251Z",
-      "updatedAt": "2026-05-15T06:56:06.058Z"
+      "updatedAt": "2026-06-04T05:44:19.235Z"
     },
     "improve-codebase-architecture": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
-      "skillFolderHash": "3ad8fa787b3b9b622d1f5a3d0afc27812ac782fa",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "688c17ec27fe9309d84987716aca37b5ce7f3a88",
       "installedAt": "2026-05-07T21:00:13.251Z",
-      "updatedAt": "2026-05-07T21:00:13.251Z"
+      "updatedAt": "2026-06-04T05:44:20.578Z"
     },
     "prototype": {
       "source": "mattpocock/skills",
@@ -103,10 +101,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/mattpocock/skills.git",
       "skillPath": "skills/engineering/to-prd/SKILL.md",
-      "skillFolderHash": "d6eff3e99a325d2d9c2acbe31b4d76fa5340a154",
-      "pluginName": "mattpocock-skills",
+      "skillFolderHash": "fb4503f54bc618da08df2fd74109fbe57e4d8150",
       "installedAt": "2026-05-07T21:00:13.254Z",
-      "updatedAt": "2026-05-07T21:00:13.254Z"
+      "updatedAt": "2026-06-04T05:44:21.812Z"
     },
     "triage": {
       "source": "mattpocock/skills",
@@ -233,9 +230,9 @@
       "sourceType": "github",
       "sourceUrl": "https://github.com/vercel/turborepo.git",
       "skillPath": "skills/turborepo/SKILL.md",
-      "skillFolderHash": "d540b4bad3380770c7d252dd72559524adf29e88",
+      "skillFolderHash": "46c8ddd7b9dfe5de2191e9304904bcaa44dedbcd",
       "installedAt": "2026-05-08T07:13:02.648Z",
-      "updatedAt": "2026-05-18T14:29:32.362Z"
+      "updatedAt": "2026-06-04T05:44:23.792Z"
     },
     "logging-best-practices": {
       "source": "boristane/agent-skills",
@@ -344,6 +341,7 @@
     "github-copilot",
     "kimi-cli",
     "opencode",
-    "warp"
+    "warp",
+    "zed"
   ]
 }
