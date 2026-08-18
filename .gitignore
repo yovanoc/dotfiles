@@ -32,6 +32,9 @@
 .config/fish
 .config/monocle
 .config/tokscale
+.config/containers
+.config/lean-ctx
+.config/mcphub
 
 # opencode
 
@@ -43,3 +46,23 @@
 !.config/opencode/opencode.jsonc
 !.config/opencode/tui.jsonc
 !.config/opencode/oh-my-openagent.jsonc
+!.config/opencode/dcp.jsonc
+
+
+# herdr
+.config/herdr/*
+!.config/herdr/config.toml
+
+# Legacy stow sources, superseded by home/. Kept on disk, no longer tracked.
+.config/
+.gnupg/
+.ssh/
+.gitconfig
+.tmux.conf
+.zprofile
+.zshenv
+.zshrc
+
+# Agent and tool runtime state, credentials, logs. Never commit.
+.omo/
+.pi/
