@@ -1,0 +1,24 @@
+onboarding = false
+[theme]
+name = "tokyo-night"
+auto_switch = true
+
+[keys]
+prefix = "ctrl+s"
+
+focus_pane_left = "ctrl+h"
+focus_pane_down = "ctrl+j"
+focus_pane_up = "ctrl+k"
+focus_pane_right = "ctrl+l"
+
+split_vertical = "prefix+v"
+split_horizontal = "prefix+h"
+
+new_tab = "prefix+c"
+
+[ui]
+agent_panel_sort = "spaces"
+
+[experimental]
+pane_history = true
+switch_ascii_input_source_in_prefix = true

@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+# Brewfile checksum: {{ include "../Brewfile" | sha256sum }}
+brew bundle --file="{{ joinPath .chezmoi.sourceDir ".." "Brewfile" }}"

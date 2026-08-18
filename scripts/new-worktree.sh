@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/new-worktree.sh <branch> [path]
+
+Create a worktree for a local branch, a matching origin branch, or a new branch.
+Relative paths are resolved from the repository root.
+EOF
+}
+
+die() {
+  printf 'error: %s\n' "$1" >&2
+  exit 1
+}
+
+[[ $# -ge 1 && $# -le 2 ]] || { usage >&2; exit 2; }
+
+branch=$1
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || die "run this inside a Git repository"
+repo_name=$(basename "$repo_root")
+
+git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "invalid branch name: $branch"
+
+if [[ $# -eq 2 ]]; then
+  path=$2
+  [[ $path = /* ]] || path="$repo_root/$path"
+else
+  path="${WORKTREE_ROOT:-$HOME/worktrees}/$repo_name/$branch"
+fi
+
+case "$path" in
+  "$repo_root"|"$repo_root"/*) die "worktree path must be outside the repository" ;;
+esac
+
+[[ ! -e "$path" && ! -L "$path" ]] || die "worktree path already exists: $path"
+mkdir -p "$(dirname "$path")"
+
+if git show-ref --verify --quiet "refs/heads/$branch"; then
+  git worktree add "$path" "$branch"
+elif git remote get-url origin >/dev/null 2>&1 && git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+  git fetch origin "$branch"
+  git worktree add --track -b "$branch" "$path" "origin/$branch"
+else
+  git worktree add -b "$branch" "$path"
+fi
+
+printf 'created worktree: %s\n' "$path"

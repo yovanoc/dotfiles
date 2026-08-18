@@ -1,0 +1,5 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Opencode-DCP/opencode-dynamic-context-pruning/refs/heads/master/dcp.schema.json",
+  "autoUpdate": true,
+  "enabled": true
+}

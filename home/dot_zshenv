@@ -1,0 +1,7 @@
+# .zshenv runs for every shell, including non-interactive ones that never read .zshrc.
+# Dedupe here so scripts and hooks get a clean PATH too, not just interactive shells.
+typeset -U path PATH fpath FPATH
+
+. "$HOME/.cargo/env"
+
+export PATH="$PATH:$HOME/.foundry/bin"

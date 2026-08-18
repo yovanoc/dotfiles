@@ -1,0 +1,133 @@
+# Source/Load zinit
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+[ ! -d $ZINIT_HOME ] && mkdir -p "$(dirname $ZINIT_HOME)"
+[ ! -d $ZINIT_HOME/.git ] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+source "${ZINIT_HOME}/zinit.zsh"
+
+# Cache the output of slow `eval "$(tool init)"` calls to a file, and re-generate only when
+# the tool binary or its config is newer than the cache. Saves spawning them every shell.
+# Only safe for tools whose init output is identical for every shell — anything embedding a
+# per-shell id or path (fnm, oh-my-posh) must NOT be cached.
+#   usage: _zsh_cached_eval <name> <dep>... -- <command>...
+function _zsh_cached_eval() {
+    local name=$1; shift
+    local cache="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/${name}.zsh"
+    local -a deps
+    while [[ $# -gt 0 && $1 != -- ]]; do deps+=("$1"); shift; done; shift
+    # If the tool is gone (e.g. mid-upgrade), skip rather than source a cache whose functions
+    # would all fail at runtime.
+    (( $+commands[$1] )) || { print -u2 "skipping $name init: $1 not found"; return 1; }
+    local stale=0 d
+    [[ -s $cache ]] || stale=1
+    for d in $deps; do [[ -e $d && $d -nt $cache ]] && stale=1; done
+    if (( stale )); then
+        mkdir -p "${cache:h}"
+        "$@" >| "$cache" || { print -u2 "failed to cache $name"; return 1; }
+    fi
+    source "$cache"
+}
+
+# Completion init. Rebuilds the dump at most once a day; otherwise -C reuses it and skips the
+# audit + redump. -d pins the same file the freshness check looks at, so the two cannot diverge
+# if ZDOTDIR is ever set (plain compinit defaults to ${ZDOTDIR:-$HOME}/.zcompdump).
+function _zsh_compinit_cached() {
+    autoload -Uz compinit
+    local dump=${HOME}/.zcompdump
+    local -a fresh=(${dump}(Nm-1))
+    if (( $#fresh )); then compinit -C -d "$dump"; else compinit -d "$dump"; fi
+}
+
+# zsh-completions, loaded eagerly because compinit must see it. blockf keeps it out of fpath
+# (zinit installs its completions itself), which is why it costs nothing at compinit time.
+zinit ice blockf
+zinit light zsh-users/zsh-completions
+
+# compinit eagerly (~40ms with the cached dump). Deferring it into turbo saves only that
+# 40ms and breaks bash-style completions like terraform's, which cannot register from precmd.
+_zsh_compinit_cached
+zinit cdreplay -q
+
+# Everything below is turbo-loaded: `wait lucid` defers it to just after the prompt is drawn,
+# off the critical path. syntax highlighting goes last because it wraps ZLE widgets.
+zinit wait lucid for \
+    Aloxaf/fzf-tab \
+    atload"!_zsh_autosuggest_start" \
+        zsh-users/zsh-autosuggestions \
+    zsh-users/zsh-syntax-highlighting
+
+# Snippets — aliases, completions and hooks only, all safe to defer
+zinit wait lucid for \
+    OMZP::git \
+    OMZP::sudo \
+    OMZP::aws \
+    OMZP::kubectl \
+    OMZP::kubectx \
+    OMZP::command-not-found
+[[ $OSTYPE == linux* ]] && zinit wait lucid for OMZP::archlinux
+
+if [ "$TERM_PROGRAM" != "Apple_Terminal" ]; then
+    # Deliberately NOT cached: `oh-my-posh init` bakes a fresh POSH_SESSION_ID into its output,
+    # so a cached copy makes every shell share one session id. It already caches its own init
+    # script internally, so this costs ~40ms over the bare spawn.
+    OMP_THEME="$HOME/.config/ohmyposh/themes/tokyonight_storm.omp_mine.json"
+    eval "$(oh-my-posh init zsh --config "$OMP_THEME")"
+fi
+
+
+# History
+HISTSIZE=50000
+HISTFILE=~/.zsh_history
+SAVEHIST=$HISTSIZE
+setopt appendhistory
+setopt sharehistory
+setopt hist_ignore_space
+setopt hist_ignore_all_dups
+setopt hist_save_no_dups
+setopt hist_find_no_dups
+setopt extended_history   # record timestamps, so `history -i` / -E show when a command ran
+setopt hist_reduce_blanks # collapse superfluous whitespace before saving
+
+# Completion styling
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+zstyle ':completion:*' menu no
+# Cache slow completers (aws, kubectl and docker rebuild their lists on every tab)
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompcache"
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls --color $realpath'
+zstyle ':fzf-tab:complete:__zoxide_z:*' fzf-preview 'ls --color $realpath'
+
+if [[ -n $SSH_CONNECTION ]]; then
+    export EDITOR='vim'
+else
+    export EDITOR='nvim'
+fi
+
+# TurboRepo
+export FORCE_COLOR=1
+
+
+# Modular config in ~/.config/zsh. Nothing secret lives there (opencode.zsh reads its
+# password from ~/.local/state), so every file is safe to commit.
+source ~/.config/zsh/functions.zsh
+source ~/.config/zsh/aliases.zsh
+source ~/.config/zsh/keybinds.zsh
+case "$OSTYPE" in
+    darwin*) source ~/.config/zsh/os/macos.zsh ;;
+    linux*)  source ~/.config/zsh/os/linux.zsh ;;
+esac
+[[ -r ~/.config/zsh/opencode.zsh ]] && source ~/.config/zsh/opencode.zsh
+
+# Shell integrations
+# fnm mints a unique per-shell dir, so drop any inherited from a previous shell (exec zsh)
+# before fnm adds this one's — otherwise PATH gains an entry on every reload.
+path=(${path:#*/fnm_multishells/*})
+# fnm must stay uncached: its output embeds this shell's unique multishells dir.
+eval "$(fnm env --use-on-cd)"
+_zsh_cached_eval zoxide "${commands[zoxide]}" -- zoxide init zsh
+_zsh_cached_eval fzf "${commands[fzf]}" -- fzf --zsh
+
+# PATH and tool installers. Sourced last so it can dedupe everything inherited above.
+source ~/.config/zsh/path.zsh
+
+alias omo=omo-agent-toolkit
