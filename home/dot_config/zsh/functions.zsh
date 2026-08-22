@@ -62,8 +62,9 @@ function pastebin() {
 
 # Dotfiles drift. Both halves are silent when clean, and agents write to
 # ~/.agents and ~/.pi constantly, so the divergence is otherwise invisible.
-#   chezmoi status: $HOME differs from the repo. First column M = the target
-#   changed (chezmoi re-add), second column M = the source changed (chezmoi apply).
+#   chezmoi status: first column = what changed in $HOME since chezmoi last
+#   wrote it, so a chezmoi re-add candidate; second column = what chezmoi
+#   apply will do. A added, D deleted, M modified, R script will run.
 #   git status: the repo has changes no other machine can see yet.
 function dots() {
     local drift repo

@@ -9,7 +9,8 @@
     "npm:@dietrichgebert/ponytail",
     "npm:@gotgenes/pi-anthropic-auth",
     "npm:pi-web-access",
-    "npm:@touchtechclub/pi-oc-repo-research"
+    "npm:@touchtechclub/pi-oc-repo-research",
+    "npm:timestamp-pi"
   ],
   "theme": "tokyonight",
   "defaultProvider": "openai-codex",

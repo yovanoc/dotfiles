@@ -17,6 +17,9 @@ home/private_dot_pi/**
 !home/private_dot_pi/private_agent/themes/tokyonight.json
 !home/private_dot_pi/private_agent/private_extensions/rtk.ts
 !home/private_dot_pi/private_agent/private_extensions/private_pi-permission-system/config.json
+# Agent definitions, added often enough to allow by extension rather than by
+# name. Scoped to *.md so a stray .DS_Store cannot slip through.
+!home/private_dot_pi/private_agent/private_agents/*.md
 
 # Other local-only chezmoi source entries.
 home/private_dot_ssh/config.local
