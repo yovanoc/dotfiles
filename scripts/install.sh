@@ -21,4 +21,6 @@ fi
 
 eval "$("$BREW" shellenv)"
 "$BREW" install chezmoi
-exec "$ROOT/dot" apply --force "$@"
+# init generates ~/.config/chezmoi/chezmoi.toml (identity prompts + sourceDir),
+# so later chezmoi runs need no --source flag.
+exec chezmoi --source "$ROOT" init --apply --interactive "$@"

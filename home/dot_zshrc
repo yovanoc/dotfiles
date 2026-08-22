@@ -3,6 +3,7 @@ ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
 [ ! -d $ZINIT_HOME ] && mkdir -p "$(dirname $ZINIT_HOME)"
 [ ! -d $ZINIT_HOME/.git ] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
 source "${ZINIT_HOME}/zinit.zsh"
+[[ -r "$HOME/.config/zsh/local.zsh" ]] && source "$HOME/.config/zsh/local.zsh"
 
 # Cache the output of slow `eval "$(tool init)"` calls to a file, and re-generate only when
 # the tool binary or its config is newer than the cache. Saves spawning them every shell.
@@ -107,8 +108,7 @@ fi
 export FORCE_COLOR=1
 
 
-# Modular config in ~/.config/zsh. Nothing secret lives there (opencode.zsh reads its
-# password from ~/.local/state), so every file is safe to commit.
+# Modular config in ~/.config/zsh.
 source ~/.config/zsh/functions.zsh
 source ~/.config/zsh/aliases.zsh
 source ~/.config/zsh/keybinds.zsh
@@ -116,7 +116,6 @@ case "$OSTYPE" in
     darwin*) source ~/.config/zsh/os/macos.zsh ;;
     linux*)  source ~/.config/zsh/os/linux.zsh ;;
 esac
-[[ -r ~/.config/zsh/opencode.zsh ]] && source ~/.config/zsh/opencode.zsh
 
 # Shell integrations
 # fnm mints a unique per-shell dir, so drop any inherited from a previous shell (exec zsh)

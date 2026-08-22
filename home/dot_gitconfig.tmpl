@@ -1,0 +1,39 @@
+[gpg]
+	program = gpg
+[init]
+    defaultBranch = main
+[user]
+	name = {{ .name }}
+	email = {{ .email }}
+{{- if .signingkey }}
+	signingkey = {{ .signingkey }}
+{{- end }}
+{{- if .signingkey }}
+[commit]
+	gpgSign = true
+{{- end }}
+[core]
+	editor = {{ if lookPath "code-insiders" }}code-insiders --wait{{ else }}nvim{{ end }}
+    pager = delta
+	excludesfile = ~/.gitignore
+{{- if .signingkey }}
+[tag]
+	gpgSign = true
+    forceSignAnnotated = true
+{{- end }}
+[alias]
+    undo = reset --soft HEAD^
+[pull]
+    rebase = true
+[filter "lfs"]
+    clean = git-lfs clean -- %f
+    smudge = git-lfs smudge -- %f
+    process = git-lfs filter-process
+    required = true
+[push]
+	autoSetupRemote = true
+    default = current
+[delta]
+    line-numbers = true
+[rerere]
+    enabled = true

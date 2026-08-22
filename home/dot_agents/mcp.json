@@ -1,0 +1,45 @@
+{
+  "mcpServers": {
+    "cachebro": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "cachebro",
+        "serve"
+      ]
+    },
+    "gh_grep": {
+      "url": "https://mcp.grep.app"
+    },
+    "mdn": {
+      "url": "https://mcp.mdn.mozilla.net"
+    },
+    "codegraph": {
+      "command": "codegraph",
+      "args": [
+        "serve",
+        "--mcp"
+      ]
+    },
+    "cloudflare-docs": {
+      "url": "https://docs.mcp.cloudflare.com/mcp"
+    },
+    "cloudflare": {
+      "url": "https://mcp.cloudflare.com/mcp",
+      "oauth": {},
+      "disabled": true
+    }
+    // "cloudflare-bindings": {
+    //   "url": "https://bindings.mcp.cloudflare.com/mcp",
+    //   "oauth": {}
+    // },
+    // "cloudflare-builds": {
+    //   "url": "https://builds.mcp.cloudflare.com/mcp",
+    //   "oauth": {}
+    // },
+    // "cloudflare-observability": {
+    //   "url": "https://observability.mcp.cloudflare.com/mcp",
+    //   "oauth": {}
+    // }
+  }
+}

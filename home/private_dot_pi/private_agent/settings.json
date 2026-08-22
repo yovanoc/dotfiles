@@ -1,0 +1,90 @@
+{
+  "lastChangelogVersion": "0.84.2",
+  "packages": [
+    "npm:@tintinweb/pi-subagents",
+    "npm:pi-mcp-adapter",
+    "npm:@gotgenes/pi-permission-system",
+    "npm:@tintinweb/pi-tasks",
+    "npm:pi-lens",
+    "npm:@dietrichgebert/ponytail",
+    "npm:@gotgenes/pi-anthropic-auth",
+    "npm:pi-web-access",
+    "npm:@touchtechclub/pi-oc-repo-research"
+  ],
+  "theme": "tokyonight",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-5.6-luna",
+  "defaultThinkingLevel": "max",
+  "hideThinkingBlock": true,
+  "warnings": {
+    "anthropicExtraUsage": false
+  },
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 16384,
+    "keepRecentTokens": 20000
+  },
+  "quietStartup": false,
+  "references": {
+    "effect": {
+      "repository": "Effect-TS/effect",
+      "description": "Use for canonical Effect source, APIs, tests, and implementation patterns."
+    },
+    "effect-monorepo": {
+      "repository": "lucas-barake/effect-monorepo",
+      "description": "Use for Lucas Barake's full-stack Effect monorepo patterns, composable policies, HttpApi contracts, Schema classes, and Layer composition."
+    },
+    "accountability": {
+      "repository": "mikearnaldi/accountability",
+      "description": "Use for Mike Arnaldi's accounting app patterns: ABAC policy engine, strict Service/Layer separation, Schema.Class entities, @effect/sql-pg, HttpApi, and testing."
+    },
+    "building-an-app-with-effect": {
+      "repository": "lucas-barake/building-an-app-with-effect",
+      "description": "Use for Lucas Barake's Effect app patterns with HttpLayerRouter, @effect/rpc, @effect/ai, and effect-atom state."
+    },
+    "effect-tanstack-start": {
+      "repository": "lucas-barake/effect-tanstack-start",
+      "description": "Use for minimal TanStack Start integration with Effect HttpApi, RpcGroup, Schema.Class, and effect-atom."
+    },
+    "effect-torch": {
+      "repository": "mikearnaldi/effect-torch",
+      "description": "Learning-oriented tensor library for TypeScript, built on Effect and a Rust native backend powered by candle."
+    },
+    "t3code": {
+      "repository": "pingdotgg/t3code",
+      "description": "Use for T3 Code application architecture and TypeScript/Effect coding-agent patterns."
+    },
+    "executor": {
+      "repository": "UsefulSoftwareCo/executor",
+      "description": "Use for Executor deployment, Cloudflare, MCP, and Alchemy-based agent integration patterns."
+    },
+    "foldkit": {
+      "repository": "foldkit/foldkit",
+      "description": "Use for FoldKit frontend architecture and Effect-centered UI patterns."
+    },
+    "alchemy": {
+      "repository": "alchemy-run/alchemy",
+      "description": "Use for Alchemy infrastructure-as-TypeScript and Cloudflare deployment patterns."
+    },
+    "kilocode": {
+      "repository": "Kilo-Org/kilocode",
+      "description": "Use for Kilo Code coding-agent architecture, providers, tools, and extension patterns."
+    },
+    "stack": {
+      "repository": "kitlangton/stack",
+      "description": "Use for Kit Langton's Stack Effect application patterns."
+    },
+    "ghui": {
+      "repository": "kitlangton/ghui",
+      "description": "Use for Kit Langton's Ghui GitHub TUI and Effect-based terminal UI patterns."
+    },
+    "effect-graphql-example": {
+      "repository": "lucas-barake/effect-graphql-example",
+      "description": "Use for Lucas Barake's Effect GraphQL patterns with Effect Rpc."
+    },
+    "effect-atom-chat": {
+      "repository": "lucas-barake/effect-atom-chat",
+      "description": "Use for Lucas Barake's Effect Atom chat application patterns with Effect Rpc and @effect/ai."
+    }
+  }
+}

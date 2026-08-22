@@ -11,8 +11,3 @@ fi
 if ! command -v rustup >/dev/null 2>&1; then
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 fi
-
-if [ ! -d "$HOME/.tmux/plugins/tpm/.git" ]; then
-  mkdir -p "$HOME/.tmux/plugins"
-  git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
-fi

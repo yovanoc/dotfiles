@@ -1,11 +1,26 @@
 # dotfiles
 
-Personal macOS configuration managed with [chezmoi](https://www.chezmoi.io/).
+Public personal configuration managed with [chezmoi](https://www.chezmoi.io/).
 
-The repository root is the Git checkout. `.chezmoiroot` points chezmoi at
-`home/`, which contains only the desired files for `$HOME`. `Brewfile` remains
-the package source of truth, while chezmoi runs its install script when the
-manifest changes.
+`home/` is the source of truth. Only files deliberately added there are
+managed; chezmoi does not copy the rest of `$HOME` automatically.
+
+Managed configuration currently includes:
+
+- `Brewfile`
+- zsh, tmux, and Git configuration
+- Neovim at `home/dot_config/nvim`
+- the reviewed agent configuration at `home/dot_agents`
+- selected Pi files: settings, subagents, public instructions, RTK extension,
+  and theme
+- safe SSH defaults; private hosts stay in `~/.ssh/config.local`
+- selected `.config` files and small setup scripts
+
+OpenCode is intentionally not managed here. Its live configuration remains
+local and outside the source state.
+
+The root-level `.zsh*`, `.gitconfig`, `.tmux.conf`, `.ssh`, `.gnupg`, and
+`.config` entries are ignored legacy copies. Edit `home/`, not those files.
 
 ## Bootstrap
 
@@ -15,27 +30,93 @@ cd ~/dotfiles
 ./scripts/install.sh
 ```
 
-If Homebrew and chezmoi are already installed:
+The first run prompts for name, email, and GPG signing key (empty disables
+commit signing) and writes the answers to `~/.config/chezmoi/chezmoi.toml`.
+That file is per-machine and never committed, so a work machine can use a
+different identity from the same repository. It also sets `sourceDir`, so
+`chezmoi` commands work from any directory without a `--source` flag.
+
+The installer is interactive. On an existing machine, preview first:
 
 ```bash
-./dot diff
-./dot apply
+chezmoi diff
+chezmoi apply --interactive
 ```
 
-## Daily management
+Do not use `--force` until you have reviewed every change.
+
+## Daily workflow
 
 ```bash
-./dot diff       # preview changes
-./dot apply      # apply the source state
-./dot update     # pull and apply the latest repository state
-./dot verify     # confirm the destination matches the source state
-./dot managed    # list managed targets
+chezmoi diff                         # preview target changes
+chezmoi apply --interactive          # accept changes one by one
+chezmoi re-add ~/.zshrc              # copy an edited target back into home/
+chezmoi verify                       # fail if target and source differ
+chezmoi managed                      # list managed targets
+chezmoi unmanaged                    # find candidates that are not managed
 ```
 
-Edit configuration in `home/`, not through files in `$HOME`. Chezmoi replaces
-the old Stow links with regular managed files and keeps machine setup scripts
-idempotent through `run_onchange_` and `run_once_` source entries.
+### Adopt configuration manually
 
-Private keys, agent state, caches, sockets, and runtime databases stay outside
-the chezmoi source state. Worktrees remain ordinary Git worktrees managed by
-`scripts/new-worktree.sh`.
+The cleaned `~/.agents` tree has been copied to `home/dot_agents` and excludes
+macOS metadata files. Review that candidate before committing it publicly.
+For future additions, add only the file or subtree you have reviewed.
+`--secrets error` makes chezmoi refuse obvious secrets instead of merely
+warning:
+
+```bash
+chezmoi add --prompt --secrets error ~/.agents/skills/<skill>/SKILL.md
+chezmoi add --prompt --secrets error ~/.config/<tool>/config.toml
+chezmoi add --prompt --secrets error ~/.ssh/config
+```
+
+Do not add future `.agents`, `.pi`, or `.config` content blindly. Pi
+credentials (`auth.json`), trust state, caches, sessions, npm dependencies,
+repositories, logs, and machine-specific state stay unmanaged. After adding
+something, review the generated file under `home/` before committing it.
+
+## How the public/private split works
+
+Chezmoi translates source names into home-directory targets:
+
+- `home/dot_zshrc` → `~/.zshrc`
+- `home/private_dot_ssh/private_config` → `~/.ssh/config`
+- `home/private_dot_pi/private_agent/settings.json` →
+  `~/.pi/agent/settings.json`
+
+The public SSH config includes `~/.ssh/config.local`. That ignored local file
+holds private hosts and machine-specific options. The public zsh config
+optionally sources `~/.config/zsh/local.zsh`, which holds local shell tweaks
+such as Bun completion and debug flags. Neither local file is in the repo.
+
+The `.pi` source is an allowlist, not a copy of the directory: only settings,
+subagents, public instructions, the RTK extension, and the theme are managed.
+Auth tokens, sessions, caches, repositories, npm packages, and logs remain
+local.
+
+## Secrets and private machine state
+
+- `private_` in a chezmoi source name only sets restrictive file permissions;
+  it does **not** encrypt the file.
+- For a file that genuinely belongs in the repository, configure chezmoi's
+  age encryption and add it with `chezmoi add --encrypt`:
+
+  ```bash
+  mkdir -p ~/.config/chezmoi
+  chezmoi age-keygen -o ~/.config/chezmoi/key.txt
+  chezmoi age-keygen -y ~/.config/chezmoi/key.txt
+  chezmoi edit-config
+  ```
+
+  Set `encryption = "age"` and the generated identity/recipient in the
+  config. Keep the age identity outside this repository and commit only the
+  resulting `encrypted_...age` source file.
+- Never commit SSH or GPG private keys. Generate/import them per machine
+  using the system keychain or a password manager. Manage only safe SSH
+  configuration and public keys here.
+- Keep per-machine values in ignored local files such as
+  `~/.ssh/config.local` and `~/.config/zsh/local.zsh`, or use a separate
+  private repository.
+
+The public/private boundary is intentional: source entries in `home/` are
+shared state; everything else remains unmanaged until explicitly adopted.

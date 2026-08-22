@@ -1,0 +1,7 @@
+# Public defaults live in the repository; machine-specific hosts stay local.
+Include ~/.ssh/config.local
+
+Host github.com
+  AddKeysToAgent yes
+  IdentitiesOnly yes
+  IdentityFile ~/.ssh/github

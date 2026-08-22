@@ -1,68 +1,25 @@
-# GNUPG
-.gnupg
-!.gnupg/gpg-agent.conf
-!.gnupg/gpg.conf
+# Scratch dump for comparing installed packages against the curated Brewfile.
+Brewfile.full
 
-# packer
-.config/packer
-
+# OS and local runtime state
 .DS_Store
-
-# Random
-.DS_Store
-.cachebro
-
-# Configurations
-.config/configstore
-.config/raycast
-.config/raycast-x
-.config/argocd
-.config/btop
-.config/gh
-.config/stripe
-.config/wireshark
-.config/zed
-.config/ILSpy.xml
-.config/github-copilot
-.config/flutter
-.config/neonctl
-.config/better-auth
-.config/uv
-.config/mole
-.config/fish
-.config/monocle
-.config/tokscale
-.config/containers
-.config/lean-ctx
-.config/mcphub
-
-# opencode
-
-.config/opencode/*
-!.config/opencode/AGENTS.md
-!.config/opencode/skills
-!.config/opencode/plugins
-!.config/opencode/commands
-!.config/opencode/opencode.jsonc
-!.config/opencode/tui.jsonc
-!.config/opencode/oh-my-openagent.jsonc
-!.config/opencode/dcp.jsonc
-
-
-# herdr
-.config/herdr/*
-!.config/herdr/config.toml
-
-# Legacy stow sources, superseded by home/. Kept on disk, no longer tracked.
-.config/
-.gnupg/
-.ssh/
-.gitconfig
-.tmux.conf
-.zprofile
-.zshenv
-.zshrc
-
-# Agent and tool runtime state, credentials, logs. Never commit.
-.omo/
+.cachebro/
 .pi/
+
+# Pi source allowlist: keep credentials, caches, sessions, and extensions local.
+home/private_dot_pi/*
+!home/private_dot_pi/private_agent/
+home/private_dot_pi/private_agent/*
+!home/private_dot_pi/private_agent/AGENTS.md
+!home/private_dot_pi/private_agent/settings.json
+!home/private_dot_pi/private_agent/subagents.json
+!home/private_dot_pi/private_agent/private_extensions/
+home/private_dot_pi/private_agent/private_extensions/*
+!home/private_dot_pi/private_agent/private_extensions/rtk.ts
+!home/private_dot_pi/private_agent/themes/
+home/private_dot_pi/private_agent/themes/*
+!home/private_dot_pi/private_agent/themes/tokyonight.json
+
+# Other local-only chezmoi source entries.
+home/private_dot_ssh/config.local
+home/dot_config/zsh/local.zsh
