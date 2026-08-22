@@ -16,11 +16,10 @@ Managed configuration currently includes:
 - safe SSH defaults; private hosts stay in `~/.ssh/config.local`
 - selected `.config` files and small setup scripts
 
+- `new-worktree` at `home/dot_local/bin`, on `PATH` via `~/.local/bin`
+
 OpenCode is intentionally not managed here. Its live configuration remains
 local and outside the source state.
-
-The root-level `.zsh*`, `.gitconfig`, `.tmux.conf`, `.ssh`, `.gnupg`, and
-`.config` entries are ignored legacy copies. Edit `home/`, not those files.
 
 ## Bootstrap
 
@@ -35,6 +34,18 @@ commit signing) and writes the answers to `~/.config/chezmoi/chezmoi.toml`.
 That file is per-machine and never committed, so a work machine can use a
 different identity from the same repository. It also sets `sourceDir`, so
 `chezmoi` commands work from any directory without a `--source` flag.
+
+On a brand-new machine there is no GPG key yet, so answer the signing-key
+prompt with an empty value, then create the keys:
+
+```bash
+./scripts/new-machine-keys.sh   # SSH + GPG keys, uploaded to GitHub via gh
+chezmoi init --prompt           # record the new signing key
+chezmoi apply
+```
+
+That script is idempotent and never overwrites an existing key, so importing
+keys from a backup instead works too: import first, then skip the script.
 
 The installer is interactive. On an existing machine, preview first:
 
@@ -85,9 +96,9 @@ Chezmoi translates source names into home-directory targets:
   `~/.pi/agent/settings.json`
 
 The public SSH config includes `~/.ssh/config.local`. That ignored local file
-holds private hosts and machine-specific options. The public zsh config
-optionally sources `~/.config/zsh/local.zsh`, which holds local shell tweaks
-such as Bun completion and debug flags. Neither local file is in the repo.
+holds private hosts and machine-specific options. `~/.zshrc` sources
+`~/.config/zsh/local.zsh` when it exists, as a hook for machine-specific
+shell settings. Neither local file is in the repo.
 
 The `.pi` source is an allowlist, not a copy of the directory: only settings,
 subagents, public instructions, the RTK extension, and the theme are managed.

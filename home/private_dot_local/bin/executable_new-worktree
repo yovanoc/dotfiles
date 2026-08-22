@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/new-worktree.sh <branch> [path]
+Usage: new-worktree <branch> [path]
 
 Create a worktree for a local branch, a matching origin branch, or a new branch.
 Relative paths are resolved from the repository root.

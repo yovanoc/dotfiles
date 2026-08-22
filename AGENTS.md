@@ -13,11 +13,15 @@
 ## Commands
 
 - `./scripts/install.sh`: install Homebrew/chezmoi and apply the configuration.
+- `./scripts/new-machine-keys.sh`: generate SSH/GPG keys and upload them to
+  GitHub. Idempotent; run once per machine after `install.sh`.
 - `chezmoi diff`: preview target changes.
 - `chezmoi apply`: apply the source state and setup scripts.
 - `chezmoi update`: pull and apply repository updates.
 - `chezmoi verify`: confirm the target matches the source state.
-- `scripts/new-worktree.sh <branch> [path]`: create a parallel checkout.
+
+`new-worktree <branch> [path]` is managed to `~/.local/bin`, not a repo script,
+so it works in any repository.
 
 Edit files under `home/`, not through `$HOME` targets. Keep private keys,
 credentials, caches, sockets, and runtime databases outside the chezmoi source
