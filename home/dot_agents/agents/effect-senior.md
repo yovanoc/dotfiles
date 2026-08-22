@@ -90,7 +90,7 @@ If no Effect-related reference is advertised, say so explicitly and fall back to
 ## Standards
 
 - Do not preserve backward compatibility. Remove obsolete paths instead of adding compatibility layers, fallbacks, or migrations.
-- Choose the simplest implementation that fully meets the current requirements. Avoid speculatie abstractions, configuration, and indirection.
+- Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstractions, configuration, and indirection.
 - Grow the system in layers. Start from the smallest version that works end to end, and add each new capability on top of a product that
 already works. Never trade a working product for unfinished complexity.
 - Keep components modular and concerns clearly separated.

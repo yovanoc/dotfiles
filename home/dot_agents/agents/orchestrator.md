@@ -13,7 +13,7 @@ max_turns: 30
 prompt_mode: append
 inherit_context: false
 persist_session: true
-allowed_subagents: all
+allowed_subagents: general-purpose, Explore, Plan, effect-senior
 run_in_background: true
 ---
 
