@@ -60,6 +60,20 @@ function pastebin() {
     curl --data-binary @${file} https://paste.rs
 }
 
+# Dotfiles drift. Both halves are silent when clean, and agents write to
+# ~/.agents and ~/.pi constantly, so the divergence is otherwise invisible.
+#   chezmoi status: $HOME differs from the repo. First column M = the target
+#   changed (chezmoi re-add), second column M = the source changed (chezmoi apply).
+#   git status: the repo has changes no other machine can see yet.
+function dots() {
+    local drift repo
+    drift=$(chezmoi status)
+    repo=$(git -C ~/dotfiles status --short)
+    [[ -n $drift ]] && print "unapplied/unadded:\n$drift"
+    [[ -n $repo ]] && print "uncommitted:\n$repo"
+    [[ -z $drift && -z $repo ]] && print "dotfiles clean"
+}
+
 # cd to the repository root
 function cdgr() {
     cd "$(git rev-parse --show-toplevel)" || echo "Not a git repository"

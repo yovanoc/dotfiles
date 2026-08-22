@@ -1,0 +1,59 @@
+name: bootstrap
+
+on:
+  push:
+  pull_request:
+
+# Read-only: this workflow only ever checks out and applies.
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: apply on a clean machine
+    runs-on: ubuntu-latest
+    # A bare container, not the runner image: GitHub runners ship Homebrew, and
+    # this must exercise the machine-without-brew path that used to fail.
+    container: debian:bookworm-slim
+    steps:
+      - name: Install prerequisites
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq git curl ca-certificates
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install chezmoi
+        run: sh -c "$(curl -fsLS get.chezmoi.io)" -- -b /usr/local/bin
+
+      - name: Apply
+        run: chezmoi init --source "$GITHUB_WORKSPACE" --apply --promptDefaults
+
+      - name: Verify target state
+        run: chezmoi verify
+
+      - name: Apply is idempotent
+        run: |
+          chezmoi apply
+          test -z "$(chezmoi status)"
+
+  lint:
+    name: shell syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install zsh
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zsh
+
+      # A zsh syntax error would otherwise surface only at the next login.
+      - name: Check
+        run: |
+          bash -n scripts/*.sh
+          sh -n home/run_once_after_zz-machine-setup.sh
+          zsh -n home/dot_zshrc home/dot_zshenv home/dot_zprofile
+          zsh -n home/dot_config/zsh/*.zsh home/dot_config/zsh/os/*.zsh
