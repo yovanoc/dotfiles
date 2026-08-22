@@ -1,0 +1,36 @@
+{
+  "permission": {
+    "*": "allow",
+    "path": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    },
+    "bash": {
+      "*": "allow",
+      "rtk *": "allow",
+      "rm -rf *": "deny",
+      "sudo *": "ask",
+      "rm -fr *": "ask",
+      "git push*": "ask",
+      "git reset --hard*": "ask",
+      "git clean*": "ask",
+      "git checkout -- *": "ask",
+      "git branch -D*": "ask",
+      "git push --force*": "ask",
+      "git push -f*": "ask",
+      "jj git push*": "ask",
+      "jj gp*": "ask",
+      "gh * delete*": "ask",
+      "gh * merge*": "ask",
+      "glab * delete*": "ask",
+      "glab * merge*": "ask"
+    },
+    "external_directory": {
+      "*": "ask",
+      "~/.cargo/registry/*": "allow",
+      "~/Projects/big-leaf/.worktrees/*": "allow"
+    }
+  }
+}

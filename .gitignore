@@ -6,19 +6,17 @@ Brewfile.full
 .cachebro/
 .pi/
 
-# Pi source allowlist: keep credentials, caches, sessions, and extensions local.
-home/private_dot_pi/*
-!home/private_dot_pi/private_agent/
-home/private_dot_pi/private_agent/*
+# Pi source allowlist: everything under .pi is ignored except the files named
+# here, so credentials, caches, sessions and logs can never be added by accident.
+# The second line re-includes directories only, so git can reach the files below.
+home/private_dot_pi/**
+!home/private_dot_pi/**/
 !home/private_dot_pi/private_agent/AGENTS.md
 !home/private_dot_pi/private_agent/settings.json
 !home/private_dot_pi/private_agent/subagents.json
-!home/private_dot_pi/private_agent/private_extensions/
-home/private_dot_pi/private_agent/private_extensions/*
-!home/private_dot_pi/private_agent/private_extensions/rtk.ts
-!home/private_dot_pi/private_agent/themes/
-home/private_dot_pi/private_agent/themes/*
 !home/private_dot_pi/private_agent/themes/tokyonight.json
+!home/private_dot_pi/private_agent/private_extensions/rtk.ts
+!home/private_dot_pi/private_agent/private_extensions/private_pi-permission-system/config.json
 
 # Other local-only chezmoi source entries.
 home/private_dot_ssh/config.local
