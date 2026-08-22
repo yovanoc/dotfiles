@@ -1,5 +1,10 @@
 #!/bin/sh
 set -eu
 
+# Skip rather than fail where Homebrew is absent, such as a container or CI.
+# This script only re-runs when its contents change, so if brew is installed
+# later, run `brew bundle --file=~/dotfiles/Brewfile` once by hand.
+command -v brew >/dev/null || { echo "brew not found; skipping Brewfile"; exit 0; }
+
 # Brewfile checksum: {{ include "../Brewfile" | sha256sum }}
 brew bundle --file="{{ joinPath .chezmoi.sourceDir ".." "Brewfile" }}"
