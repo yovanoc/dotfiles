@@ -10,11 +10,12 @@
     "npm:@gotgenes/pi-anthropic-auth",
     "npm:pi-web-access",
     "npm:@touchtechclub/pi-oc-repo-research",
-    "npm:timestamp-pi"
+    "npm:timestamp-pi",
+    "npm:cache-warm"
   ],
   "theme": "tokyonight",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-luna",
+  "defaultModel": "gpt-5.6-sol",
   "defaultThinkingLevel": "max",
   "hideThinkingBlock": true,
   "warnings": {
@@ -86,6 +87,10 @@
     "effect-atom-chat": {
       "repository": "lucas-barake/effect-atom-chat",
       "description": "Use for Lucas Barake's Effect Atom chat application patterns with Effect Rpc and @effect/ai."
+    },
+    "slopcop": {
+      "repository": "Effect-TS/slopcop",
+      "description": "A GitHub bot for triaging pull requests in the Effect repository. It is written with Effect and deployed to Cloudflare using Alchemy. Uses foldkit for the frontend."
     }
   }
 }

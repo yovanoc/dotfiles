@@ -1,4 +1,17 @@
 {
+  "$schema": "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json",
+
+  "debugLog": false,
+  "permissionReviewLog": true,
+  "yoloMode": false,
+  "doublePressToConfirm": true,
+  "forwardingTimeoutMs": 600000,
+  "piInfrastructureReadPaths": [
+    "/opt/homebrew/**/@earendil-works/pi-coding-agent/**"
+  ],
+
+  "authorizerChain": ["model-judge"],
+
   "permission": {
     "*": "allow",
     "path": {
@@ -7,6 +20,9 @@
       "*.env.*": "deny",
       "*.env.example": "allow"
     },
+    "read": "allow",
+    "write": "deny",
+    "edit": "deny",
     "bash": {
       "*": "allow",
       "rtk *": "allow",
@@ -27,10 +43,17 @@
       "glab * delete*": "ask",
       "glab * merge*": "ask"
     },
+    "mcp": {
+      "*": "ask",
+      "mcp_status": "allow"
+    },
+    "skill": { "*": "allow" },
     "external_directory": {
       "*": "ask",
       "~/.cargo/registry/*": "allow",
-      "~/Projects/big-leaf/.worktrees/*": "allow"
+      "~/Projects/big-leaf/.worktrees/*": "allow",
+      "~/.agents/*": "allow",
+      "~/.pi/*": "allow"
     }
   }
 }
