@@ -3,15 +3,15 @@
 
   "debugLog": false,
   "permissionReviewLog": true,
-  "yoloMode": false,
+  "yoloMode": true,
   "doublePressToConfirm": true,
   "forwardingTimeoutMs": 600000,
   "piInfrastructureReadPaths": [
     "/opt/homebrew/**/@earendil-works/pi-coding-agent/**"
   ],
-
-  "authorizerChain": ["model-judge"],
-
+  "authorizerChain": [
+    "model-judge"
+  ],
   "permission": {
     "*": "allow",
     "path": {
@@ -47,13 +47,16 @@
       "*": "ask",
       "mcp_status": "allow"
     },
-    "skill": { "*": "allow" },
+    "skill": {
+      "*": "allow"
+    },
     "external_directory": {
       "*": "ask",
       "~/.cargo/registry/*": "allow",
-      "~/Projects/big-leaf/.worktrees/*": "allow",
+      "~/Projects/*": "allow",
       "~/.agents/*": "allow",
-      "~/.pi/*": "allow"
+      "~/.pi/*": "allow",
+      "/var/folders/c7/*": "allow"
     }
   }
 }

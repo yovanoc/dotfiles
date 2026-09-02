@@ -1,14 +1,14 @@
 {
-  "maxConcurrent": 20,
-  "defaultMaxTurns": 0,
+  "maxConcurrent": 8,
+  "defaultMaxTurns": 30,
   "graceTurns": 5,
   "defaultJoinMode": "smart",
   "backgroundByDefault": true,
   "schedulingEnabled": true,
   "scopeModels": false,
-  "strictAgentFiles": false,
+  "strictAgentFiles": true,
   "disableDefaultAgents": false,
-  "toolDescriptionMode": "full",
+  "toolDescriptionMode": "compact",
   "fleetView": true,
   "agentMentions": "direct",
   "rememberAgents": true,
@@ -17,5 +17,6 @@
   "worktreeIsolation": true,
   "maxSubagentDepth": 2,
   "reportUsage": true,
-  "showCost": true
+  "showCost": true,
+  "fallbackSubagent": "none"
 }

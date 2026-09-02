@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.84.2",
+  "lastChangelogVersion": "0.84.4",
   "packages": [
     "npm:@tintinweb/pi-subagents",
     "npm:pi-mcp-adapter",
@@ -11,13 +11,17 @@
     "npm:pi-web-access",
     "npm:@touchtechclub/pi-oc-repo-research",
     "npm:timestamp-pi",
-    "npm:cache-warm"
+    "npm:cache-warm",
+    "npm:remote-pi",
+    "npm:@ff-labs/pi-fff",
+    "npm:pi-context-view",
+    "npm:@plannotator/pi-extension"
   ],
   "theme": "tokyonight",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-sol",
+  "defaultModel": "gpt-5.6-luna",
   "defaultThinkingLevel": "max",
-  "hideThinkingBlock": true,
+  "hideThinkingBlock": false,
   "warnings": {
     "anthropicExtraUsage": false
   },

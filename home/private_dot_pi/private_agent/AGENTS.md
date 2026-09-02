@@ -44,3 +44,9 @@ In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the re
 
 If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
 <!-- CODEGRAPH_END -->
+
+## Subagent Routing
+
+For every substantive coding task—investigation that may lead to edits, implementation, bug fixing, refactoring, migration, validation, review, or delivery—invoke the `orchestrator` agent before using task tools. Give it a self-contained goal, repository and branch context, constraints, relevant paths, acceptance evidence, and delivery expectations. Treat its lane as owned: inspect its evidence when it returns, but do not duplicate its work.
+
+Handle only pure conversation directly. Use `Explore` for a bounded file, symbol, or call-site lookup. Honor an explicit user request for `implementer`, `effect-senior`, or `reviewer`; otherwise let `orchestrator` choose the worker and review route.
