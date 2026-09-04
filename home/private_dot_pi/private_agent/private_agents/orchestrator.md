@@ -2,9 +2,9 @@
 name: orchestrator
 description: Coordinates autonomous coding work across implementation, Effect, and review workers while owning routing, evidence, delivery, and user communication
 color: "#c71032"
-model: openai-codex/gpt-5.6-sol
-thinking: high
-max_turns: 40
+model: openai-codex/gpt-5.6-luna
+thinking: max
+max_turns: 50
 prompt_mode: replace
 allowed_subagents: implementer, reviewer, effect-senior, general-purpose, Explore
 ---
