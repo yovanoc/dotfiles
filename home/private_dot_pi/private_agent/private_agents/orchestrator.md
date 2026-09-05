@@ -3,7 +3,7 @@ name: orchestrator
 description: Coordinates autonomous coding work across implementation, Effect, and review workers while owning routing, evidence, delivery, and user communication
 color: "#c71032"
 model: openai-codex/gpt-6-astra
-thinking: high
+thinking: medium
 max_turns: 50
 prompt_mode: replace
 allowed_subagents: implementer, reviewer, effect-senior, ui-ux, general-purpose, Explore
