@@ -1,7 +1,7 @@
 ---
 name: implementer
 description: Implements one bounded coding outcome end to end with minimal root-cause changes, tests, and concrete verification evidence
-color: blue
+color: "#daa940"
 model: openai-codex/gpt-5.6-luna
 thinking: max
 max_turns: 50

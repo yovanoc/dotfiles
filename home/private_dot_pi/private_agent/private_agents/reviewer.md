@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Performs a fresh read-only review of an actual diff against its goal, repository rules, interfaces, tests, and material risk
-color: purple
+color: "#b540d5"
 model: anthropic/claude-fable-5-1
 thinking: medium
 max_turns: 50
