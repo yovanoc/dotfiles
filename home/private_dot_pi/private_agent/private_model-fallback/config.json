@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "enabled": true,
+  "autoRetry": false,
+  "rules": [
+    {
+      "name": "gemini-to-codex-luna",
+      "matchModels": [
+        {
+          "provider": "opencode",
+          "model": "gemini-3.8-flash"
+        }
+      ],
+      "statuses": [429, 500, 502, 503, 504],
+      "cooldownMs": 600000,
+      "fallback": {
+        "provider": "openai-codex",
+        "model": "gpt-5.6-luna"
+      }
+    },
+    {
+      "name": "primary-to-copilot-luna",
+      "matchProviders": ["openai-codex", "anthropic"],
+      "statuses": [429, 500, 502, 503, 504],
+      "cooldownMs": 600000,
+      "fallback": {
+        "provider": "github-copilot",
+        "model": "gpt-5.6-luna"
+      }
+    },
+    {
+      "name": "copilot-to-opencode-go-luna",
+      "matchProviders": ["github-copilot"],
+      "statuses": [429, 500, 502, 503, 504],
+      "cooldownMs": 600000,
+      "fallback": {
+        "provider": "opencode-go",
+        "model": "gpt-5.6-luna"
+      }
+    }
+  ]
+}

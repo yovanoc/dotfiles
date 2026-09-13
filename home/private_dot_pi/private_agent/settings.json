@@ -12,16 +12,16 @@
     "npm:@touchtechclub/pi-oc-repo-research",
     "npm:timestamp-pi",
     "npm:cache-warm",
-    "npm:remote-pi",
     "npm:@ff-labs/pi-fff",
     "npm:pi-context-view",
     "npm:@plannotator/pi-extension",
-    "npm:pi-model-fallback"
+    "npm:pi-model-fallback",
+    "git:github.com/earendil-works/pi-review"
   ],
   "theme": "tokyonight",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-luna",
-  "defaultThinkingLevel": "max",
+  "defaultModel": "gpt-6-astra",
+  "defaultThinkingLevel": "medium",
   "hideThinkingBlock": false,
   "warnings": {
     "anthropicExtraUsage": false

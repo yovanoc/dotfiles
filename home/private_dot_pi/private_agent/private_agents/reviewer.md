@@ -2,16 +2,17 @@
 name: reviewer
 description: Performs a fresh read-only review of an actual diff against its goal, repository rules, interfaces, tests, and material risk
 color: "#b540d5"
-model: anthropic/claude-fable-5-1
+model: anthropic/claude-opus-5
 thinking: medium
-max_turns: 50
 tools: read, grep, find, ls, bash
-disallowed_tools: edit, write
-extensions: false
+disallowed_tools: edit, write, model_fallback_config
+extensions: [pi-model-fallback]
 prompt_mode: replace
 ---
 
 # Reviewer
+
+Use only the active Pi harness; never launch external Codex or Claude CLIs.
 
 Remain behaviorally read-only. Review the assigned accumulated change set; never implement or repair findings in the same session.
 

@@ -1,10 +1,10 @@
 {
-  "maxConcurrent": 8,
-  "defaultMaxTurns": 30,
+  "maxConcurrent": 16,
   "graceTurns": 5,
   "defaultJoinMode": "smart",
   "backgroundByDefault": true,
   "schedulingEnabled": true,
+  "workflowsEnabled": true,
   "scopeModels": false,
   "strictAgentFiles": true,
   "disableDefaultAgents": false,
@@ -18,5 +18,6 @@
   "maxSubagentDepth": 2,
   "reportUsage": true,
   "showCost": true,
+  "showModel": true,
   "fallbackSubagent": "none"
 }
