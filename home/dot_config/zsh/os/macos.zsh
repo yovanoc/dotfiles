@@ -35,6 +35,6 @@ function awake() {
         echo "awake: off"
         return
     fi
-    launchctl submit -l awake -- caffeinate -d ${hours:+-t $(( hours * 3600 ))}
+    launchctl submit -l awake -- caffeinate -d ${hours:+-t} ${hours:+$(( hours * 3600 ))}
     echo "awake: on${hours:+ for ${hours}h}"
 }
