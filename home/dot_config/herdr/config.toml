@@ -19,6 +19,13 @@ new_tab = "prefix+c"
 [ui]
 agent_panel_sort = "priority"
 
+status_indicators = "symbols"
 [experimental]
 pane_history = true
 switch_ascii_input_source_in_prefix = true
+
+[ui.toast]
+delivery = "herdr"
+
+[ui.sound]
+enabled = true
