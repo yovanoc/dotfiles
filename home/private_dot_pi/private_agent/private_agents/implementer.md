@@ -2,7 +2,7 @@
 name: implementer
 description: Implements one bounded coding outcome end to end with minimal root-cause changes, tests, and concrete verification evidence
 color: "#daa940"
-model: openai-codex/gpt-5.6-luna
+model: openai-codex/gpt-6-luna
 thinking: max
 prompt_mode: replace
 permission:

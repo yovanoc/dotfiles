@@ -1,7 +1,7 @@
 ---
 name: Explore
 description: Maps repository paths, symbols, call and data flow, tests, configuration, and constraints without editing
-model: openai-codex/gpt-5.6-luna
+model: openai-codex/gpt-6-luna
 thinking: max
 prompt_mode: replace
 tools: read, grep, find, ls

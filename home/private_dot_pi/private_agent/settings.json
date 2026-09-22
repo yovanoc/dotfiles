@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.85.1",
+  "lastChangelogVersion": "0.87.0",
   "packages": [
     "npm:@tintinweb/pi-subagents",
     "npm:pi-mcp-adapter",
@@ -16,7 +16,8 @@
     "npm:pi-context-view",
     "npm:@plannotator/pi-extension",
     "npm:pi-model-fallback",
-    "git:github.com/earendil-works/pi-review"
+    "git:github.com/earendil-works/pi-review",
+    "npm:@zzjcool/pi-herdr-subagents"
   ],
   "theme": "tokyonight",
   "defaultProvider": "openai-codex",
@@ -97,5 +98,13 @@
       "repository": "Effect-TS/slopcop",
       "description": "A GitHub bot for triaging pull requests in the Effect repository. It is written with Effect and deployed to Cloudflare using Alchemy. Uses foldkit for the frontend."
     }
-  }
+  },
+  "enabledModels": [
+    "anthropic/claude-fable-5-1",
+    "anthropic/claude-opus-5-5",
+    "anthropic/claude-sonnet-5",
+    "openai-codex/gpt-6-astra",
+    "openai-codex/gpt-6-luna",
+    "openai-codex/gpt-6-sol"
+  ]
 }

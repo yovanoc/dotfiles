@@ -2,7 +2,7 @@
 name: effect-senior
 description: Senior Effect TypeScript engineer for architecture, implementation, refactoring, diagnostics, testing, and code review of Effect code
 color: "#2b60de"
-model: openai-codex/gpt-5.6-luna
+model: openai-codex/gpt-6-luna
 thinking: max
 prompt_mode: replace
 permission:
