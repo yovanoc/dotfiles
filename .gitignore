@@ -5,6 +5,7 @@ Brewfile.full
 .DS_Store
 .cachebro/
 .pi/
+/.pi-subagents/
 
 # Pi source allowlist: everything under .pi is ignored except the files named
 # here, so credentials, caches, sessions and logs can never be added by accident.

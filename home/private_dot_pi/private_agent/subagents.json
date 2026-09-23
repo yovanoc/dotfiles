@@ -1,7 +1,7 @@
 {
-  "maxConcurrent": 16,
+  "maxConcurrent": 50,
   "graceTurns": 5,
-  "defaultJoinMode": "smart",
+  "defaultJoinMode": "async",
   "backgroundByDefault": true,
   "schedulingEnabled": true,
   "workflowsEnabled": true,

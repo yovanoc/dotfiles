@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.87.0",
+  "lastChangelogVersion": "0.87.1",
   "packages": [
     "npm:@tintinweb/pi-subagents",
     "npm:pi-mcp-adapter",
@@ -16,13 +16,12 @@
     "npm:pi-context-view",
     "npm:@plannotator/pi-extension",
     "npm:pi-model-fallback",
-    "git:github.com/earendil-works/pi-review",
-    "npm:@zzjcool/pi-herdr-subagents"
+    "git:github.com/earendil-works/pi-review"
   ],
   "theme": "tokyonight",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-6-astra",
-  "defaultThinkingLevel": "medium",
+  "defaultModel": "gpt-6-luna",
+  "defaultThinkingLevel": "max",
   "hideThinkingBlock": false,
   "warnings": {
     "anthropicExtraUsage": false

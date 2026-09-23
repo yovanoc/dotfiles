@@ -1,34 +1,39 @@
 # Pi subagents and model routing
 
-This note records the behavior verified for **Pi 0.85.1** and
-**`@tintinweb/pi-subagents` 0.19.0**. Re-check the installed sources after an
-upgrade; extension behavior is not a Pi core contract.
+This note describes managed source policy and installed-source behavior for
+**Pi 0.87.1** and **`@tintinweb/pi-subagents` 0.19.0**. Managed values here
+are not evidence that a live session loaded them. No live or multi-hour
+unattended-campaign validation is claimed; re-check installed sources after
+upgrades.
 
 ## Selected defaults
 
 | Concern | Choice | Reason |
 | --- | --- | --- |
-| Root session | `openai-codex/gpt-6-astra`, medium; the Astra root coordinates directly | Astra owns architecture, decomposition, integration, and final verification without an Astra→Astra hop. |
-| Routing gate | Delegate only when a bounded lane’s benefit outweighs its startup and context cost; explicit `orchestrator` only for a non-Astra root | Put coordination where it pays for itself instead of routing an Astra root through another Astra role. |
-| Orchestrator | `openai-codex/gpt-6-astra`, medium | This explicit role is the coordination entrypoint for a non-Astra root when cross-lane coordination warrants it. |
-| Implementer | `openai-codex/gpt-5.6-luna`, max | Bounded implementation stays on the default Luna execution lane. |
-| Explore | `openai-codex/gpt-5.6-luna`, max | The custom `Explore` override replaces the built-in role for bounded repository mapping. |
-| Effect specialist | `openai-codex/gpt-5.6-luna`, max | `effect-senior` remains the Luna-max lane for challenging, well-scoped Effect work. |
-| Reviewer | `anthropic/claude-opus-5`, medium | Independent provider/model; a local role preference, not an OpenAI recommendation. |
-| UI/UX | `opencode/gemini-3.8-flash`, no role-level thinking pin | A local role preference for visually central UI/UX work; it inherits Pi’s configured default thinking level, then Pi clamps that level to the model. |
-| Background concurrency | 16 | `maxConcurrent` caps top-level background work; excess concrete lanes queue. |
-| Foreground concurrency | omitted (`0`, unlimited) | `maxConcurrentForeground` keeps its installed unlimited default. |
-| Turn limits | no default cap (`defaultMaxTurns` omitted); named roles omit `max_turns` | Avoids a global interruption ceiling; packets may add a task-specific limit. |
-| Nesting | depth 2 | `maxSubagentDepth` bounds nested delegation while the root retains coordination. |
-| Workflows | enabled; execution requires explicit user opt-in | `workflowsEnabled: true` registers `SubagentWorkflow`; agent policy permits a run only when the user explicitly requests a workflow in the current task. No additional project opt-in is required. |
+| Main-session startup default | `openai-codex/gpt-6-luna`, max | Applies to new sessions only; Pi's runtime model/thinking selection governs the active session, independent of its coordination role. |
+| Routing gate | Native leaf `Agent` dispatch by default; `SubagentWorkflow` only on explicit user request | Keep routine delegation direct while preserving user-opted workflow orchestration. |
+| Implementer | `openai-codex/gpt-6-luna`, max | Bounded implementation lane. |
+| Explore | `openai-codex/gpt-6-luna`, max | Bounded repository mapping lane. |
+| Effect specialist | `openai-codex/gpt-6-luna`, max | `effect-senior` handles well-scoped Effect work. |
+| Reviewer | `openai-codex/gpt-6-astra`, low | Independent read-only review lane. |
+| UI/UX | `openai-codex/gpt-6-luna`, max | Current managed role pin for visual and interaction work. |
+| Background concurrency | 50 total active lanes per campaign, shared across root-direct and nested work | Managed global `maxConcurrent` is 50; root-direct lanes use at most `min(50, effective maxConcurrent)`. Project settings override global settings; pending campaign backlog is not capped at 50. |
+| Foreground concurrency | omitted (`0`, unlimited) | Keep the extension default; ordinary root delegation is explicitly background, while explicit workflows/tasks retain foreground support. |
+| Turn limits | no default cap (`defaultMaxTurns` omitted); named roles omit `max_turns` | Avoids a global interruption ceiling; add a limit only when requested. |
+| Nesting | depth 2 | Ordinary specialist roles do not grant child-agent tools by default. |
+| Join and dispatch | `defaultJoinMode: async`; `backgroundByDefault: true` | The model-neutral main session returns after ordinary direct-background dispatch; specialists do the work. |
+| Workflows | enabled; execution requires explicit user opt-in | `workflowsEnabled: true` registers `SubagentWorkflow`; direct `Agent` dispatch remains the default. |
+| Scheduling | enabled; session-scoped | `schedulingEnabled: true` preserves the feature; explicit authorization is required by policy, and unattended campaign reliability is unvalidated. |
+| Task retries | At most one retry for a recoverable failure on a safe/idempotent task; persist attempt counts in task metadata | Stop launching work on a provider after a hard auth, quota, or configuration failure and report the blocker; avoid retry storms. |
+| Result retrieval | Use native `pi-subagents` 0.19.0 behavior; upgrade only after the upstream fix is merged and released | An unread completed result may become unavailable after 10 minutes. PR [#348](https://github.com/tintinweb/pi-subagents/pull/348) was open and unmerged when last checked. |
 | Dispatch | strict fallback (`none`) | A misspelled or disabled type fails instead of silently running `general-purpose`. |
 | Agent mentions | `direct` | Avoids an extra root-model turn when starting a mentioned agent. |
 | Tool description | compact | Reduces always-loaded tool-schema context. |
 
-The model names above are **installed Pi registry IDs/aliases**, confirmed with
-`pi --list-models`. OpenAI's public IDs include `gpt-6-astra`,
-`gpt-5.6-sol`, `gpt-5.6-terra`, and `gpt-5.6-luna`. `opencode/...` and
-Anthropic IDs are provider registry entries, not OpenAI model IDs.
+The startup default is managed in `settings.json`; named-role pins come from
+agent frontmatter. The default applies only to new sessions; `/model` choices
+control active and resumed sessions. Provider-prefixed strings are Pi registry
+IDs/aliases; re-check availability with `pi --list-models` after upgrades.
 
 ## Provider fallback policy
 
@@ -52,13 +57,11 @@ is not an automatic retry or a guarantee that rate limits will be recovered.
 
 ## Coordination and write ownership
 
-The default Astra root owns architecture, delegation, integration, and final
-verification directly; it is distinct from the explicit `orchestrator` role.
-The explicit orchestrator coordinates, delegates, verifies, and communicates,
-while edits go to `implementer` or the relevant writer specialist. If a writer
-is denied permission, hand off to another authorized writer rather than retrying
-the orchestrator. This explicit-role rule does not blanket-ban edits by the
-default root when it owns the task.
+The active main session follows Pi's selected model and coordinates directly,
+dispatching specialists without model-based routing. It owns coordination and
+evidence; route edits to `implementer` or the relevant writer specialist.
+Preserve existing PR heads and protections; do not auto-merge without explicit
+authorization.
 
 ## `subagents.json` settings
 
@@ -69,13 +72,13 @@ Invalid or out-of-range fields are dropped individually.
 
 | Field | Installed default and accepted values |
 | --- | --- |
-| `maxConcurrent` | `10`; integer `1..1024`. Top-level background pool. |
+| `maxConcurrent` | Installed default `10`; integer `1..1024`. Top-level background pool. Managed global source sets `50`; a project value overrides it. |
 | `maxConcurrentForeground` | `0` (unlimited); integer `0..1024`. Blocking foreground spawn pool. |
 | `defaultMaxTurns` | omitted/`0` (unlimited); integer `0..10000`. |
 | `graceTurns` | `5`; integer `1..1000`. |
-| `defaultJoinMode` | `smart`; `smart`, `async`, or `group`. Background only. |
+| `defaultJoinMode` | Installed default `smart`; `smart`, `async`, or `group`. Background only. Managed global source sets `async`. |
 | `backgroundByDefault` | `true`; explicit call/frontmatter wins. |
-| `schedulingEnabled` | `true`; false removes scheduling from the next session's Agent schema. |
+| `schedulingEnabled` | `true`; false removes scheduling from the next session's Agent schema. Managed global source keeps it enabled. |
 | `scopeModels` | `false`; when enabled, checks Pi `enabledModels` exact entries. |
 | `strictAgentFiles` | `false`; true fails startup on malformed agent files. |
 | `disableDefaultAgents` | `false`; controls built-in `general-purpose`, `Explore`, and `Plan`. |
@@ -86,8 +89,8 @@ Invalid or out-of-range fields are dropped individually.
 | `widgetMode` | `background`; `all`, `background`, or `off`. |
 | `outputTranscript` | `true`; separate from session persistence and worktrees. |
 | `worktreeIsolation` | `true`; false removes the schema field next session and refuses worktrees. |
-| `workflowsEnabled` | unset means auto-on unless another workflow tool exists; explicit boolean pins it. |
-| `maxSubagentDepth` | `2`; integer `0..16`; `0` or `1` disables nesting. |
+| `workflowsEnabled` | Unset means auto-on unless another workflow tool exists; explicit boolean pins it. Managed global source sets `true`. |
+| `maxSubagentDepth` | `2`; integer `0..16`; `0` or `1` disables nesting. Managed global source sets `2`. |
 | `fallbackSubagent` | `general-purpose`; agent name, `none`, or boolean `false` for strict failure. |
 | `reportUsage` | `false`; adds child usage to the parent session's totals. |
 | `showCost` | `false`; shows Pi's catalog-based estimate. |
@@ -177,22 +180,39 @@ Effective turn-limit precedence is agent frontmatter, Agent call, then project
 `graceTurns` additional completed turns it aborts. Omitted/zero is unlimited.
 The Agent call schema does not accept zero, so callers omit the field.
 
-There are two independent pools:
+The managed source policy caps ordinary direct-background lanes at 50 per
+campaign, with the effective project/global `maxConcurrent` pool as an additional
+limit: dispatch no more than `min(50, effective maxConcurrent)`. Project settings
+may lower the global 50 default. Count any explicitly scheduled or foreground
+top-level work separately against the same campaign ceiling; excess ready work
+stays pending, and the finite task backlog is not capped at 50.
 
-- Top-level background spawns use `maxConcurrent`; excess work queues.
+Other execution paths have separate limits and are not counted by that direct
+lane cap:
+
 - New blocking foreground spawns use `maxConcurrentForeground`; default zero is
-  unlimited. Foreground resumes bypass it.
-- Pi dispatches sibling tool calls from one assistant message concurrently after
-  sequential preflight, so multiple foreground Agent calls can start together.
-- Nested children occupy neither pool to avoid parent/child deadlock. Depth is
-  bounded, but width is not; each child spawn merely costs the parent one turn.
-  This configuration therefore caps orchestrator waves in prompt policy.
+  unlimited. Foreground resumes bypass it. Ordinary main-session delegation is
+  explicitly background, but this default does not disable foreground support
+  for explicitly requested workflows/tasks.
+- Nested children occupy neither runtime pool and do not consume
+  `maxConcurrent`; depth is bounded at 2, but runtime width is not. Count them
+  with the main root's direct lanes and every coordinator in the shared 50-lane
+  campaign cap. Use only the nested budget assigned by the parent; without an
+  explicit budget, allow at most one concurrent child, reduced if active root
+  lanes leave less room. Any parent with nested children must collect each
+  owned child's terminal result before it settles: the manager aborts a parent's
+  children when that parent settles. Nested waits are allowed inside an
+  authorized background parent, not at the main root. Only roles with
+  `allowed_subagents` can spawn nested children; ordinary worker roles do not
+  grant child tools.
 - Workflow children use their own CPU-based limit and do not enter either pool.
-  Scheduled fires bypass `maxConcurrent`. These are reasons not to treat 16 as a
-  process-wide ceiling.
-- Nested children default foreground, are ownership-scoped, and are stopped when
-  their parent settles. Top-level calls default background here; `smart` joins
-  siblings spawned in one turn into a consolidated notification.
+  Run a workflow only when the user explicitly requests one.
+- Scheduled fires bypass `maxConcurrent`; schedules are session-scoped. They
+  remain available when explicitly authorized, but this is not validation of a
+  durable unattended campaign.
+- Main-root calls default to background. `defaultJoinMode: async` returns
+  control to the main root after direct dispatch; completion notifications
+  support short accounting turns without foreground waits or polling.
 
 Source: `src/agent-manager.ts`, `src/nested-tools.ts`, `src/agent-runner.ts`, and
 `README.md#concurrency` / `#graceful-max-turns`.
@@ -218,9 +238,11 @@ plan allowance.
 Source: `src/model-resolver.ts`, `src/agent-runner.ts`, Pi
 `docs/models.md`, and the installed `pi-ai` provider catalog.
 
-## OpenAI routing and quota evidence
+## Captured OpenAI routing and quota notes
 
-OpenAI's current Codex guidance says:
+The following source research is a snapshot; provider guidance and plan ranges
+can change. Re-check the linked sources before using it for a new model decision.
+OpenAI's Codex guidance at the time said:
 
 - Astra is for the hardest end-to-end workflows; Sol for complex/open-ended
   work; Terra for everyday work; Luna for clear, repeatable and high-volume
@@ -232,10 +254,9 @@ OpenAI's current Codex guidance says:
   caching, and task complexity. The published local-message ranges are
   estimates, not fixed limits, and weekly limits may also apply.
 - The current Pro ranges per five-hour period are 25-225 Astra messages,
-  50-500 Sol, 125-1,000 Terra, and 1,250-10,000 Luna. These ranges reinforce
-  delegating routine execution to Luna and keeping Astra focused on coordination
-  where its allowance cost is justified, but they do not predict a specific Pi
-  task's consumption.
+  50-500 Sol, 125-1,000 Terra, and 1,250-10,000 Luna. These estimates show
+  that model choice can materially affect allowance, but do not predict a
+  specific Pi task's consumption.
 - Astra responds to explicit delegation guidance and can otherwise delegate less
   than desired. OpenAI also recommends auditing long skills/instruction files
   and calibrating verification so small changes do not trigger broad tests.
@@ -244,17 +265,17 @@ The community `donvito/codex-astra-luna-orchestrator` repository is a useful
 pattern, not an OpenAI authority. Its Pro profile pins an Astra-medium root and
 Luna-max workers; its Plus profile moves the root to Luna. Its own usage guide
 warns that one sample cannot estimate another account/task and that the plan
-mapping must be measured. This configuration makes Luna max the default for
-bounded execution and repository exploration while retaining Astra-medium root
-coordination.
+mapping must be measured. This repository sets Luna max as the startup default
+for new sessions while keeping named-role pins independent; the active main
+session follows Pi's runtime model selection.
 
 ### Quota caveat
 
-The Astra root stays in the coordination loop and can materially consume more
-Pro allowance than a Luna root. `showCost` is Pi's catalog-based estimate, not
-plan usage; measure allowance pressure with Codex's own status or dashboard. If
-measured allowance pressure outweighs coordination quality, switch the root back
-to Luna max while retaining the role topology.
+An Astra-selected main session can materially consume more Pro allowance than
+a Luna-selected one. `showCost` is Pi's catalog-based estimate, not plan usage;
+measure allowance pressure with Codex's own status or dashboard. Use `/model` for
+an active-session choice; this policy adds no model switch based on turn count or
+main-model identity.
 
 ## Community comparison
 
@@ -264,10 +285,10 @@ an Astra-medium root, Luna-max explorer/worker/tester/researcher lanes, an
 Astra-low reviewer, and concurrency 4. Transferable patterns are the
 root-versus-delegated routing, bounded packets, parallel independent lanes,
 one writer per path or subsystem, compact evidence, explicit failed-lane
-handling, and a completion gate. Pi keeps the root and bounded Luna-max
-execution shape, uses its local Opus 5 reviewer preference, expands the
-background cap to 16, and keeps tester/researcher work one-off rather than
-permanent roles.
+handling, and a completion gate. Pi defaults new sessions to Luna max while
+keeping the main session's active model selection independent of named-role
+pins; it retains its Astra-low reviewer pin, expands the background cap to 50,
+and keeps tester/researcher work one-off rather than permanent roles.
 
 Codex-only settings intentionally not copied are `approval_policy`,
 `sandbox_mode`, `service_tier`, `[agents].*`, the `spawn_agent`/wait tool names,
@@ -284,5 +305,5 @@ directives or filesystem copies, not OS sandboxes.
 - OpenAI reasoning effort: <https://developers.openai.com/api/docs/guides/reasoning>
 - OpenAI Codex prompting guide: <https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide>
 - Community topology: <https://github.com/donvito/codex-astra-luna-orchestrator>
-- Pi core docs: `/opt/homebrew/Cellar/pi-coding-agent/0.85.1/libexec/lib/node_modules/@earendil-works/pi-coding-agent/docs/{settings,models,skills,extensions}.md`
+- Pi core docs: `/opt/homebrew/Cellar/pi-coding-agent/0.86.1/libexec/lib/node_modules/@earendil-works/pi-coding-agent/docs/{settings,models,skills,extensions,configuration}.md`
 - pi-subagents package: `~/.pi/agent/npm/node_modules/@tintinweb/pi-subagents/{README.md,docs/workflows.md,src/settings.ts,src/custom-agents.ts,src/invocation-config.ts,src/prompts.ts,src/agent-runner.ts,src/agent-manager.ts,src/nested-tools.ts,src/model-resolver.ts}`
