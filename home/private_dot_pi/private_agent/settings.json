@@ -20,9 +20,20 @@
   ],
   "theme": "tokyonight",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-6-luna",
-  "defaultThinkingLevel": "max",
+  "defaultModel": "gpt-6.1-sol",
+  "defaultThinkingLevel": "high",
   "hideThinkingBlock": false,
+  "followUpMode": "all",
+  "steeringMode": "all",
+  "terminal": {
+    "showTerminalProgress": true
+  },
+  "modelThinkingLevels": {
+    "openai-codex/gpt-6-luna": "max"
+  },
+  "retry": {
+    "maxRetries": 6
+  },
   "warnings": {
     "anthropicExtraUsage": false
   },

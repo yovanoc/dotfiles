@@ -1,7 +1,7 @@
 {
   "version": 1,
   "enabled": true,
-  "autoRetry": false,
+  "autoRetry": true,
   "rules": [
     {
       "name": "gemini-to-codex-luna",
@@ -15,7 +15,7 @@
       "cooldownMs": 600000,
       "fallback": {
         "provider": "openai-codex",
-        "model": "gpt-5.6-luna"
+        "model": "gpt-6-luna"
       }
     },
     {
@@ -25,7 +25,7 @@
       "cooldownMs": 600000,
       "fallback": {
         "provider": "github-copilot",
-        "model": "gpt-5.6-luna"
+        "model": "gpt-6-luna"
       }
     },
     {
@@ -35,7 +35,7 @@
       "cooldownMs": 600000,
       "fallback": {
         "provider": "opencode-go",
-        "model": "gpt-5.6-luna"
+        "model": "gpt-6-luna"
       }
     }
   ]
