@@ -19,7 +19,7 @@ upgrades.
 | UI/UX | `openai-codex/gpt-6-luna`, max | Current managed role pin for visual and interaction work. |
 | Background concurrency | 50 total active lanes per campaign, shared across root-direct and nested work | Managed global `maxConcurrent` is 50; root-direct lanes use at most `min(50, effective maxConcurrent)`. Project settings override global settings; pending campaign backlog is not capped at 50. |
 | Foreground concurrency | omitted (`0`, unlimited) | Keep the extension default; ordinary root delegation is explicitly background, while explicit workflows/tasks retain foreground support. |
-| Turn limits | no default cap (`defaultMaxTurns` omitted); named roles omit `max_turns` | Avoids a global interruption ceiling; add a limit only when requested. |
+| Turn limits | `defaultMaxTurns: 50` backstop; coordinator passes per-call `max_turns` (about 20 read-only, 35 implementation); named roles omit frontmatter `max_turns` | Frontmatter would lock the limit; per-call values stay tunable. Prompt-text budgets are not enforced. |
 | Nesting | depth 2 | Ordinary specialist roles do not grant child-agent tools by default. |
 | Join and dispatch | `defaultJoinMode: async`; `backgroundByDefault: true` | The model-neutral main session returns after ordinary direct-background dispatch; specialists do the work. |
 | Workflows | enabled; execution requires explicit user opt-in | `workflowsEnabled: true` registers `SubagentWorkflow`; direct `Agent` dispatch remains the default. |
@@ -74,7 +74,7 @@ Invalid or out-of-range fields are dropped individually.
 | --- | --- |
 | `maxConcurrent` | Installed default `10`; integer `1..1024`. Top-level background pool. Managed global source sets `50`; a project value overrides it. |
 | `maxConcurrentForeground` | `0` (unlimited); integer `0..1024`. Blocking foreground spawn pool. |
-| `defaultMaxTurns` | omitted/`0` (unlimited); integer `0..10000`. |
+| `defaultMaxTurns` | Installed default omitted/`0` (unlimited); integer `0..10000`. Managed global source sets `50` as a backstop; per-call `max_turns` wins. Turn limits are enforced; prompt-text turn or time budgets are not, and no wall-clock limit exists. |
 | `graceTurns` | `5`; integer `1..1000`. |
 | `defaultJoinMode` | Installed default `smart`; `smart`, `async`, or `group`. Background only. Managed global source sets `async`. |
 | `backgroundByDefault` | `true`; explicit call/frontmatter wins. |

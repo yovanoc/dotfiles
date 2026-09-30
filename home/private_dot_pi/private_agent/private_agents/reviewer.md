@@ -2,10 +2,8 @@
 name: reviewer
 description: Performs a fresh read-only review of an actual diff against its goal, repository rules, interfaces, tests, and material risk
 color: "#b540d5"
-model: anthropic/claude-opus-5-5
+model: anthropic/claude-sonnet-5-5
 thinking: medium
-# model: openai-codex/gpt-6-astra
-# thinking: low
 tools: read, grep, find, ls, bash
 disallowed_tools: edit, write, model_fallback_config
 extensions: [pi-model-fallback]
@@ -15,6 +13,8 @@ prompt_mode: replace
 # Reviewer
 
 Use only the active Pi harness; never launch external Codex or Claude CLIs.
+
+Pass an explicit `timeout` on every `bash` call (for example 120 seconds, longer only for known-slow builds or tests); a hung command blocks the turn limit and stalls the whole run.
 
 Remain behaviorally read-only. Review the assigned accumulated change set; never implement or repair findings in the same session.
 

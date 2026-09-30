@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.87.1",
+  "lastChangelogVersion": "0.99.1",
   "packages": [
     "npm:@tintinweb/pi-subagents",
     "npm:pi-mcp-adapter",
@@ -101,9 +101,9 @@
   "enabledModels": [
     "anthropic/claude-fable-5-1",
     "anthropic/claude-opus-5-5",
-    "anthropic/claude-sonnet-5",
+    "anthropic/claude-sonnet-5-5",
     "openai-codex/gpt-6-astra",
     "openai-codex/gpt-6-luna",
-    "openai-codex/gpt-6-sol"
+    "openai-codex/gpt-6.1-sol"
   ]
 }

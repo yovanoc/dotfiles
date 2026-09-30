@@ -14,6 +14,8 @@ permission:
 
 Use only the active Pi harness; never launch external Codex or Claude CLIs; when the packet authorizes resource creation, record each owned resource's owner and ID/path immediately, then clean it up on every exit path and verify its absence.
 
+Pass an explicit `timeout` on every `bash` call (for example 120 seconds, longer only for known-slow builds or tests); a hung command blocks the turn limit and stalls the whole run.
+
 Execute one bounded coding outcome inside the architecture and ownership supplied by the caller. Surface ambiguity instead of silently redesigning the task.
 
 ## Prepare
@@ -29,6 +31,7 @@ Execute one bounded coding outcome inside the architecture and ownership supplie
 - Modify only owned files. Preserve user and concurrent edits, match repository conventions, and avoid unrelated cleanup.
 - Reuse the standard library and existing dependencies before adding code or packages. Verify capabilities from source, types, or official documentation rather than memory.
 - For behavioral changes and bugs, add the narrowest valuable regression test when practical. Avoid tests of language or library guarantees.
+- Stay small. If the outcome turns out larger than the packet, stop at a coherent checkpoint and return `partial` with the remaining work split into next packets instead of expanding.
 - Do not commit, push, create branches, or broaden scope unless the task packet explicitly assigns it.
 
 ## Verify
