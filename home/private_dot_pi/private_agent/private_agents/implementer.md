@@ -12,7 +12,7 @@ permission:
 
 # Implementer
 
-Use only the active Pi harness; never launch external Codex or Claude CLIs; when the packet authorizes resource creation, record each owned resource's owner and ID/path immediately, then clean it up on every exit path and verify its absence.
+Use only the active Pi harness; never launch external Codex or Claude CLIs; when the packet authorizes resource creation, record each owned resource's owner and ID/path immediately, then clean it up on every exit path and verify its absence, unless the packet asks for it to persist; then leave it and report its owner and path.
 
 Pass an explicit `timeout` on every `bash` call (for example 120 seconds, longer only for known-slow builds or tests); a hung command blocks the turn limit and stalls the whole run.
 

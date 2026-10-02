@@ -1,8 +1,7 @@
 {
-  "lastChangelogVersion": "0.99.1",
+  "lastChangelogVersion": "0.99.2",
   "packages": [
     "npm:@tintinweb/pi-subagents",
-    "npm:pi-mcp-adapter",
     "npm:@gotgenes/pi-permission-system",
     "npm:@tintinweb/pi-tasks",
     "npm:pi-lens",

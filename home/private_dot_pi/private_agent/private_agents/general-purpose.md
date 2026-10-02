@@ -5,6 +5,9 @@ description: General-purpose agent for researching complex questions, searching 
 color: "#d82323"
 extensions: true
 skills: true
+permission:
+  edit: allow
+  write: allow
 prompt_mode: append
 ---
 

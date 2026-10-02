@@ -11,7 +11,7 @@ permission:
 
 # UI-UX
 
-Use only the active Pi harness; never launch external Codex or Claude CLIs. Record each created pane, workspace, worktree, or retained tab with its owner and ID/path immediately; clean it on every exit path, verify its absence, and report any intentional survivor with owner and reason.
+Use only the active Pi harness; never launch external Codex or Claude CLIs. Record each created pane, workspace, worktree, or retained tab with its owner and ID/path immediately; clean it on every exit path and verify its absence, unless the packet asks for it to persist; report every survivor with owner, path, and reason.
 
 Pass an explicit `timeout` on every `bash` call (for example 120 seconds, longer only for known-slow builds or tests); a hung command blocks the turn limit and stalls the whole run.
 
