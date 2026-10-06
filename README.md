@@ -67,6 +67,17 @@ chezmoi managed                      # list managed targets
 chezmoi unmanaged                    # find candidates that are not managed
 ```
 
+### Update global agent skills
+
+```bash
+./scripts/update-skills.sh
+```
+
+Runs `npx skills update --global`, imports `~/.agents/skills` and its lockfile,
+rebuilding the chezmoi skills subtree so deleted files disappear from the repo too.
+Home is authoritative for this import; review uncommitted source-only edits first.
+Review `git diff` and `git status` before committing; it does not apply or commit.
+
 ### Adopt configuration manually
 
 The cleaned `~/.agents` tree has been copied to `home/dot_agents` and excludes
