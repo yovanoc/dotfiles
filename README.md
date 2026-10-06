@@ -114,7 +114,8 @@ shell settings. Neither local file is in the repo.
 The `.pi` source is an allowlist, not a copy of the directory: only settings,
 subagents, public instructions, the RTK extension, and the theme are managed.
 Auth tokens, sessions, caches, repositories, npm packages, and logs remain
-local.
+local. See [Pi model fallback](docs/model-fallback.md) for the applied routing
+and update procedure.
 
 ## Secrets and private machine state
 

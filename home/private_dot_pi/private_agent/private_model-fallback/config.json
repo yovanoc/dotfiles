@@ -4,39 +4,88 @@
   "autoRetry": true,
   "rules": [
     {
-      "name": "gemini-to-codex-luna",
-      "matchModels": [
-        {
-          "provider": "opencode",
-          "model": "gemini-3.8-flash"
-        }
-      ],
-      "statuses": [429, 500, 502, 503, 504],
-      "cooldownMs": 600000,
-      "fallback": {
-        "provider": "openai-codex",
-        "model": "gpt-6-luna"
-      }
+      "name": "opencode-gemini-quota-or-auth",
+      "matchModels": [{ "provider": "opencode", "model": "gemini-3.8-flash" }],
+      "statuses": [401, 402, 429],
+      "cooldownMs": 18000000,
+      "fallback": { "provider": "github-copilot", "model": "gemini-3.8-flash" }
     },
     {
-      "name": "primary-to-copilot-luna",
-      "matchProviders": ["openai-codex", "anthropic"],
-      "statuses": [429, 500, 502, 503, 504],
+      "name": "opencode-gemini-transient",
+      "matchModels": [{ "provider": "opencode", "model": "gemini-3.8-flash" }],
+      "statuses": [500, 502, 503, 504, 529],
       "cooldownMs": 600000,
-      "fallback": {
-        "provider": "github-copilot",
-        "model": "gpt-6-luna"
-      }
+      "fallback": { "provider": "github-copilot", "model": "gemini-3.8-flash" }
     },
     {
-      "name": "copilot-to-opencode-go-luna",
+      "name": "copilot-gemini-credits",
+      "matchModels": [{ "provider": "github-copilot", "model": "gemini-3.8-flash" }],
+      "statuses": [402, 429],
+      "cooldownMs": 18000000,
+      "fallback": { "provider": "openai-codex", "model": "gpt-6.1-sol" }
+    },
+    {
+      "name": "copilot-gemini-transient",
+      "matchModels": [{ "provider": "github-copilot", "model": "gemini-3.8-flash" }],
+      "statuses": [500, 502, 503, 504, 529],
+      "cooldownMs": 600000,
+      "fallback": { "provider": "openai-codex", "model": "gpt-6.1-sol" }
+    },
+    {
+      "name": "codex-credits",
+      "matchProviders": ["openai-codex"],
+      "statuses": [402, 429],
+      "cooldownMs": 18000000,
+      "fallback": { "provider": "anthropic", "model": "claude-opus-5-5" }
+    },
+    {
+      "name": "codex-transient",
+      "matchProviders": ["openai-codex"],
+      "statuses": [500, 502, 503, 504, 529],
+      "cooldownMs": 600000,
+      "fallback": { "provider": "anthropic", "model": "claude-opus-5-5" }
+    },
+    {
+      "name": "anthropic-opus-credits",
+      "matchModels": [{ "provider": "anthropic", "model": "claude-opus-5-5" }],
+      "statuses": [402, 429],
+      "cooldownMs": 18000000,
+      "fallback": { "provider": "github-copilot", "model": "gpt-6-luna" }
+    },
+    {
+      "name": "anthropic-opus-transient",
+      "matchModels": [{ "provider": "anthropic", "model": "claude-opus-5-5" }],
+      "statuses": [500, 502, 503, 504, 529],
+      "cooldownMs": 600000,
+      "fallback": { "provider": "github-copilot", "model": "gpt-6-luna" }
+    },
+    {
+      "name": "anthropic-credits",
+      "matchProviders": ["anthropic"],
+      "statuses": [402, 429],
+      "cooldownMs": 18000000,
+      "fallback": { "provider": "openai-codex", "model": "gpt-6.1-sol" }
+    },
+    {
+      "name": "anthropic-transient",
+      "matchProviders": ["anthropic"],
+      "statuses": [500, 502, 503, 504, 529],
+      "cooldownMs": 600000,
+      "fallback": { "provider": "openai-codex", "model": "gpt-6.1-sol" }
+    },
+    {
+      "name": "copilot-credits",
       "matchProviders": ["github-copilot"],
-      "statuses": [429, 500, 502, 503, 504],
+      "statuses": [402, 429],
+      "cooldownMs": 18000000,
+      "fallback": { "provider": "opencode-go", "model": "gpt-6-luna" }
+    },
+    {
+      "name": "copilot-transient",
+      "matchProviders": ["github-copilot"],
+      "statuses": [500, 502, 503, 504, 529],
       "cooldownMs": 600000,
-      "fallback": {
-        "provider": "opencode-go",
-        "model": "gpt-6-luna"
-      }
+      "fallback": { "provider": "opencode-go", "model": "gpt-6-luna" }
     }
   ]
 }
