@@ -40,5 +40,4 @@ Herdr remains opt-in by explicit user request. For replace-mode workers, include
 exact ownership, acceptance evidence, and relevant constraints. Delegate
 authorized delivery on existing PR heads; preserve protections and never
 auto-merge without explicit authorization. Track and clean only resources
-created for the task. See `docs/pi-subagents-model-routing.md` for runtime/config
-details and limitations.
+created for the task.

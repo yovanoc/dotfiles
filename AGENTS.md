@@ -30,7 +30,7 @@ state. Do not add machine-specific package arrays; update `Brewfile` instead.
 After changing shell or setup scripts, run:
 
 ```bash
-bash -n scripts/*.sh
+for script in scripts/*.sh; do bash -n "$script" || exit; done
 chezmoi diff
 chezmoi verify
 ```
