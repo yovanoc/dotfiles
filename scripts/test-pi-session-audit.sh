@@ -53,6 +53,11 @@ jq -e '
   and .main_sessions == {created_within_window:2,older_with_activity:1}
   and .fork_sessions == {created_within_window:1}
   and .workers.sessions == 1 and .workers.types == {"general-purpose":1}
+  and .workers.max_concurrency_observed_span_upper_bound == 1
+  and .limitations == [
+    "Counts direct tool calls only; nested codemode calls are uncounted. --since filters events after all session JSONL files are scanned.",
+    "Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound."
+  ]
   and .bash_timeouts.workers == {calls:3,timeout_argument_present:2,timeout_over_3600s:1,by_value:{"30":1,"3601":1,not_set:1}}
   and .bash_timeouts.nonworker_coordinators == {calls:3,timeout_argument_present:2,timeout_over_3600s:1,by_value:{"120000":1,"999":1,not_set:1}}
   and .agent_dispatches.max_turns == {"7":1}
@@ -83,7 +88,9 @@ grep -q 'invalid --since timestamp' "$tmp_root/unsupported.err"
 # The plain-text interface remains metadata-only.
 TZ=America/New_York "$SCRIPT" --sessions-dir "$root" --since '2024-05-02T12:00:00-04:00' > "$tmp_root/plain.txt"
 grep -q 'Main sessions: 1 older, 2 created in window' "$tmp_root/plain.txt"
-grep -q 'Observed worker-span overlap upper bound:' "$tmp_root/plain.txt"
+grep -Fq 'Observed worker-span overlap proxy:' "$tmp_root/plain.txt"
+grep -Fq 'Limitations: Counts direct tool calls only; nested codemode calls are uncounted. --since filters events after all session JSONL files are scanned.' "$tmp_root/plain.txt"
+grep -Fq 'Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound.' "$tmp_root/plain.txt"
 if grep -E 'PROMPT_SECRET|OLD_PROMPT_SECRET|TOOL_ARGUMENT_SECRET|FORK_ARGUMENT_SECRET|WORKER_ID_SECRET|WORKER01|PARENT_ID_SECRET|COORD_ARGUMENT_SECRET|NO_TIMEOUT_SECRET|NO_WORKER_TIMEOUT_SECRET|LONG_WORKER_SECRET' "$tmp_root/report.json" "$tmp_root/naive.json" "$tmp_root/plain.txt"; then
   echo 'audit output leaked fixture content' >&2
   exit 1

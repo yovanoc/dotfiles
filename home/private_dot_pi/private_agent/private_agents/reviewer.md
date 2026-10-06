@@ -6,7 +6,7 @@ model: anthropic/claude-sonnet-5-5
 thinking: medium
 tools: read, grep, find, ls, bash
 disallowed_tools: edit, write, model_fallback_config
-extensions: [pi-model-fallback]
+extensions: [pi-model-fallback, rtk, bash-timeout-guard]
 prompt_mode: replace
 ---
 

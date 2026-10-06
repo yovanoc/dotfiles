@@ -133,7 +133,9 @@ else
       "Agent dispatches: \($r.agent_dispatches.total); max_turns \($r.agent_dispatches.max_turns | counts); model \($r.agent_dispatches.model | counts); thinking \($r.agent_dispatches.thinking | counts); background \($r.agent_dispatches.background | counts); resume \($r.agent_dispatches.resume | counts)",
       "Unique terminal notification statuses: \($r.terminal_notification_statuses_unique | counts)",
       "get_subagent_result: \($r.get_subagent_result.attempts) attempts, \($r.get_subagent_result.misses) misses (\($r.get_subagent_result.unique_missed_targets) unique targets, \($r.get_subagent_result.duplicate_misses) duplicate misses)",
-      "Observed worker-span overlap upper bound: \($r.workers.max_concurrency_observed_span_upper_bound) (first/last event timestamps, not lifecycle intervals)",
-      "Scanned \($r.scan.files) files; malformed lines \($r.scan.malformed_lines); unreadable files \($r.scan.unreadable_files)"
+      "Observed worker-span overlap proxy: \($r.workers.max_concurrency_observed_span_upper_bound)",
+      "Scanned \($r.scan.files) files; malformed lines \($r.scan.malformed_lines); unreadable files \($r.scan.unreadable_files)",
+      "Limitations: \($r.limitations[0])",
+      "              \($r.limitations[1])"
   '
 fi

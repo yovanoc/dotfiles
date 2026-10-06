@@ -206,6 +206,10 @@ def aggregate:
       ) | max // 0) as $concurrency
   | {
       window_start_local: $window_start_local,
+      limitations: [
+        "Counts direct tool calls only; nested codemode calls are uncounted. --since filters events after all session JSONL files are scanned.",
+        "Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound."
+      ],
       main_sessions: $main,
       fork_sessions: $forks,
       workers: {

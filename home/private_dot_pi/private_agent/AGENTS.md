@@ -6,6 +6,9 @@
 
 Prefer cheap indexed, search, or structural navigation before broad reads.
 Use targeted symbol or range reads for large files, and LSP/AST tools when available.
+When available, use Cachebro text reads to avoid repeats, not as memory: fetch
+full content (`force: true`) when a fresh worker or compaction lacks the original; use cached
+unchanged/diff results only when that worker has the base text in context.
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph
@@ -20,10 +23,11 @@ If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is 
 
 ## Root coordinator
 
-Before dispatching or managing delegates, the root coordinator reads
-`docs/coordinator.md` relative to this `AGENTS.md`. Workers apply the shared
-policy here and execute their assigned packet; they do not run coordinator
-loops.
+Before its first dispatch in each fresh session, the root coordinator reads
+`docs/coordinator.md` relative to this `AGENTS.md`. After compaction or a change
+to that guide, refresh it; cached-unchanged confirmation is enough only if the original
+text remains in context. Workers apply the shared policy here and execute their
+assigned packet; they do not run coordinator loops.
 
 ## Shared safety and ownership
 

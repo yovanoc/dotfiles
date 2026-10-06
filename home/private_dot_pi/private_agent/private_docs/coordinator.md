@@ -1,8 +1,10 @@
 # Root coordinator policy
 
-The main session follows its active Pi model and thinking selection; this policy
-is model-neutral. The main session owns coordination and evidence, not delegated
-implementation. Route edits to `implementer` or the relevant writer specialist.
+The main session follows its active Pi model and thinking selection and owns
+coordination and evidence; this policy is model-neutral. Root may handle an
+authorized, scoped, trivial, well-understood local edit or verification when
+file ownership is clear; delegate exploratory, long-running, material
+multi-file, or independent parallel work to the relevant Pi role.
 
 ## Dispatch and packets
 
@@ -48,17 +50,16 @@ Unread results expire about 10 minutes after completion. If
 the end of the notification's `<output-file>` instead of rerunning the work.
 Per completion, make one ledger update, not a `TaskGet`/`TaskUpdate` chain.
 When a packet fails, returns `partial`, or ends `steered`/`aborted` at its turn
-limit, resume it with only the remaining scope (it keeps its context) or
-re-split it; never rerun it whole. Never leave lanes idle while ready work
-remains. Delegate investigation rather than running `bash` or reading code
-inline. Use `TaskStop` on a worker that stays silent far past its expected
+limit, resume its existing worker with remaining scope when context still fits;
+otherwise re-split, never rerun the whole packet. Never leave lanes idle while
+ready work remains. Use `TaskStop` on a worker that stays silent far past its expected
 duration.
 
-Do not end a turn with zero workers running while authorized, unblocked work
-remains: launch it instead of reporting it, and never ask permission for work
-already authorized. Delegate even small fixes rather than doing them inline.
-End a turn only while workers are running (their notifications wake you), or
-when every remaining item needs the user; then name exactly what is needed.
+Keep authorized, unblocked packets moving: launch ready packets rather than
+merely report them; root may do an authorized trivial local edit inline if it
+does not stall queued work. Never ask permission for work already authorized.
+End a turn when work is complete, workers are running, or remaining work is
+blocked; name any required user input.
 Keep coordinator turns short because notifications queue while you work and
 late handling makes results expire. Steer a running worker only with
 information it cannot find itself. On completion, retrieve the result once with
