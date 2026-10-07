@@ -102,6 +102,11 @@ window_start_local=$("$JQ" -nr --argjson cutoff "$cutoff" '
      + ":" + (if $minutes < 10 then "0" else "" end) + ($minutes | tostring))
 ') || error 'could not format local cutoff'
 
+# Session files are append-only, so a file last modified before the cutoff has no
+# in-window events; skip it instead of parsing gigabytes of history.
+window_minutes=$(( ($(date +%s) - ${cutoff%.*}) / 60 + 1 ))
+((window_minutes >= 1)) || window_minutes=1
+
 report=$(
   {
     while IFS= read -r -d '' path; do
@@ -111,7 +116,7 @@ report=$(
       else
         printf '%s\n' '{"_unreadable":true}'
       fi
-    done < <(find "$sessions_dir" -type f -name '*.jsonl' -print0)
+    done < <(find "$sessions_dir" -type f -name '*.jsonl' -mmin "-$window_minutes" -print0)
   } | "$JQ" -s --arg mode aggregate --arg time '' --arg path '' --argjson cutoff "$cutoff" \
       --arg window_start_local "$window_start_local" -f "$filter"
 )

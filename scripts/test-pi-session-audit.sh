@@ -31,7 +31,10 @@ cat > "$main" <<'EOF'
 {"type":"message","timestamp":"2024-05-02T12:30:00-04:00","message":{"role":"toolResult","content":[{"type":"text","text":"Agent not found: WORKER_ID_SECRET"}],"toolName":"get_subagent_result","toolCallId":"get-2"}}
 EOF
 printf '{"truncated":\n' >> "$main"
-touch -t 202405011200 "$main"
+touch -t 202405031200 "$main"
+# Append-only files last modified before --since cannot hold in-window events; they are skipped unread.
+jq -nc '{type:"session",id:"stale",timestamp:"2024-05-02T12:00:00-04:00"}' > "$root/stale.jsonl"
+touch -t 202405011200 "$root/stale.jsonl"
 
 jq -nc --arg parent "$main" '{type:"session",id:"worker",timestamp:"2024-05-02T12:01:00-04:00",parentSession:$parent}' > "$root/worker.jsonl"
 jq -nc '{type:"session_info",timestamp:"2024-05-02T12:01:01-04:00",name:"general-purpose#WORKER01",parentId:"PARENT_ID_SECRET"}' >> "$root/worker.jsonl"
@@ -55,7 +58,7 @@ jq -e '
   and .workers.sessions == 1 and .workers.types == {"general-purpose":1}
   and .workers.max_concurrency_observed_span_upper_bound == 1
   and .limitations == [
-    "Counts direct tool calls only; nested codemode calls are uncounted. --since filters events after all session JSONL files are scanned.",
+    "Counts direct tool calls only; nested codemode calls are uncounted. Files last modified before --since are skipped.",
     "Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound."
   ]
   and .bash_timeouts.workers == {calls:3,timeout_argument_present:2,timeout_over_3600s:1,by_value:{"30":1,"3601":1,not_set:1}}
@@ -89,7 +92,7 @@ grep -q 'invalid --since timestamp' "$tmp_root/unsupported.err"
 TZ=America/New_York "$SCRIPT" --sessions-dir "$root" --since '2024-05-02T12:00:00-04:00' > "$tmp_root/plain.txt"
 grep -q 'Main sessions: 1 older, 2 created in window' "$tmp_root/plain.txt"
 grep -Fq 'Observed worker-span overlap proxy:' "$tmp_root/plain.txt"
-grep -Fq 'Limitations: Counts direct tool calls only; nested codemode calls are uncounted. --since filters events after all session JSONL files are scanned.' "$tmp_root/plain.txt"
+grep -Fq 'Limitations: Counts direct tool calls only; nested codemode calls are uncounted. Files last modified before --since are skipped.' "$tmp_root/plain.txt"
 grep -Fq 'Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound.' "$tmp_root/plain.txt"
 if grep -E 'PROMPT_SECRET|OLD_PROMPT_SECRET|TOOL_ARGUMENT_SECRET|FORK_ARGUMENT_SECRET|WORKER_ID_SECRET|WORKER01|PARENT_ID_SECRET|COORD_ARGUMENT_SECRET|NO_TIMEOUT_SECRET|NO_WORKER_TIMEOUT_SECRET|LONG_WORKER_SECRET' "$tmp_root/report.json" "$tmp_root/naive.json" "$tmp_root/plain.txt"; then
   echo 'audit output leaked fixture content' >&2

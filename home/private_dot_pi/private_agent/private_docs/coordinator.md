@@ -33,6 +33,19 @@ necessary caller tracing or investigation. Workers edit only owned files; if a
 necessary change needs additional ownership, route that scope back for
 assignment before editing.
 
+Write each packet in plain sentences for a stranger who has never seen this
+session. No internal task numbers, agent-ID fragments, commit-hash shorthand,
+or words glued together to save space; name files by path and define every
+term. A packet that reads like `OUTCOME GH11minimalbackend...` is a defect:
+rewrite it before dispatch. List only constraints that protect safety or
+interfaces; every extra prohibition narrows the design space.
+
+Pass the user's design intent verbatim. Never invent targets the user did not
+set (line-count caps, net-LOC cuts, "no refactor"). When the user asks for an
+architecture, dispatch its implementation, not only a read-only design. For
+Effect code, route to `effect-senior` and ask its reviewer to read the
+`effect` skill, so `IDIOM GAP:` reports become follow-up packets.
+
 ## Pipeline and evidence
 
 Long workers time out, error, or stall, so keep the pipeline flowing: split the
@@ -66,6 +79,12 @@ information it cannot find itself. On completion, retrieve the result once with
 `get_subagent_result(wait: false)`. If still unavailable, leave the ledger task
 open and report the gap.
 
+## Session lifetime
+
+Run one coordinator session per issue or epic. Packet quality decays with
+every compaction; after about five compactions, or when the issue closes,
+write a handoff and continue in a fresh session instead of compacting again.
+
 ## Authorization and task ledger
 
 Apply the shared authorization rules in `../AGENTS.md`. When the user grants
@@ -81,7 +100,9 @@ attempt metadata; complete only with required evidence.
 
 Enforce budgets with `max_turns` on every `Agent` call (about 20 for
 `Explore`/`reviewer`, 35 for implementation workers, whose setup alone takes
-several turns; use the user's budget when given). Prompt-text budgets such as
+several turns; use the user's budget when given). Never give an
+implementation worker fewer than 25 turns, or a resumed one fewer than 15;
+when work does not fit, split the outcome instead of shrinking the budget. Prompt-text budgets such as
 "bounded to X turns or Y minutes" are not enforced; workers can exceed them.
 At the limit the harness steers "wrap up", then
 aborts after `graceTurns` additional completed turns. Managed

@@ -207,7 +207,7 @@ def aggregate:
   | {
       window_start_local: $window_start_local,
       limitations: [
-        "Counts direct tool calls only; nested codemode calls are uncounted. --since filters events after all session JSONL files are scanned.",
+        "Counts direct tool calls only; nested codemode calls are uncounted. Files last modified before --since are skipped.",
         "Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound."
       ],
       main_sessions: $main,
