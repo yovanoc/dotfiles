@@ -16,11 +16,14 @@ if [[ $OSTYPE == darwin* ]]; then
 else
     export PNPM_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"
 fi
-path=("$PNPM_HOME" $path)
+path=("$PNPM_HOME/bin" "$PNPM_HOME" $path)
 
 # deno
 [[ -r "$HOME/.deno/env" ]] && source "$HOME/.deno/env"
 [[ -d "$HOME/.zsh/completions" ]] && fpath=("$HOME/.zsh/completions" $fpath)
+
+# turso
+[[ -r "$HOME/.turso/env" ]] && source "$HOME/.turso/env"
 
 # windsurf
 path=("$HOME/.codeium/windsurf/bin" $path)

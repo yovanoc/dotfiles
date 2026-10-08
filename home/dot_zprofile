@@ -11,3 +11,7 @@ export GPG_TTY=$(tty)
 gpgconf --launch gpg-agent
 
 ssh-add --apple-use-keychain ~/.ssh/github
+
+# Login-only shells do not read .zshrc.
+typeset -U path PATH
+path=("$HOME/.local/bin" $path)
