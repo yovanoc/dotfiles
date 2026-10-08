@@ -45,6 +45,10 @@
       "repository": "Effect-TS/effect",
       "description": "Use for canonical Effect source, APIs, tests, and implementation patterns."
     },
+    "cafe": {
+      "repository": "Effect-TS/cafe",
+      "description": "A minimal chat app built with the CAFE stack (Cloudflare, Alchemy, Foldkit, Effect)."
+    },
     "effect-monorepo": {
       "repository": "lucas-barake/effect-monorepo",
       "description": "Use for Lucas Barake's full-stack Effect monorepo patterns, composable policies, HttpApi contracts, Schema classes, and Layer composition."
