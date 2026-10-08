@@ -5,8 +5,6 @@ color: "#efe534"
 tools: read, bash, grep, find, ls
 extensions: true
 skills: true
-model: anthropic/claude-sonnet-5-5
-thinking: medium
 prompt_mode: replace
 ---
 

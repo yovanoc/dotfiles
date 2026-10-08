@@ -1,7 +1,5 @@
 ---
 description: Designs, reviews, and implements UI/UX when visual judgment is central
-model: opencode/gemini-3.8-flash
-thinking: medium
 color: "#076409"
 prompt_mode: replace
 permission:

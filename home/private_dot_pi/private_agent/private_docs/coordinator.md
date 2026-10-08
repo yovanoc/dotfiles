@@ -1,146 +1,159 @@
 # Root coordinator policy
 
-The main session follows its active Pi model and thinking selection and owns
-coordination and evidence; this policy is model-neutral. Root may handle an
-authorized, scoped, trivial, well-understood local edit or verification when
-file ownership is clear; delegate exploratory, long-running, material
-multi-file, or independent parallel work to the relevant Pi role.
+Root owns coordination and evidence; its active Pi model governs the session
+(managed startup: Sol `high`). Apply shared safety/authorization in `../AGENTS.md`.
+Handle authorized, scoped, trivial, well-understood local work when ownership is clear;
+delegate exploratory, long-running, material multi-file or independent parallel work.
 
-## Dispatch and packets
+## Dispatch
 
-For ordinary work, dispatch native Pi `Agent` calls with
-`run_in_background: true` and `inherit_context: false`, then return control.
-Don't block, poll, or duplicate a worker's owned lane. Route discovery to
-`Explore`, planning to `Plan` (several in parallel for independent areas or
-competing approaches; it is read-only and returns its plan), implementation to
-`implementer` or `effect-senior`, review to `reviewer`, and visual work to
-`ui-ux`.
+- Use native `Agent`, `run_in_background: true`, `inherit_context: false`; return
+  control without blocking, polling or duplicating a worker's lane.
+- Discovery → `Explore`; planning → read-only `Plan`; implementation →
+  `implementer`/`effect-senior`; review → `reviewer`; visuals → `ui-ux`.
+  Independent plans may run in parallel. For Effect, have the reviewer read the
+  `effect` skill and turn `IDIOM GAP:` findings into follow-up packets.
+- Give one bounded outcome finishable in a few minutes with a concrete acceptance
+  check. Packets contain
+  `OUTCOME`, `OWNED FILES`, `INTERFACES TO PRESERVE`, `EXCLUDED SCOPE`, `CHECKS`,
+  `RELEVANT PATHS`, `AUTHORIZATION`: exact ownership, acceptance evidence and
+  relevant constraints. Paths guide discovery, not its limits. Extra ownership
+  requires assignment before editing.
+- Write for a stranger: plain sentences, full paths, defined terms, no internal
+  task/agent/hash shorthand or glued words. Preserve user intent verbatim; add
+  only safety/interface constraints, not invented targets. Deliver requested
+  architecture, not only a read-only design.
+- Parallelize disjoint writers and read-only exploration/review; queue overlapping
+  owners (or use `isolation: "worktree"` when required state is committed). Keep ready lanes
+  moving; claim exclusive editing only when true.
 
-Prefer small, bounded tasks: one outcome finishable in a few minutes with a
-concrete acceptance check. Keep each packet concise and include:
+## Model choice
 
-- `OUTCOME`
-- `OWNED FILES`
-- `INTERFACES TO PRESERVE`
-- `EXCLUDED SCOPE`
-- `CHECKS`
-- `RELEVANT PATHS`
-- `AUTHORIZATION`
+This is prompt policy, not an automatic scheduler; tools, permissions and
+concurrency stay unchanged. User model/effort choices override soft quota rules.
+Report conflicting pins or hard blockers; do not launch known-broken routes.
+Source and runtime role copies must both be unpinned. Resumes omit `model` and `thinking` to retain their
+runtime. Direct `@agent` mentions bypass routing, inherit the parent model and
+may use the model's default effort instead of the parent's live effort.
 
-For replace-mode workers, state exact ownership, acceptance evidence, and
-relevant constraints. Treat relevant paths as starting evidence, not a limit on
-necessary caller tracing or investigation. Workers edit only owned files; if a
-necessary change needs additional ownership, route that scope back for
-assignment before editing.
+For each fresh call:
+1. Classify the task, not the role name. Check actual pins, registration, input/
+   context support and runtime/auth eligibility; registration is not entitlement.
+2. Root calls `quota_status` once when available before the first dispatch and
+   each ready batch; reuse it only within that batch. A fresh user snapshot also works. Workers
+   do not poll. Inspect each fresh window's source, status and applicable scope,
+   not merely provider status; use the most constrained applicable window.
+3. Walk the task order below with the quota states. For relief choose an
+   independent pool: Sol→Luna or Sonnet→Opus on a shared pool is not relief.
+   Between equal-fit alternatives prefer observed headroom over unknown.
+4. Pass exact `provider/model` as `model`, plus `thinking`; briefly explain any
+   non-default choice. If suitable routes are blocked or a full applicable
+   window rules them out, leave work pending, report the gap and preserve
+   running workers. Unknown quota alone does not establish broken inference.
 
-Write each packet in plain sentences for a stranger who has never seen this
-session. No internal task numbers, agent-ID fragments, commit-hash shorthand,
-or words glued together to save space; name files by path and define every
-term. A packet that reads like `OUTCOME GH11minimalbackend...` is a defect:
-rewrite it before dispatch. List only constraints that protect safety or
-interfaces; every extra prohibition narrows the design space.
+### Task priorities
 
-Pass the user's design intent verbatim. Never invent targets the user did not
-set (line-count caps, net-LOC cuts, "no refactor"). When the user asks for an
-architecture, dispatch its implementation, not only a read-only design. For
-Effect code, route to `effect-senior` and ask its reviewer to read the
-`effect` skill, so `IDIOM GAP:` reports become follow-up packets.
+Read left to right: compatible preferences, not a global quality ranking.
+Classify the worker packet, not the whole project, by uncertainty, coupling and
+failure cost—not file count:
+- **Narrow:** known steps, isolated scope and a direct acceptance check.
+- **Substantive:** behavior changes or debugging that need caller/test tracing.
+- **Difficult/deep:** interacting layers or tricky state, concurrency, security
+  or data-loss invariants. Choose implementation, review or architecture by
+  activity; open-ended discovery uses the research/tracing row.
 
-## Pipeline and evidence
+Split large repetitive work; a small risky patch can still need deep review.
+Use each route's listed thinking by default: effort labels are not comparable
+across models (Luna `high` is not a capability rank above Sol `medium`). Raise
+within-model effort for difficulty or a diagnosed reasoning gap, not quota;
+maximum is not universally better. Same-model provider alternatives preserve
+task fit; Effect expertise stays with the role. API price is not subscription debit.
 
-Long workers time out, error, or stall, so keep the pipeline flowing: split the
-backlog into small packets up front, launch every independent packet now, and
-on each completion launch the next ready packets first, then retrieve and record
-its result. Alongside writers, keep read-only lanes busy: `Explore` maps the
-next packets and `reviewer` checks finished ones. Parallelize writers by file
-ownership, not one coding lane per checkout. Run disjoint file owners
-concurrently; queue only overlapping ownership (or use `isolation: "worktree"`
-when the required state is committed). Say "no other agent is editing" only
-when true.
+| Task | Ordered routes and thinking |
+| --- | --- |
+| Narrow, mechanically checkable code or exploration | `openai/gpt-6-luna` `high` → `opencode-go/gpt-6-luna` `high` → `github-copilot/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium` → `anthropic/claude-sonnet-5-5` `medium`. |
+| Substantive implementation, debugging or bounded Effect work | `openai/gpt-6.1-sol` `medium` → `github-copilot/gpt-6.1-sol` `medium` → `anthropic/claude-sonnet-5-5` `high` → `anthropic/claude-opus-5-5` `medium`. |
+| Genuinely difficult end-to-end implementation | `openai/gpt-6.1-sol` `xhigh` → `github-copilot/gpt-6.1-sol` `xhigh` → `anthropic/claude-opus-5-5` `high` → `anthropic/claude-sonnet-5-5` `xhigh`. |
+| Research, open-ended work or hard repository tracing | `openai/gpt-6.1-sol` `medium` → `github-copilot/gpt-6.1-sol` `medium` → `anthropic/claude-sonnet-5-5` `high`. |
+| Bounded planning or review | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium` → `github-copilot/gpt-6.1-sol` `medium` → `anthropic/claude-opus-5-5` `medium`. |
+| Deep or cross-layer review | `anthropic/claude-sonnet-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `github-copilot/gpt-6.1-sol` `xhigh` → `anthropic/claude-opus-5-5` `medium`. |
+| Exceptional/adversarial review with costly hidden failure, interacting invariants or prior verified misses | `anthropic/claude-opus-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `github-copilot/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `xhigh`. |
+| Architecture or decisions where judgment is the bottleneck | `anthropic/claude-opus-5-5` `medium` → `anthropic/claude-sonnet-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `github-copilot/gpt-6.1-sol` `xhigh`. |
+| Visual/UI work | `opencode/gemini-3.8-flash` `medium` → `openai/gpt-6.1-sol` `medium`. Use `high` only for a genuinely harder visual task. |
+| Short extraction, summaries or classification | `anthropic/claude-haiku-5-5` `low` for single-step leaves or `medium` for multi-step leaves → `opencode-go/claude-haiku-5-5` at the same effort → `openai/gpt-6-luna` `low` for single-step or `high` for multi-step leaves → `github-copilot/gpt-6-luna` at the same effort. |
 
-Unread results expire about 10 minutes after completion. If
-`get_subagent_result` reports the agent not found, read the final answer from
-the end of the notification's `<output-file>` instead of rerunning the work.
-Per completion, make one ledger update, not a `TaskGet`/`TaskUpdate` chain.
-When a packet fails, returns `partial`, or ends `steered`/`aborted` at its turn
-limit, resume its existing worker with remaining scope when context still fits;
-otherwise re-split, never rerun the whole packet. Never leave lanes idle while
-ready work remains. Use `TaskStop` on a worker that stays silent far past its expected
-duration.
+For Luna, try `xhigh` for constrained multi-step code; `max` needs task-local
+evidence or an explicit user choice. For exceptional Opus review, `high` is the
+policy default, not a proven review optimum; use `xhigh`/`max` only for explicit
+user choice or measured task-local quality gains. Escalation within one pool is
+not quota relief; a switched effort requires a fresh worker, not a resume.
+Copilot Gemini is omitted here: its installed adapter ignores effort, so a
+requested `medium`/`high` is not a controlled alternative to OpenCode Gemini.
 
-Keep authorized, unblocked packets moving: launch ready packets rather than
-merely report them; root may do an authorized trivial local edit inline if it
-does not stall queued work. Never ask permission for work already authorized.
-End a turn when work is complete, workers are running, or remaining work is
-blocked; name any required user input.
-Keep coordinator turns short because notifications queue while you work and
-late handling makes results expire. Steer a running worker only with
-information it cannot find itself. On completion, retrieve the result once with
-`get_subagent_result(wait: false)`. If still unavailable, leave the ledger task
-open and report the gap.
+### Quota states
 
-## Session lifetime
+These are adjustable operating policy for discretionary fresh work, not provider
+limits or measured model costs. Explicit user choices still take precedence.
 
-Run one coordinator session per issue or epic. Packet quality decays with
-every compaction; after about five compactions, or when the issue closes,
-write a handoff and continue in a fresh session instead of compacting again.
+| Applicable usage | Dispatch behavior |
+| --- | --- |
+| Below 80% | Normal: use task priority. |
+| 80% to below 95% | Conserve: move routine work to a suitable independent pool; keep this pool for work where its task advantage matters. |
+| 95% to below 100% | Reserve: prefer independent alternatives; spend remaining allowance only for explicit user choice or essential judgment without a suitable alternative. |
+| Full window: 100% or more, or zero remaining with a known positive count limit | Hold new discretionary work on affected routes until fresh evidence or explicit user choice changes the decision. This observation is not proof of whole-provider exhaustion or failed inference. |
+| Missing, stale, unavailable or unknown-scope data | Unknown: preserve task priority and report the gap. It is neither zero use nor exhaustion; known headroom may break an equal-fit tie. |
 
-## Authorization and task ledger
+Keep plan, app and model-scoped windows separate. A generic `Quota window`
+cannot establish model headroom; generic or model-specific windows cannot
+establish whole-plan exhaustion. OpenAI companion telemetry is experimental;
+app usage adds no plan capacity. Copilot credits are counts, not dollars: preserve reported counts and
+use percentages only with a positive known denominator. Go windows are not Zen
+wallet balance; another provider route adds no Anthropic subscription allowance.
+Infer neither per-model debit nor remaining-message counts.
 
-Apply the shared authorization rules in `../AGENTS.md`. When the user grants
-or broadens authorization, record it verbatim in a pinned ledger task and
-reread it after compaction.
+`resetsAt` is seconds, `capturedAt` milliseconds, `windowMinutes` minutes. Resets
+can move; ease pressure only after fresh evidence of replenishment, and requery
+at the next ready batch. Waiting/scheduling requires the user's request.
+A missing/failed quota query or generic 402/429 is not shared-pool exhaustion.
+Separate quota/auth failures from transient/rate/loader failures; stop launches
+only on routes affected by a hard failure. Reactive fallback has a separate
+managed JSON order and does not allocate quota; cooldowns are not allowance.
 
-Use `TaskCreate`, `TaskList`, `TaskGet`, and `TaskUpdate` as the evidence
-ledger; leave `agentType` unset and use native `Agent` directly by default.
-The finite campaign may have an unlimited pending backlog. Store agent IDs and
-attempt counts in task metadata across follow-ups; accept completion only with
-required evidence. Keep failed/stopped tasks pending or blocked with error and
-attempt metadata; complete only with required evidence.
+## Completion, recovery and budgets
 
-Enforce budgets with `max_turns` on every `Agent` call (about 20 for
-`Explore`/`reviewer`, 35 for implementation workers, whose setup alone takes
-several turns; use the user's budget when given). Never give an
-implementation worker fewer than 25 turns, or a resumed one fewer than 15;
-when work does not fit, split the outcome instead of shrinking the budget. Prompt-text budgets such as
-"bounded to X turns or Y minutes" are not enforced; workers can exceed them.
-At the limit the harness steers "wrap up", then
-aborts after `graceTurns` additional completed turns. Managed
-`defaultMaxTurns` is only a backstop; there is no wall-clock limit. Allow at
-most one retry for a recoverable failure when the task is idempotent or safely
-resumable. On hard auth, quota, or configuration failure, stop launching work
-on that provider and report the blocker; avoid retry storms.
+Launch the next ready packets first on completion, then retrieve once with
+`get_subagent_result(wait: false)` and update the ledger once. Results expire
+around ten minutes: if missing, read the notification's `<output-file>` final
+answer instead of rerunning. Leave unavailable results/tasks open and report gaps.
+Inspect actual runtime (including fallback switches) and partial edits before
+retrying. Resume failed/partial/steered/aborted work when context fits; otherwise
+re-split remaining scope. Changing runtime requires a fresh worker, not a resume.
+Allow at most one safe recoverable retry; stop affected hard auth/quota/config
+failures and report them. Stop workers silent far beyond expected duration;
+steer only with information they cannot find. Keep coordinator turns short;
+return when done, workers run or work is blocked, naming required user input.
 
-## Concurrency and execution modes
+Use `TaskCreate`/`TaskList`/`TaskGet`/`TaskUpdate` for evidence; leave `agentType`
+unset and dispatch native `Agent` by default. Record IDs, attempts and errors;
+Complete only with required evidence. Preserve failed/stopped tasks pending or blocked. Record
+expanded grants verbatim in a pinned task and reread after compaction; act on
+already-authorized work without another permission question. One session per
+issue/epic; after about five compactions or closure, hand off to a fresh session.
 
-For ordinary direct-background dispatch, keep active lanes at
-`min(50, effective maxConcurrent)` (managed global default 50; project
-`.pi/subagents.json` overrides). Count explicitly scheduled or foreground
-top-level work against the same 50-lane campaign ceiling; excess ready work
-stays pending, and the finite task backlog is not capped at 50.
+Set `max_turns` on every call: user budget wins; otherwise about 20 for readers/
+reviewers, 35 for writers. Minimum 25 for fresh implementation, 15 for resumed
+implementation; split oversized outcomes. Prompt-text budgets are not enforcement.
+Keep ordinary direct-background lanes at `min(50, effective maxConcurrent)`
+(managed default 50; project `.pi/subagents.json` overrides). Count foreground, scheduled and nested
+work in the shared 50-lane campaign cap; excess stays pending, not discarded.
+Pending backlog is unlimited. Ordinary delegation remains background.
 
-- Use `SubagentWorkflow` only when the user explicitly requests a workflow;
-  ordinary dispatch stays with native `Agent`.
-- Scheduling is enabled but requires explicit authorization. Scheduled fires
-  bypass `maxConcurrent` and remain session-scoped; this does not validate a
-durable unattended campaign.
-- New blocking foreground spawns use `maxConcurrentForeground`; default zero is
-  unlimited. Foreground resumes bypass it. Ordinary root delegation is
-  explicitly background, while explicitly requested workflows/tasks retain
-  foreground support.
-- Nested children occupy neither runtime pool and do not consume
-  `maxConcurrent`; nesting depth is bounded at 2, but runtime width is not.
-  Count nested children with the main root's direct lanes and every coordinator
-  in the shared 50-lane campaign cap. Use only the nested budget assigned by
-  the parent; without an explicit budget, allow at most one concurrent child,
-  reduced if active root lanes leave less room. Any parent with nested children
-  must collect each owned child's terminal result before it settles: the
-  manager aborts a parent's children when that parent settles. Nested waits are
-  allowed inside an authorized background parent, not at the main root. Only
-  roles with `allowed_subagents` can spawn nested children; ordinary worker
-  roles do not grant child tools.
-- Workflow children use their own CPU-based limit and do not enter either pool.
-  Run a workflow only when the user explicitly requests one.
+## Conditional reference
 
-Use `max_turns` on each call; prompt text is not a time limit. These settings
-do not establish durable unattended campaign operation.
+Workflows and scheduling require explicit user opt-in. Nested work requires a
+role's child-tool grant and parent-assigned budget (otherwise at most one); the
+parent collects all child terminal results before settling. **Before** workflows,
+scheduling, foreground or nested work, or diagnosing provider, fallback,
+worker-start or SDK/loader failures and unusual harness budget/runtime-pool behavior,
+read [execution details](coordinator-execution.md). Ordinary successful background
+work does not load it.

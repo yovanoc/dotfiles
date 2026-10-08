@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.99.2",
+  "lastChangelogVersion": "1.1.0",
   "packages": [
     "npm:@tintinweb/pi-subagents",
     "npm:@gotgenes/pi-permission-system",
@@ -15,10 +15,11 @@
     "npm:pi-context-view",
     "npm:@plannotator/pi-extension",
     "npm:pi-model-fallback",
-    "git:github.com/earendil-works/pi-review"
+    "git:github.com/earendil-works/pi-review",
+    "npm:@narumitw/pi-usage"
   ],
   "theme": "tokyonight",
-  "defaultProvider": "openai-codex",
+  "defaultProvider": "openai",
   "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "high",
   "hideThinkingBlock": false,
@@ -26,9 +27,6 @@
   "steeringMode": "all",
   "terminal": {
     "showTerminalProgress": true
-  },
-  "modelThinkingLevels": {
-    "openai-codex/gpt-6-luna": "max"
   },
   "retry": {
     "maxRetries": 6
@@ -112,8 +110,12 @@
     "anthropic/claude-fable-5-1",
     "anthropic/claude-opus-5-5",
     "anthropic/claude-sonnet-5-5",
-    "openai-codex/gpt-6-astra",
-    "openai-codex/gpt-6-luna",
-    "openai-codex/gpt-6.1-sol"
-  ]
+    "openai/gpt-6-astra",
+    "openai/gpt-6-luna",
+    "openai/gpt-6.1-sol"
+  ],
+  "images": {
+    "autoResize": false
+  },
+  "deviceId": "693181f0-899e-43bd-b7f7-3bc77a3d9a9e"
 }

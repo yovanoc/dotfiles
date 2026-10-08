@@ -11,8 +11,8 @@ Managed configuration currently includes:
 - zsh, tmux, and Git configuration
 - Neovim at `home/dot_config/nvim`
 - the reviewed agent configuration at `home/dot_agents`
-- selected Pi files: settings, subagents, public instructions, RTK extension,
-  and theme
+- selected Pi files: settings, subagents, roles, coordinator policy, fallback,
+  RTK/quota extensions, public instructions and theme
 - safe SSH defaults; private hosts stay in `~/.ssh/config.local`
 - selected `.config` files and small setup scripts
 
@@ -112,10 +112,33 @@ holds private hosts and machine-specific options. `~/.zshrc` sources
 shell settings. Neither local file is in the repo.
 
 The `.pi` source is an allowlist, not a copy of the directory: only settings,
-subagents, public instructions, the RTK extension, and the theme are managed.
+subagents, roles, coordinator policy, fallback, RTK/quota extensions, public
+instructions and the theme are managed.
 Auth tokens, sessions, caches, repositories, npm packages, and logs remain
-local. See [Pi model fallback](docs/model-fallback.md) for the applied routing
+local. See [Pi model fallback](docs/model-fallback.md) for the managed routing
 and update procedure.
+
+## Testing Pi extensions
+
+Pi provides its SDK at runtime; this repository has no dependency installation
+or development-link setup. Run the quota fixtures, or test through the installed
+Pi loader with fake credentials and mocked HTTP:
+
+```bash
+node scripts/test-pi-quota-status.mjs
+node scripts/test-pi-quota-status.mjs --runtime \
+  "$(brew --prefix pi-coding-agent)/libexec/lib/node_modules/@earendil-works/pi-coding-agent"
+```
+
+These checks do not apply configuration or contact quota/inference endpoints.
+Editor typing: the root `tsconfig.json` maps the SDK, `typebox`, Node types and
+`@narumitw/pi-usage` types straight to the installed Homebrew Pi and `~/.pi`
+packages (assumes Homebrew's `/opt/homebrew` prefix and a `~/dotfiles` checkout;
+edit the paths otherwise). No repository `node_modules`, dependency manifest,
+lockfile, copies or fake declarations are used. Open the repository root in
+VS Code; if diagnostics are stale, run **TypeScript: Restart TS Server**.
+**TypeScript: Go to Project Configuration** should open this root `tsconfig.json`.
+Check it with `node /opt/homebrew/lib/node_modules/typescript/bin/tsc -p . --noEmit`.
 
 ## Secrets and private machine state
 

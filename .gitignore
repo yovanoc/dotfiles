@@ -3,6 +3,7 @@ Brewfile.full
 
 # OS and local runtime state
 .DS_Store
+/node_modules/
 .cachebro/
 .pi/
 /.pi-subagents/
@@ -17,11 +18,18 @@ home/private_dot_pi/**
 !home/private_dot_pi/private_agent/subagents.json
 !home/private_dot_pi/private_agent/themes/tokyonight.json
 !home/private_dot_pi/private_agent/private_extensions/rtk.ts
+!home/private_dot_pi/private_agent/private_extensions/quota-status/index.ts
+!home/private_dot_pi/private_agent/private_extensions/quota-status/quota.ts
+!home/private_dot_pi/private_agent/private_extensions/quota-status/anthropic.ts
+!home/private_dot_pi/private_agent/private_extensions/quota-status/package.json
 !home/private_dot_pi/private_agent/private_extensions/private_pi-permission-system/config.json
 !home/private_dot_pi/private_agent/private_model-fallback/config.json
 # Agent definitions, added often enough to allow by extension rather than by
 # name. Scoped to *.md so a stray .DS_Store cannot slip through.
 !home/private_dot_pi/private_agent/private_agents/*.md
+# Managed coordinator policy and conditional execution reference.
+!home/private_dot_pi/private_agent/private_docs/coordinator.md
+!home/private_dot_pi/private_agent/private_docs/coordinator-execution.md
 
 # Other local-only chezmoi source entries.
 home/private_dot_ssh/config.local

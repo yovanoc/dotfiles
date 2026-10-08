@@ -2,8 +2,6 @@
 name: reviewer
 description: Performs a fresh read-only review of an actual diff against its goal, repository rules, interfaces, tests, and material risk
 color: "#b540d5"
-model: anthropic/claude-sonnet-5-5
-thinking: medium
 tools: read, grep, find, ls, bash
 disallowed_tools: edit, write, model_fallback_config
 extensions: [pi-model-fallback, rtk, bash-timeout-guard]
