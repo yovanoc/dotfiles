@@ -13,7 +13,8 @@ delegate exploratory, long-running, material multi-file or independent parallel 
   `implementer`/`effect-senior`; review → `reviewer`; visuals → `ui-ux`.
   Use `effect-senior` only for packets that edit Effect TypeScript; send
   investigations, live runs, verdicts and non-TypeScript work to `implementer`
-  or `Explore`.
+  or `Explore`. An `effect-senior` packet owns at most three `.ts` files and one
+  test command; evidence directories, launchers and receipts go to `implementer` first.
   Independent plans may run in parallel. For Effect, have the reviewer read the
   `effect` skill and turn `IDIOM GAP:` findings into follow-up packets.
 - Give one bounded outcome finishable in a few minutes with a concrete acceptance
@@ -23,7 +24,8 @@ delegate exploratory, long-running, material multi-file or independent parallel 
   relevant constraints. Paths guide discovery, not its limits. Extra ownership
   requires assignment before editing.
 - Write for a stranger: plain sentences, full paths, defined terms, no internal
-  task/agent/hash shorthand or glued words. Preserve user intent verbatim; add
+  task/agent/hash shorthand or glued words (the `agent-prompt-guard` extension
+  rejects prompts with fewer than 80 whitespace characters per 1000). Preserve user intent verbatim; add
   only safety/interface constraints, not invented targets. Deliver requested
   architecture, not only a read-only design.
 - Parallelize disjoint writers and read-only exploration/review; queue overlapping
@@ -75,11 +77,11 @@ task fit; Effect expertise stays with the role. API price is not subscription de
 | Task | Ordered routes and thinking |
 | --- | --- |
 | Bounded read-only mapping (`Explore`) | `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium`. Use the research row only for open-ended or hard tracing; never Luna `max` here (it hit the turn limit in 29 of 43 Explore runs). |
-| Narrow, mechanically checkable code | `openai/gpt-6-luna` `high` → `opencode-go/gpt-6-luna` `high` → `github-copilot/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium` → `anthropic/claude-sonnet-5-5` `medium`. |
+| Narrow, mechanically checkable code: the packet names exact files, exact edits and one check command; prompt under about 4k characters; `max_turns` 20 | `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` `high` → `opencode-go/gpt-6-luna` `high` → `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium`. A turn limit here means re-split the packet, not more effort or a bigger model. Keep Haiku prompts under 100k tokens (price steps 5× above). |
 | Substantive implementation, debugging or bounded Effect work | `openai/gpt-6.1-sol` `medium` → `github-copilot/gpt-6.1-sol` `medium` → `anthropic/claude-sonnet-5-5` `high` → `anthropic/claude-opus-5-5` `medium`. |
 | Genuinely difficult end-to-end implementation | `openai/gpt-6.1-sol` `xhigh` → `github-copilot/gpt-6.1-sol` `xhigh` → `anthropic/claude-opus-5-5` `high` → `anthropic/claude-sonnet-5-5` `xhigh`. |
 | Research, open-ended work or hard repository tracing | `openai/gpt-6.1-sol` `medium` → `github-copilot/gpt-6.1-sol` `medium` → `anthropic/claude-sonnet-5-5` `high`. |
-| Bounded planning or review | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium` → `github-copilot/gpt-6.1-sol` `medium` → `anthropic/claude-opus-5-5` `medium`. |
+| Bounded planning or review | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium` → `github-copilot/gpt-6.1-sol` `medium`. |
 | Deep or cross-layer review | `anthropic/claude-sonnet-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `github-copilot/gpt-6.1-sol` `xhigh` → `anthropic/claude-opus-5-5` `medium`. |
 | Exceptional/adversarial review with costly hidden failure, interacting invariants or prior verified misses | `anthropic/claude-opus-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `github-copilot/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `xhigh`. |
 | Architecture or decisions where judgment is the bottleneck | `anthropic/claude-opus-5-5` `medium` → `anthropic/claude-sonnet-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `github-copilot/gpt-6.1-sol` `xhigh`. |
@@ -89,7 +91,9 @@ task fit; Effect expertise stays with the role. API price is not subscription de
 For Luna, try `xhigh` for constrained multi-step code; `max` needs task-local
 evidence or an explicit user choice. For exceptional Opus review, `high` is the
 policy default, not a proven review optimum; use `xhigh`/`max` only for explicit
-user choice or measured task-local quality gains. Escalation within one pool is
+user choice or measured task-local quality gains. An Opus plan or review packet
+carries one `MODEL RATIONALE:` line naming the explicit user choice or the prior
+verified miss; without one, use the bounded row. Escalation within one pool is
 not quota relief; a switched effort requires a fresh worker, not a resume.
 Copilot Gemini is omitted here: its installed adapter ignores effort, so a
 requested `medium`/`high` is not a controlled alternative to OpenCode Gemini.
@@ -143,12 +147,14 @@ Complete only with required evidence. Preserve failed/stopped tasks pending or b
 expanded grants verbatim in a pinned task and reread after compaction; act on
 already-authorized work without another permission question. One session per
 issue/epic; after about five compactions or closure, hand off to a fresh session.
-The `compaction-handoff` notice marks that point: finish or park running lanes,
-write a handoff (open tasks, grants, worker IDs, next packets) and tell the user
-to continue in a fresh session.
+The `compaction-handoff` notice marks that point: dispatch no new workers, finish
+or park running lanes, write `<cwd>/tasks/handoff.md` (open tasks, grants
+verbatim, worker IDs, next packets, evidence paths) and end the reply with the
+fenced paste block the notice specifies.
 
 Set `max_turns` on every call: user budget wins; otherwise about 20 for readers/
-reviewers, 35 for writers. Minimum 25 for fresh implementation, 15 for resumed
+reviewers, 35 for writers. Minimum 25 for fresh implementation (20 on the narrow
+row), 15 for resumed
 implementation; split oversized outcomes. Prompt-text budgets are not enforcement.
 Keep ordinary direct-background lanes at `min(50, effective maxConcurrent)`
 (managed default 50; project `.pi/subagents.json` overrides). Count foreground, scheduled and nested
