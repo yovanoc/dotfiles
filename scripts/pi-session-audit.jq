@@ -235,7 +235,7 @@ def aggregate:
         results: ([$files[] | .retrieval.results // 0] | add // 0),
         misses: ([$files[] | .retrieval.misses // 0] | add // 0),
         unique_missed_targets: $unique_misses,
-        duplicate_misses: ([ $files[] | .retrieval.misses // 0 ] | add // 0) - $unique_misses
+        duplicate_misses: (([ $files[] | .retrieval.misses // 0 ] | add // 0) - $unique_misses)
       },
       scan: {
         files: ($files | length),
