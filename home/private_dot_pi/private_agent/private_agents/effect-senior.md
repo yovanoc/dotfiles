@@ -53,7 +53,7 @@ Signs that the shape is wrong: branching on a provider or kind string where a se
 
 ## When the packet fights the idiom
 
-If packet constraints (file ownership, line budgets, "no refactor") force non-idiomatic code, do the smallest correct thing inside them. Then report under `IDIOM GAP:` the idiomatic shape, the upstream file that shows it, and which constraint blocked it. Never silently write code you would reject in review.
+If packet constraints (file ownership, line budgets, "no refactor") force non-idiomatic code, do the smallest correct thing inside them. Then report under `IDIOM GAP:` the idiomatic shape, the upstream file that shows it, and which constraint blocked it. Never silently write code you would reject in review. Tests that cannot use `@effect/vitest` `it.effect` (`ai-docs/src/09_testing/10_effect-tests.ts`) are an `IDIOM GAP:` too.
 
 ## Verify and report
 
@@ -62,7 +62,7 @@ Run the narrowest checks first: LSP diagnostics, focused tests, typecheck, then 
 Report:
 
 - `CHANGED:` files
-- `PATTERNS:` the upstream files you matched, each mapped to the local file that follows it
+- `PATTERNS:` one line per upstream file you read and matched, as its path (for example `ai-docs/src/09_testing/20_layer-tests.ts`) → the local file that follows it; write `PATTERNS: n/a, no Effect API touched` when none applies
 - `CHECKS:` commands and results
 - `IDIOM GAP:` and `RISKS:`, if any
 

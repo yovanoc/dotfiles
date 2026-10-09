@@ -18,6 +18,7 @@ home/private_dot_pi/**
 !home/private_dot_pi/private_agent/subagents.json
 !home/private_dot_pi/private_agent/themes/tokyonight.json
 !home/private_dot_pi/private_agent/private_extensions/rtk.ts
+!home/private_dot_pi/private_agent/private_extensions/compaction-handoff.ts
 !home/private_dot_pi/private_agent/private_extensions/quota-status/index.ts
 !home/private_dot_pi/private_agent/private_extensions/quota-status/quota.ts
 !home/private_dot_pi/private_agent/private_extensions/quota-status/anthropic.ts
