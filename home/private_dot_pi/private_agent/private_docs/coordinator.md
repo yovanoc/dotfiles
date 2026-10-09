@@ -92,8 +92,11 @@ For Luna, try `xhigh` for constrained multi-step code; `max` needs task-local
 evidence or an explicit user choice. For exceptional Opus review, `high` is the
 policy default, not a proven review optimum; use `xhigh`/`max` only for explicit
 user choice or measured task-local quality gains. An Opus plan or review packet
-carries one `MODEL RATIONALE:` line naming the explicit user choice or the prior
-verified miss; without one, use the bounded row. Escalation within one pool is
+carries one `MODEL RATIONALE:` line naming which condition applies: explicit user
+choice, costly hidden failure, interacting invariants or a prior verified miss;
+without one, use the bounded row. Bigger or harder reviews belong on Opus with
+the budget to finish: it averages about one tool call per turn and hit the limit
+in 7 of 19 reviews at `max_turns` 16–20. Escalation within one pool is
 not quota relief; a switched effort requires a fresh worker, not a resume.
 Copilot Gemini is omitted here: its installed adapter ignores effort, so a
 requested `medium`/`high` is not a controlled alternative to OpenCode Gemini.
@@ -153,7 +156,7 @@ verbatim, worker IDs, next packets, evidence paths) and end the reply with the
 fenced paste block the notice specifies.
 
 Set `max_turns` on every call: user budget wins; otherwise about 20 for readers/
-reviewers, 35 for writers. Minimum 25 for fresh implementation (20 on the narrow
+bounded reviewers, 30 for deep or exceptional review, 35 for writers. Minimum 25 for fresh implementation (20 on the narrow
 row), 15 for resumed
 implementation; split oversized outcomes. Prompt-text budgets are not enforcement.
 Keep ordinary direct-background lanes at `min(50, effective maxConcurrent)`
