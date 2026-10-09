@@ -56,34 +56,11 @@ fi
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 filter="$script_dir/pi-session-audit.jq"
 
-parse_local_time() {
-  local value=$1 wall seconds fraction
-  [[ $value =~ ^([0-9]{4}-[0-9]{2}-[0-9]{2})[Tt\ ]([0-9]{2}:[0-9]{2}:[0-9]{2})(\.([0-9]+))?$ ]] || return 1
-  wall="${BASH_REMATCH[1]}T${BASH_REMATCH[2]}"
-  fraction=${BASH_REMATCH[4]:-}
-  if seconds=$(date -j -f '%Y-%m-%dT%H:%M:%S' "$wall" '+%s' 2>/dev/null); then
-    :
-  elif seconds=$(date -d "$wall" '+%s' 2>/dev/null); then
-    :
-  else
-    return 1
-  fi
-  if [[ -n $fraction ]]; then
-    "$JQ" -nr --arg seconds "$seconds" --arg fraction "$fraction" \
-      '($seconds | tonumber) + ("0." + $fraction | tonumber)'
-  else
-    printf '%s\n' "$seconds"
-  fi
-}
-
 if [[ -n $since ]]; then
-  if [[ $since =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt\ ][0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?$ ]]; then
-    cutoff=$(parse_local_time "$since") || error 'invalid --since timestamp; expected ISO format'
-  else
-    cutoff=$("$JQ" -nr --arg mode time --arg time "$since" --arg path '' \
-      --argjson cutoff 0 --arg window_start_local '' -f "$filter") || error 'invalid --since timestamp; expected ISO format'
-    [[ -n $cutoff && $cutoff != null ]] || error 'invalid --since timestamp; expected ISO format'
-  fi
+  # jq resolves naive timestamps in the local zone on every platform; GNU date rejects DST-gap times.
+  cutoff=$("$JQ" -nr --arg mode time --arg time "$since" --arg path '' \
+    --argjson cutoff 0 --arg window_start_local '' -f "$filter") || error 'invalid --since timestamp; expected ISO format'
+  [[ -n $cutoff && $cutoff != null ]] || error 'invalid --since timestamp; expected ISO format'
 else
   now=$(date +%s) || error 'could not read current time'
   cutoff=$((now - 172800))
