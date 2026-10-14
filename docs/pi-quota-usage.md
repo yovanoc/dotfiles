@@ -2,13 +2,13 @@
 
 ## The light tool
 
-The managed [quota-status extension](../home/private_dot_pi/private_agent/private_extensions/quota-status/index.ts) adds **`quota_status({})`**. It reuses the user's already-working Pi subscription authentication and the already-installed `@narumitw/pi-usage` **0.64.1** auth/query helpers for native OpenAI, Copilot and Go. Narumitw has no Anthropic adapter, so the tool retains the small Claude collector/normalization logic from the original integration, using native Pi auth and no second package. It does not invoke the addon factory or install a second copy. No runtime installation or application was performed. [^1][^4][^8]
+The managed [quota-status extension](../home/private_dot_pi/private_agent/private_extensions/quota-status/index.ts) adds **`quota_status({})`**. It reuses the user's already-working Pi subscription authentication and the already-installed `@narumitw/pi-usage` **0.66.0** auth/query helpers for native OpenAI, Copilot and Go. Narumitw has no Anthropic adapter, so the tool retains the small Claude collector/normalization logic from the original integration, using native Pi auth and no second package. It does not invoke the addon factory or install a second copy. No runtime installation or application was performed. [^1][^4][^8]
 
-Each call queries **`openai`, `anthropic`, `github-copilot`, and `opencode-go`** independently, with a 15-second deadline per provider including auth and identity revalidation. **`opencode`** is included as explicitly unsupported telemetry: no credential lookup or HTTP request is made for it. There is no cache, disk state, automatic polling, configuration, or quota-reset mutation. The coordinator owns calls before dispatch batches and reuses a result within the batch; workers do not poll independently.
+Each call queries **`openai`, `anthropic`, `github-copilot`, and `opencode-go`** independently and reads the local **`anthropic-api`** spend ledger, with a 15-second deadline per provider including auth and identity revalidation. **`opencode`** is included as explicitly unsupported telemetry: no credential lookup or HTTP request is made for it. There is no cache, disk state, automatic polling, configuration, or quota-reset mutation. The coordinator owns calls before dispatch batches and reuses a result within the batch; workers do not poll independently.
 
 The result is identical in model-facing text, details and structured content:
 
-- `providers`: five observations with fixed public `provider` and allowlisted `source` (null when unavailable or unsupported), `capturedAt` in Unix **milliseconds**, `status` (`fresh`, `unknown`, `unavailable`), fixed `reason`, and `windows`.
+- `providers`: six observations (`anthropic-api` is the local prepaid spend ledger count, not account billing or remaining balance) with fixed public `provider` and allowlisted `source` (null when unavailable or unsupported), `capturedAt` in Unix **milliseconds**, `status` (`fresh`, `unknown`, `unavailable`), fixed `reason`, and `windows`.
 - Each window has a safe `label`, `group` (`ChatGPT plan`, `ChatGPT app`, or `null`), `status`, native `unit`/`used`/`remaining`/`limit` when known, consumed `usedPercent`/`usedFraction`, duration `windowMinutes`, and reset `resetsAt` in Unix **seconds**.
 - Copilot preserves native credit/request counts, including known used, remaining and limit. Its percentage is derived only from a finite positive known limit; unlimited, missing or zero denominators do not imply free headroom. Credits are not dollars.
 - Unknown/invalid values are `null`, not zero. Zero usage is valid; overages remain above 100%. Successful providers are retained when another fails.
@@ -31,7 +31,7 @@ chezmoi apply --recursive --exclude scripts ~/.pi/agent/settings.json ~/.pi/agen
 The tool explicitly resolves the user's global Pi npm installation using Pi's
 agent directory. It loads the shipped **`@narumitw/pi-usage/dist/index.ts`**
 helpers, not a sibling extension's undeclared dependency or private UI cache.
-The installed addon must be the qualified **0.64.1** release. A missing,
+The installed addon must be the qualified **0.66.0** release. The loader pins this exact version; every new release must be re-verified against the auth, identity and bucket contract before it is accepted. 0.66.0 matches only credentials in Pi's own auth store (no candidate reader), so credentials offered by other extensions fail closed as `auth-failed`. A missing,
 unqualified or unusable helper returns `dependency-unavailable` for OpenAI,
 Copilot and Go, not invented quota. Claude remains independent; Zen remains
 explicitly unsupported. No `npm install` is needed in the quota-status folder, and no
@@ -42,7 +42,7 @@ The user already installed the addon. On another machine, install the qualified
 release once before loading this tool (command not executed here):
 
 ```sh
-pi install npm:@narumitw/pi-usage@0.64.1
+pi install npm:@narumitw/pi-usage@0.66.0
 ```
 
 The same installation supplies the human `/usage` menu/footer. Its UI/cache are
@@ -54,7 +54,7 @@ repository has no dependency installation or development-link setup. See
 ## Native OpenAI quota authentication and provenance
 
 The user retains Pi's legacy OAuth login **for quota reporting only**. Native
-`openai` remains the inference provider. Narumitw **0.64.1** first validates the
+`openai` remains the inference provider. Narumitw **0.66.0** first validates the
 native login, then uses the independently validated legacy credential for its
 experimental ChatGPT usage endpoints. Both logins must use the same ChatGPT
 account/workspace. The native token is never forwarded to those backend routes;
@@ -78,7 +78,7 @@ credential removes numerical reporting, not native inference.
 
 ## Why Claude is absent from `/usage`
 
-Installed Narumitw **0.64.1** has no Anthropic adapter. Its menu and footer
+Installed Narumitw **0.66.0** has no Anthropic adapter. Its menu and footer
 therefore do not display Claude usage, even when Pi's Claude OAuth login works.
 The tool's local Claude collector serves **`quota_status`**, not the
 third-party menu. It reuses native Pi-resolved OAuth, checks official origins,
@@ -101,7 +101,7 @@ Report only the endpoint's actual buckets: the user's Team plan label does not p
 ```sh
 node scripts/test-pi-quota-status.mjs
 node scripts/test-pi-quota-status.mjs --runtime \
-  /opt/homebrew/Cellar/pi-coding-agent/1.0.4/libexec/lib/node_modules/@earendil-works/pi-coding-agent
+  /opt/homebrew/Cellar/pi-coding-agent/1.1.0/libexec/lib/node_modules/@earendil-works/pi-coding-agent
 ```
 
 Replace the example host path with your installed Pi package directory; the test prints its manifest version, which need not match the directory name.
@@ -113,18 +113,18 @@ not dashboard/account/app agreement, per-model debit or reset replenishment.
 
 ## Primary sources
 
-[^1]: Installed `@narumitw/pi-usage@0.64.1` package manifest, [versioned registry metadata](https://registry.npmjs.org/@narumitw%2fpi-usage/0.64.1), and [published artifact](https://registry.npmjs.org/@narumitw/pi-usage/-/pi-usage-0.64.1.tgz). Source repository: [narumiruna/pi-extensions](https://github.com/narumiruna/pi-extensions/tree/main/packages/pi-usage); `main` is not the versioned authority.
-[^2]: Installed Pi SDK **1.1.0**, despite its `1.0.4` Homebrew directory: `docs/extensions.md`, `dist/core/extensions/types.d.ts`, `dist/core/model-registry.d.ts`, `dist/core/auth-storage.d.ts`, and `dist/index.d.ts`. [Upstream extension reference](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) is a moving reference, not the installed-version authority.
+[^1]: Installed `@narumitw/pi-usage@0.66.0` package manifest, [versioned registry metadata](https://registry.npmjs.org/@narumitw%2fpi-usage/0.66.0), and [published artifact](https://registry.npmjs.org/@narumitw/pi-usage/-/pi-usage-0.66.0.tgz). Source repository: [narumiruna/pi-extensions](https://github.com/narumiruna/pi-extensions/tree/main/packages/pi-usage); `main` is not the versioned authority.
+[^2]: Installed Pi SDK (its manifest version can differ from the Homebrew directory name): `docs/extensions.md`, `dist/core/extensions/types.d.ts`, `dist/core/model-registry.d.ts`, `dist/core/auth-storage.d.ts`, and `dist/index.d.ts`. [Upstream extension reference](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) is a moving reference, not the installed-version authority.
 [^3]: Installed Pi `docs/packages.md`: host-provided dependencies and isolated package module roots; `docs/environment-variables.md`: `PI_PACKAGE_DIR` and `PI_CODING_AGENT_DIR` overrides. [Upstream packages reference](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md).
-[^4]: Installed Narumitw **0.64.1** `src/usage.ts`: addon commands, lifecycle and UI/cache; entrypoint declaration in its package manifest.
-[^5]: Installed Narumitw **0.64.1** `src/index.ts` and `src/core.ts`: named helper exports, fingerprinting, redaction and deadlines.
-[^8]: Installed Narumitw **0.64.1** `src/query.ts`, `src/usage-helpers.ts` and `src/providers/{openai-chatgpt,openai-companion-usage,github-copilot,opencode-zen}.ts`: adapters, official origins, auth matching and collectors.
-[^9]: Installed Narumitw **0.64.1** `dist/index.ts`, from the published artifact in [^1], loaded by the actual Pi Jiti test with fake credentials/HTTP.
-[^10]: Local Claude normalization derives from the [original 0.53.1 helper source][Original-helper-source]; its retained MIT notice covers reused source. Installed Narumitw **0.64.1** `src/types.ts` and provider normalizers: report/bucket fields and native units.
+[^4]: Installed Narumitw **0.66.0** `src/usage.ts`: addon commands, lifecycle and UI/cache; entrypoint declaration in its package manifest.
+[^5]: Installed Narumitw **0.66.0** `src/index.ts` and `src/core.ts`: named helper exports, fingerprinting, redaction and deadlines.
+[^8]: Installed Narumitw **0.66.0** `src/query.ts`, `src/usage-helpers.ts` and `src/providers/{openai-chatgpt,openai-companion-usage,github-copilot,opencode-zen}.ts`: adapters, official origins, auth matching and collectors.
+[^9]: Installed Narumitw **0.66.0** `dist/index.ts`, from the published artifact in [^1], loaded by the actual Pi Jiti test with fake credentials/HTTP.
+[^10]: Local Claude normalization derives from the [original 0.53.1 helper source][Original-helper-source]; its retained MIT notice covers reused source. Installed Narumitw **0.66.0** `src/types.ts` and provider normalizers: report/bucket fields and native units.
 
 ## Existing options checked — 2026-10-08
 
-**Historical candidate check; current integration uses the user-installed Narumitw 0.64.1 helpers.** Keep the model-facing bridge, not new collectors. Existing extensions do the fetching, but none of the releases checked below supplies the required fresh, account-matched, model-callable quota snapshot across Codex, Anthropic, Copilot and OpenCode Go/Zen. This is a bounded candidate check, not a claim that no such extension exists anywhere. Search results advertising “usage”, “chat report” or “warnings” were checked against actual entrypoints, tool/context registration and published npm artifacts.
+**Historical candidate check; current integration uses the user-installed Narumitw 0.66.0 helpers.** Keep the model-facing bridge, not new collectors. Existing extensions do the fetching, but none of the releases checked below supplies the required fresh, account-matched, model-callable quota snapshot across Codex, Anthropic, Copilot and OpenCode Go/Zen. This is a bounded candidate check, not a claim that no such extension exists anywhere. Search results advertising “usage”, “chat report” or “warnings” were checked against actual entrypoints, tool/context registration and published npm artifacts.
 
 | Candidate / published version | Actual model visibility and replacement gap |
 | --- | --- |

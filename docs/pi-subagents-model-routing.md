@@ -17,7 +17,7 @@ coordinator choices. On a fresh
 coordinator-created `Agent` call, explicit user/task model and effort choices
 come first; otherwise use the coordinator's route and pass both fields. A
 resume omits both to retain the worker's established runtime. The root startup
-default remains native `openai/gpt-6.1-sol` high, while Pi's active runtime
+default is `anthropic/claude-sonnet-5-5` medium, while Pi's active runtime
 model controls the root session. The installed SDK 1.1.0 catalog statically
 registers native `openai/gpt-6.1-sol`, `openai/gpt-6-luna`, and
 `openai/gpt-6-astra`; Sol high and Luna max have identity thinking mappings.
@@ -40,6 +40,11 @@ requested, and honor any user-selected model/effort before a default route.
 Ordinary delegation uses native `Agent` calls. The coordinator owns ordered
 task priorities, soft quota states, scope checks and reset handling; this is
 prompt policy, not an automatic routing engine. Do not duplicate that table here.
+In short: Haiku/Luna first for bounded mapping, extraction and checkable leaves;
+Sonnet `medium` for everyday work; Opus or Sol chosen deliberately for difficult
+implementation and deep review. Quota pacing is reset-aware, and `anthropic-api/`
+routes are used only when the user explicitly asks. Handoff checkpoints are per-session
+files whose exact path the notice names; legacy `tasks/handoff.md` is not authority.
 
 ## Haiku availability
 

@@ -1,7 +1,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ResolvedUsageAuth, UsageBucket, UsageProviderAdapter, UsageReport, UsageRequestGuard } from "@narumitw/pi-usage/src/types.ts";
 
-export const PROVIDERS = ["openai", "anthropic", "github-copilot", "opencode-go", "opencode"] as const;
+export const PROVIDERS = ["openai", "anthropic", "anthropic-api", "github-copilot", "opencode-go", "opencode"] as const;
 type Provider = (typeof PROVIDERS)[number];
 export type Helpers = {
   adapterForProvider(id: string): UsageProviderAdapter | undefined;
@@ -24,14 +24,14 @@ export type Window = {
 };
 export type Observation = {
   provider: Provider;
-  source: "openai-chatgpt-auth" | "openai-chatgpt-companion-experimental" | "anthropic-oauth-usage" | "github-copilot-user" | "opencode-zen-usage" | null;
+  source: "openai-chatgpt-auth" | "openai-chatgpt-companion-experimental" | "anthropic-oauth-usage" | "pi-spend-ledger" | "github-copilot-user" | "opencode-zen-usage" | null;
   capturedAt: number | null;
   status: "fresh" | "unknown" | "unavailable";
   reason: Reason;
   windows: Window[];
 };
 
-const SOURCES = { openai: null, anthropic: "anthropic-oauth-usage", "github-copilot": "github-copilot-user", "opencode-go": "opencode-zen-usage", opencode: null } as const;
+const SOURCES = { openai: null, anthropic: "anthropic-oauth-usage", "anthropic-api": "pi-spend-ledger", "github-copilot": "github-copilot-user", "opencode-go": "opencode-zen-usage", opencode: null } as const;
 
 export function unavailable(provider: Provider, reason: Reason): Observation {
   if (provider === "opencode") reason = "unsupported";
@@ -40,6 +40,7 @@ export function unavailable(provider: Provider, reason: Reason): Observation {
 
 const LABELS = {
   anthropic: new Set(["Five-hour", "Weekly", "Weekly Sonnet", "Weekly Opus", "Weekly OAuth apps"]),
+  "anthropic-api": new Set(["Prepaid credits"]),
   "github-copilot": new Set(["AI credits", "Premium requests", "Chat requests"]),
   "opencode-go": new Set(["Rolling window", "Weekly window", "Monthly window"]),
 };
@@ -97,7 +98,7 @@ export function sanitizeBuckets(provider: Provider, capturedAtValue: unknown, bu
   const windows: Window[] = (Array.isArray(buckets) ? buckets : []).map((bucket: UsageBucket) => {
     const unit = bucket?.unit === "percent"
       ? "percent"
-      : provider === "github-copilot" && bucket?.unit === "count" ? "count" : null;
+      : (provider === "github-copilot" || provider === "anthropic-api") && bucket?.unit === "count" ? "count" : null;
     const used = unit !== null && nonnegative(bucket?.used) ? bucket.used : null;
     const remaining = unit === "count" && nonnegative(bucket?.remaining) ? bucket.remaining : null;
     const limit = unit === "count" && nonnegative(bucket?.limit) ? bucket.limit : null;

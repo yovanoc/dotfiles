@@ -20,6 +20,8 @@ home/private_dot_pi/**
 !home/private_dot_pi/private_agent/private_extensions/rtk.ts
 !home/private_dot_pi/private_agent/private_extensions/compaction-handoff.ts
 !home/private_dot_pi/private_agent/private_extensions/agent-prompt-guard.ts
+!home/private_dot_pi/private_agent/private_extensions/anthropic-api.ts
+!home/private_dot_pi/private_agent/private_models.json
 !home/private_dot_pi/private_agent/private_extensions/quota-status/index.ts
 !home/private_dot_pi/private_agent/private_extensions/quota-status/quota.ts
 !home/private_dot_pi/private_agent/private_extensions/quota-status/anthropic.ts
@@ -32,6 +34,8 @@ home/private_dot_pi/**
 # Managed coordinator policy and conditional execution reference.
 !home/private_dot_pi/private_agent/private_docs/coordinator.md
 !home/private_dot_pi/private_agent/private_docs/coordinator-execution.md
+# Saved prompt templates (/ commands).
+!home/private_dot_pi/private_agent/prompts/*.md
 
 # Other local-only chezmoi source entries.
 home/private_dot_ssh/config.local

@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Type } from "typebox";
 import { observeAnthropic } from "./anthropic.ts";
-import { observe, PROVIDERS, unavailable, type Helpers } from "./quota.ts";
+import { readLedger } from "../anthropic-api.ts";
+import { observe, PROVIDERS, sanitizeBuckets, unavailable, type Helpers } from "./quota.ts";
 
 async function loadHelpers(signal: AbortSignal): Promise<Helpers | undefined> {
   if (signal.aborted) return undefined;
@@ -23,7 +24,8 @@ async function loadHelpers(signal: AbortSignal): Promise<Helpers | undefined> {
       return undefined;
     }
     if (!manifest || typeof manifest !== "object" || Array.isArray(manifest) || !("name" in manifest) || !("version" in manifest)) return undefined;
-    if (manifest.name !== "@narumitw/pi-usage" || manifest.version !== "0.64.1") return undefined;
+    // Exact pin, matching the versioned install in settings.json: bump both together after `node scripts/test-pi-quota-status.mjs --runtime <pi>` passes on the new release.
+    if (manifest.name !== "@narumitw/pi-usage" || manifest.version !== "0.66.0") return undefined;
     const addon = await import(pathToFileURL(join(root, "dist", "index.ts")).href);
     // SAFETY: The three helper exports were checked above against the runtime contract.
     return [addon.adapterForProvider, addon.resolveUsageAuth, addon.queryProviderUsage].every((value) => typeof value === "function")
@@ -42,7 +44,7 @@ const status = Type.Union([Type.Literal("fresh"), Type.Literal("unknown"), Type.
 const outputSchema = Type.Object({
   providers: Type.Array(Type.Object({
     provider: Type.Union(PROVIDERS.map((provider) => Type.Literal(provider))),
-    source: Type.Union([Type.Literal("openai-chatgpt-auth"), Type.Literal("openai-chatgpt-companion-experimental"), Type.Literal("anthropic-oauth-usage"), Type.Literal("github-copilot-user"), Type.Literal("opencode-zen-usage"), Type.Null()]),
+    source: Type.Union([Type.Literal("openai-chatgpt-auth"), Type.Literal("openai-chatgpt-companion-experimental"), Type.Literal("anthropic-oauth-usage"), Type.Literal("pi-spend-ledger"), Type.Literal("github-copilot-user"), Type.Literal("opencode-zen-usage"), Type.Null()]),
     capturedAt: nullableNumber,
     status,
     reason: Type.Union(["ok", "unsupported", "no-quota-data", "dependency-unavailable", "auth-unavailable", "auth-failed", "query-failed", "identity-changed", "timeout", "cancelled"].map((reason) => Type.Literal(reason))),
@@ -59,14 +61,27 @@ const outputSchema = Type.Object({
       windowMinutes: nullableNumber,
       resetsAt: nullableNumber,
     }, { additionalProperties: false })),
-  }, { additionalProperties: false }), { minItems: 5, maxItems: 5 }),
+  }, { additionalProperties: false }), { minItems: 6, maxItems: 6 }),
 }, { additionalProperties: false });
+
+async function observeAnthropicApi() {
+  try {
+    const { spentUsd, exhausted } = await readLedger();
+    // Exhausted reads as a full window; otherwise only the USD spent is known (no limit, so no fraction).
+    const bucket = exhausted
+      ? { id: "prepaid", label: "Prepaid credits", unit: "percent" as const, used: 100 }
+      : { id: "prepaid", label: "Prepaid credits", unit: "count" as const, used: Math.round(spentUsd * 100) / 100 };
+    return sanitizeBuckets("anthropic-api", Date.now(), [bucket]);
+  } catch {
+    return unavailable("anthropic-api", "query-failed");
+  }
+}
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "quota_status",
     label: "Subscription quota",
-    description: "Fetch fresh Anthropic, native OpenAI ChatGPT companion (experimental telemetry only; inference remains native openai), GitHub Copilot and OpenCode Go quota. OpenCode Zen (opencode) is unsupported and is not a prepaid wallet balance (15s full-operation deadline). No arguments or cache. usedPercent/usedFraction are consumed quota; count windows expose used/remaining/limit, not dollars. Count fractions require a known positive limit; fresh counts may have unknown fractions; capturedAt is Unix milliseconds, resetsAt is Unix seconds, windowMinutes is minutes. Null/unknown/unavailable never means zero use or full capacity. Quota may change after observation; no model-to-pool mapping is implied.",
+    description: "Fetch fresh Anthropic, Anthropic API-key prepaid credits (anthropic-api: count window = Pi-local USD spent with unknown limit; 100% once Anthropic refused a request for exhausted credits), native OpenAI ChatGPT companion (experimental telemetry only; inference remains native openai), GitHub Copilot and OpenCode Go quota. OpenCode Zen (opencode) is unsupported and is not a prepaid wallet balance (15s full-operation deadline). No arguments or cache. usedPercent/usedFraction are consumed quota; count windows expose used/remaining/limit, not dollars. Count fractions require a known positive limit; fresh counts may have unknown fractions; capturedAt is Unix milliseconds, resetsAt is Unix seconds, windowMinutes is minutes. Null/unknown/unavailable never means zero use or full capacity. Quota may change after observation; no model-to-pool mapping is implied.",
     parameters: Type.Object({}, { additionalProperties: false }),
     outputSchema,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
@@ -88,6 +103,7 @@ export default function (pi: ExtensionAPI) {
       const missingReason = cancellation?.aborted ? "cancelled" : expired.aborted ? "timeout" : "dependency-unavailable";
       const providers = await Promise.all(PROVIDERS.map((provider) => {
         if (provider === "anthropic") return anthropic;
+        if (provider === "anthropic-api") return observeAnthropicApi();
         if (provider === "opencode") return Promise.resolve(unavailable(provider, "unsupported"));
         return helpers
           ? observe(provider, helpers, ctx, cancellation, Math.max(1, deadline - Date.now()), deadline)

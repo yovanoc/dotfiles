@@ -25,7 +25,9 @@ const helpers = (overrides = {}) => ({
 });
 const safe = (value) => assert(!JSON.stringify(value).includes(secret));
 const ctx = {};
-assert.deepEqual(PROVIDERS, ["openai", "anthropic", "github-copilot", "opencode-go", "opencode"]);
+assert.deepEqual(PROVIDERS, ["openai", "anthropic", "anthropic-api", "github-copilot", "opencode-go", "opencode"]);
+// anthropic-api is read from the local spend ledger in index.ts, never through the shared helper.
+const observed = PROVIDERS.filter((provider) => provider !== "anthropic-api");
 const companionReport = {
   providerId: "openai", providerName: secret, source: "openai-chatgpt-companion", accountLabel: secret,
   semantics: { kind: "consumer-subscription", label: secret }, capturedAt: 1800000000000,
@@ -126,7 +128,7 @@ assert.equal(badUnits.windows[0].windowMinutes, null);
 assert.equal(sanitize("anthropic", { ...report, buckets: [] }).status, "unknown");
 assert.equal((await observe("anthropic", helpers({ resolveUsageAuth: async () => undefined }), ctx)).reason, "auth-unavailable");
 assert.equal((await observe("anthropic", helpers({ resolveUsageAuth: async () => { throw new Error(secret); } }), ctx)).reason, "auth-failed");
-const mixed = await Promise.all(PROVIDERS.map((provider) => observe(provider, helpers({ queryProviderUsage: async (adapter) => {
+const mixed = await Promise.all(observed.map((provider) => observe(provider, helpers({ queryProviderUsage: async (adapter) => {
   if (adapter.id === "anthropic") throw new Error(secret);
   return report;
 } }), ctx)));
@@ -220,6 +222,12 @@ for (const label of ["Rolling window", "Weekly window", "Monthly window", secret
   safe(result);
 }
 assert.equal((await observe("opencode-go", helpers({ queryProviderUsage: async () => { throw new Error("OpenCode Zen usage endpoint returned no displayable usage data."); } }), ctx)).reason, "no-quota-data");
+const prepaid = (bucket) => sanitize("anthropic-api", { ...report, buckets: [{ id: "prepaid", label: "Prepaid credits", ...bucket }] }).windows[0];
+assert.deepEqual(
+  [prepaid({ unit: "count", used: 57.56 }), prepaid({ unit: "percent", used: 100 }), prepaid({ unit: "count", used: 5, limit: 0 })].map(({ unit, used, limit, usedPercent, usedFraction }) => [unit, used, limit, usedPercent, usedFraction]),
+  [["count", 57.56, null, null, null], ["percent", 100, null, 100, 1], ["count", 5, 0, null, null]],
+  "anthropic-api spend is a count with unknown limit; only exhaustion is a percent",
+);
 const forbidden = () => { throw new Error("Unsupported providers must never look up an adapter, credentials or HTTP"); };
 assert.deepEqual(await observe("opencode", helpers({ adapterForProvider: forbidden, resolveUsageAuth: forbidden, queryProviderUsage: forbidden }), ctx), {
   provider: "opencode", source: null, capturedAt: null, status: "unknown", reason: "unsupported", windows: [],
@@ -234,7 +242,7 @@ for (const invalid of [NaN, Infinity, -1, "0", null, undefined]) {
   assert.equal(value.windows[0].limit, null);
   safe(value);
 }
-const mixedGoFailure = await Promise.all(PROVIDERS.map((provider) => observe(provider, helpers({ queryProviderUsage: async (adapter) => {
+const mixedGoFailure = await Promise.all(observed.map((provider) => observe(provider, helpers({ queryProviderUsage: async (adapter) => {
   if (adapter.id === "opencode-go") throw new Error(secret);
   return report;
 } }), ctx)));
@@ -381,7 +389,7 @@ if (process.argv[2] === "--runtime") {
   const installedAgentDir = hostConfig.getAgentDir();
   const addonRoot = join(installedAgentDir, "npm", "node_modules", "@narumitw", "pi-usage");
   const addonManifest = JSON.parse(await readFile(join(addonRoot, "package.json"), "utf8"));
-  assert.deepEqual({ name: addonManifest.name, version: addonManifest.version }, { name: "@narumitw/pi-usage", version: "0.64.1" });
+  assert.deepEqual({ name: addonManifest.name, version: addonManifest.version }, { name: "@narumitw/pi-usage", version: "0.66.0" });
   const workspace = await mkdtemp(join(tmpdir(), "pi-quota-status-test-"));
   const originalFetch = globalThis.fetch;
   const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
@@ -395,19 +403,22 @@ if (process.argv[2] === "--runtime") {
     const folder = join(agentDir, "extensions", "quota-status");
     await mkdir(join(workspace, "project"), { recursive: true });
     await cp(source, folder, { recursive: true });
+    // index.ts imports the sibling ledger reader, so deploy it as chezmoi does (it is a separate extension too).
+    await cp(join(source, "..", "anthropic-api.ts"), join(agentDir, "extensions", "anthropic-api.ts"));
     const load = () => discoverAndLoadExtensions([], join(workspace, "project"), agentDir);
     const loaded = await load();
     assert.deepEqual(loaded.errors, []);
-    assert.equal(loaded.extensions.length, 1);
-    assert.equal(loaded.extensions[0].tools.size, 1);
-    assert.equal(loaded.extensions[0].commands.size, 0, "the usage addon's default factory must not be invoked");
-    const tool = loaded.extensions[0].tools.get("quota_status").definition;
+    assert.equal(loaded.extensions.length, 2);
+    const quotaExtension = loaded.extensions.find((extension) => extension.tools.has("quota_status"));
+    assert.equal(quotaExtension.tools.size, 1);
+    assert.equal(quotaExtension.commands.size, 0, "the usage addon's default factory must not be invoked");
+    const tool = quotaExtension.tools.get("quota_status").definition;
     const emptyContext = { modelRegistry: {
       getAvailable: () => [], getAll: () => [], getProvider: () => undefined,
       getProviderAuth: async () => undefined, getApiKeyAndHeaders: async () => ({ ok: false, error: secret }), isUsingOAuth: () => false,
     } };
     const checkUnavailable = (result, expectedExternal) => {
-      assert.deepEqual(result.structuredContent.providers.map((provider) => provider.reason), [expectedExternal, "auth-unavailable", expectedExternal, expectedExternal, "unsupported"]);
+      assert.deepEqual(result.structuredContent.providers.map((provider) => provider.reason), [expectedExternal, "auth-unavailable", "ok", expectedExternal, expectedExternal, "unsupported"]);
       assert.deepEqual(JSON.parse(result.content[0].text), result.details);
       safe(result.details);
     };
@@ -425,31 +436,82 @@ if (process.argv[2] === "--runtime") {
     };
     globalThis.fetch = claudeMock;
     const missingClaude = await tool.execute("fixture", {}, undefined, undefined, anthropicContext());
-    assert.deepEqual(missingClaude.structuredContent.providers.map((provider) => provider.reason), ["dependency-unavailable", "ok", "dependency-unavailable", "dependency-unavailable", "unsupported"]);
+    assert.deepEqual(missingClaude.structuredContent.providers.map((provider) => provider.reason), ["dependency-unavailable", "ok", "ok", "dependency-unavailable", "dependency-unavailable", "unsupported"]);
     assert.equal(missingClaude.structuredContent.providers[1].windows[0].usedPercent, 0);
     safe(missingClaude.details);
 
-    await mkdir(join(agentDir, "npm", "node_modules", "@narumitw", "pi-usage"), { recursive: true });
-    await writeFile(join(helperPath, "package.json"), JSON.stringify({ name: "@narumitw/pi-usage", version: "0.64.0" }));
-    globalThis.fetch = () => { throw new Error("Only local Claude mock is allowed"); };
-    const wrongVersion = await tool.execute("fixture", {}, undefined, undefined, emptyContext);
-    checkUnavailable(wrongVersion, "dependency-unavailable");
+    // Qualification matrix with fake packages: only the exact 0.66.0 manifest may reach the package's code.
+    // Each fake dist records an import on globalThis, so a rejected manifest must leave the counter untouched.
+    const fakeDist = (exportNames) => `globalThis.quotaHelperImports = (globalThis.quotaHelperImports ?? 0) + 1;\n${exportNames.map((name) => `export const ${name} = ${name === "adapterForProvider" ? "(id) => ({ id })" : "async () => undefined"};`).join("\n")}\n`;
+    const threeExports = ["adapterForProvider", "resolveUsageAuth", "queryProviderUsage"];
+    // The module loader caches by path, so every fake package gets its own disposable agent directory.
+    let fakeAgents = 0;
+    const installFake = async (manifest, exportNames = threeExports) => {
+      const fakeRoot = join(workspace, `fake-agent-${++fakeAgents}`, "npm", "node_modules", "@narumitw", "pi-usage");
+      process.env.PI_CODING_AGENT_DIR = join(workspace, `fake-agent-${fakeAgents}`);
+      await mkdir(join(fakeRoot, "dist"), { recursive: true });
+      await writeFile(join(fakeRoot, "package.json"), typeof manifest === "string" ? manifest : JSON.stringify(manifest));
+      await writeFile(join(fakeRoot, "dist", "index.ts"), fakeDist(exportNames));
+    };
+    const helperReasons = (result) => [0, 3, 4].map((index) => result.structuredContent.providers[index].reason);
+    for (const manifest of [
+      { name: "@narumitw/pi-usage", version: "0.64.3" },
+      { name: "@narumitw/pi-usage", version: "0.64.1" },
+      { name: "@narumitw/pi-usage", version: "0.65.0" },
+      { name: "@narumitw/pi-usage", version: "0.66.1" },
+      { name: "@narumitw/pi-usage", version: "0.66.0-beta.1" },
+      { name: "@narumitw/pi-usage", version: "0.67.0" },
+      { name: "@narumitw/pi-usage", version: "1.0.0" },
+      { name: "@narumitw/pi-usage", version: 66 },
+      { name: "@narumitw/pi-usage" },
+      { name: "@narumitw/pi-usage-fork", version: "0.66.0" },
+      { name: "pi-usage", version: "0.66.0" },
+      { version: "0.66.0" },
+      "not json",
+      "[]",
+      "null",
+    ]) {
+      await installFake(manifest);
+      globalThis.quotaHelperImports = 0;
+      globalThis.fetch = () => { throw new Error("Only local Claude mock is allowed"); };
+      const rejected = await tool.execute("fixture", {}, undefined, undefined, emptyContext);
+      assert.deepEqual(helperReasons(rejected), ["dependency-unavailable", "dependency-unavailable", "dependency-unavailable"], `unqualified manifest ${JSON.stringify(manifest)}`);
+      assert.equal(globalThis.quotaHelperImports, 0, `unqualified manifest ${JSON.stringify(manifest)} must not execute package code`);
+      checkUnavailable(rejected, "dependency-unavailable");
+    }
     globalThis.fetch = claudeMock;
     const wrongVersionClaude = await tool.execute("fixture", {}, undefined, undefined, anthropicContext());
     assert.equal(wrongVersionClaude.structuredContent.providers[1].reason, "ok", "Claude stays independent of the optional helper version");
+    // Exact 0.66.0 manifest but a missing contract function: loaded, then rejected as dependency-unavailable.
+    for (const exportNames of [["adapterForProvider", "resolveUsageAuth"], ["adapterForProvider", "queryProviderUsage"], ["resolveUsageAuth", "queryProviderUsage"]]) {
+      await installFake({ name: "@narumitw/pi-usage", version: "0.66.0" }, exportNames);
+      globalThis.quotaHelperImports = 0;
+      globalThis.fetch = () => { throw new Error("Only local Claude mock is allowed"); };
+      const incomplete = await tool.execute("fixture", {}, undefined, undefined, emptyContext);
+      checkUnavailable(incomplete, "dependency-unavailable");
+      assert.equal(globalThis.quotaHelperImports, 1);
+    }
+    await installFake({ name: "@narumitw/pi-usage", version: "0.66.0" });
+    globalThis.quotaHelperImports = 0;
+    globalThis.fetch = () => { throw new Error("Only local Claude mock is allowed"); };
+    const qualifiedStub = await tool.execute("fixture", {}, undefined, undefined, emptyContext);
+    assert.deepEqual(helperReasons(qualifiedStub), ["auth-unavailable", "auth-unavailable", "auth-unavailable"], "exact 0.66.0 with all three functions is accepted (stub auth resolves to nothing, so no query is made)");
+    assert.equal(globalThis.quotaHelperImports, 1);
+    safe(qualifiedStub.details);
+    process.env.PI_CODING_AGENT_DIR = agentDir;
 
     await rm(helperPath, { recursive: true, force: true });
     await mkdir(join(agentDir, "npm", "node_modules", "@narumitw"), { recursive: true });
     await symlink(addonRoot, helperPath, "dir");
     globalThis.fetch = () => { throw new Error("Empty auth fixture must not make a request"); };
     const installed = await tool.execute("fixture", {}, undefined, undefined, emptyContext);
-    assert.deepEqual(installed.structuredContent.providers.map((provider) => provider.reason), ["auth-unavailable", "auth-unavailable", "auth-unavailable", "auth-unavailable", "unsupported"], "the installed 0.64.1 helper loaded successfully");
+    assert.deepEqual(installed.structuredContent.providers.map((provider) => provider.reason), ["auth-unavailable", "auth-unavailable", "ok", "auth-unavailable", "auth-unavailable", "unsupported"], "the installed 0.66.0 helper loaded successfully");
     assert.deepEqual(installed.details, installed.structuredContent);
 
     const runtimeCancelled = new AbortController();
     runtimeCancelled.abort();
     const cancelled = await tool.execute("fixture", {}, undefined, undefined, { ...emptyContext, signal: runtimeCancelled.signal });
-    assert.deepEqual(cancelled.structuredContent.providers.map((provider) => provider.reason), ["cancelled", "cancelled", "cancelled", "cancelled", "unsupported"]);
+    assert.deepEqual(cancelled.structuredContent.providers.map((provider) => provider.reason), ["cancelled", "cancelled", "ok", "cancelled", "cancelled", "unsupported"], "the local ledger read is not a cancellable helper request");
 
     const nativeToken = `fixture.${Buffer.from(JSON.stringify({ sub: "fixture-native-user" })).toString("base64url")}.signature`;
     const companionAccountId = "fixture-companion-account";
@@ -498,7 +560,7 @@ if (process.argv[2] === "--runtime") {
       } }), { status: 200 });
     };
     const nativeResult = await tool.execute("fixture", {}, undefined, undefined, nativeContext());
-    assert.deepEqual(nativeResult.structuredContent.providers.map((provider) => provider.reason), ["ok", "auth-unavailable", "auth-unavailable", "auth-unavailable", "unsupported"]);
+    assert.deepEqual(nativeResult.structuredContent.providers.map((provider) => provider.reason), ["ok", "auth-unavailable", "ok", "auth-unavailable", "auth-unavailable", "unsupported"]);
     assert.equal(nativeHttpLookups, 2, "native numerical reporting uses the installed companion adapter's two guarded requests");
     assert(nativeAuthReads >= 6 && companionAuthReads >= 6, "combined native/companion identity is re-resolved before both requests and publication");
     assert.equal(nativeResult.structuredContent.providers[0].source, "openai-chatgpt-companion-experimental");
@@ -530,6 +592,66 @@ if (process.argv[2] === "--runtime") {
     assert.equal(nativeHttpLookups, requestsBeforeMissing, "a mismatched companion is rejected before HTTP");
     safe(mismatchedCompanionRuntime.details);
 
+    // Copilot and Go through the real 0.66.0 helper: report shapes, helper error messages that map to no-quota-data, and real fingerprint identity guards.
+    const copilotModel = { provider: "github-copilot", id: "fixture-copilot", baseUrl: "https://api.individual.githubcopilot.com" };
+    const goModel = { provider: "opencode-go", id: "fixture-go", baseUrl: "https://opencode.ai/zen/go/v1" };
+    await writeFile(join(agentDir, "auth.json"), JSON.stringify({ "github-copilot": { type: "oauth", access: "runtime-token", refresh: "original-github-token", expires: 1800000000000 } }));
+    const copilotGoContext = ({ goToken = () => "go-token-1", copilotToken = () => "runtime-token", goBaseUrl } = {}) => ({ modelRegistry: {
+      getAvailable: () => [copilotModel, goModel], getAll: () => [copilotModel, goModel],
+      getProvider: (id) => id === "opencode-go" && goBaseUrl ? { id, baseUrl: goBaseUrl } : undefined,
+      getProviderAuth: async (id) => id === "github-copilot" ? { auth: { apiKey: copilotToken() }, source: "OAuth" } : id === "opencode-go" ? { auth: { apiKey: goToken() } } : undefined,
+      getApiKeyAndHeaders: async () => ({ ok: false, error: secret }), isUsingOAuth: () => true,
+    } });
+    const copilotPayload = { login: secret, copilot_plan: secret, quota_reset_date_utc: "2027-01-15T08:05:00Z", quota_snapshots: { premium_interactions: { token_based_billing: true, credits_used: 30, entitlement: 100, remaining: 70 } } };
+    const goPayload = { usage: { rolling: { status: "ok", percent: 3, resetsAt: "2027-01-15T08:05:00Z" }, weekly: { status: "ok", percent: 4 } } };
+    let providerRequests = [];
+    const providerMock = (copilotBody, goBody) => async (url, options) => {
+      providerRequests.push(url);
+      assert.equal(options.redirect === undefined || options.redirect === "error", true);
+      if (url === "https://api.github.com/copilot_internal/user") {
+        assert.equal(options.headers.Authorization, "Bearer original-github-token", "Copilot quota uses the matching stored OAuth credential, never the runtime token");
+        return new Response(JSON.stringify(copilotBody), { status: 200 });
+      }
+      assert.equal(url, "https://opencode.ai/zen/go/v1/usage");
+      assert.match(options.headers.Authorization, /^Bearer go-token-[12]$/u);
+      return new Response(JSON.stringify(goBody), { status: 200 });
+    };
+    const secretFree = (result) => { for (const value of ["runtime-token", "original-github-token", "go-token-1", "go-token-2"]) assert(!JSON.stringify(result).includes(value)); safe(result.details); };
+    globalThis.fetch = providerMock(copilotPayload, goPayload);
+    const copilotGo = await tool.execute("fixture", {}, undefined, undefined, copilotGoContext());
+    const [, , , copilotObserved, goObserved] = copilotGo.structuredContent.providers;
+    assert.deepEqual([copilotObserved.provider, copilotObserved.source, copilotObserved.reason, goObserved.provider, goObserved.source, goObserved.reason], ["github-copilot", "github-copilot-user", "ok", "opencode-go", "opencode-zen-usage", "ok"]);
+    assert.deepEqual(copilotObserved.windows.map(({ label, unit, used, remaining, limit, usedPercent, usedFraction, resetsAt }) => ({ label, unit, used, remaining, limit, usedPercent, usedFraction, resetsAt })), [
+      { label: "AI credits", unit: "count", used: 30, remaining: 70, limit: 100, usedPercent: 30, usedFraction: 0.3, resetsAt: Date.parse("2027-01-15T08:05:00Z") / 1000 },
+    ]);
+    assert.deepEqual(goObserved.windows.map(({ label, unit, usedPercent, windowMinutes }) => [label, unit, usedPercent, windowMinutes]), [["Rolling window", "percent", 3, null], ["Weekly window", "percent", 4, null]]);
+    assert.equal(copilotGo.structuredContent.providers[0].reason, "auth-unavailable");
+    assert.equal(providerRequests.length, 2);
+    secretFree(copilotGo);
+
+    providerRequests = [];
+    globalThis.fetch = providerMock({}, { usage: {} });
+    const noQuota = await tool.execute("fixture", {}, undefined, undefined, copilotGoContext());
+    assert.deepEqual([3, 4].map((index) => [noQuota.structuredContent.providers[index].status, noQuota.structuredContent.providers[index].reason]), [["unknown", "no-quota-data"], ["unknown", "no-quota-data"]], "0.66.0 helper error messages still map to no-quota-data");
+    secretFree(noQuota);
+
+    globalThis.fetch = providerMock(copilotPayload, goPayload);
+    let goResolutions = 0;
+    let copilotResolutions = 0;
+    const rotated = await tool.execute("fixture", {}, undefined, undefined, copilotGoContext({
+      goToken: () => ++goResolutions === 1 ? "go-token-1" : "go-token-2",
+      copilotToken: () => ++copilotResolutions === 1 ? "runtime-token" : "rotated-runtime-token",
+    }));
+    assert.deepEqual([3, 4].map((index) => rotated.structuredContent.providers[index].reason), ["auth-failed", "identity-changed"], "real 0.66.0 fingerprints/matching detect rotation after the query");
+    assert.deepEqual([3, 4].map((index) => rotated.structuredContent.providers[index].windows), [[], []]);
+    secretFree(rotated);
+
+    providerRequests = [];
+    const proxied = await tool.execute("fixture", {}, undefined, undefined, copilotGoContext({ goBaseUrl: "https://proxy.example" }));
+    assert.equal(proxied.structuredContent.providers[4].reason, "auth-failed");
+    assert(!providerRequests.includes("https://opencode.ai/zen/go/v1/usage"), "an overridden provider base URL never receives the credential");
+    secretFree(proxied);
+
     const hostRequire = createRequire(join(host, "package.json"));
     const { Check } = await import(pathToFileURL(hostRequire.resolve("typebox/value")));
     assert(Check(tool.outputSchema, installed.structuredContent));
@@ -537,6 +659,7 @@ if (process.argv[2] === "--runtime") {
     assert(Check(tool.outputSchema, nativeResult.structuredContent));
     assert(Check(tool.outputSchema, missingCompanionRuntime.structuredContent));
     assert(Check(tool.outputSchema, mismatchedCompanionRuntime.structuredContent));
+    for (const result of [copilotGo, noQuota, rotated, proxied]) assert(Check(tool.outputSchema, result.structuredContent));
     assert(Check(tool.parameters, {}));
     assert(!Check(tool.parameters, { forceRefresh: true }));
 
@@ -585,6 +708,7 @@ export default function(pi) {
     return { content: [], details: {
       namedExports: [addon.adapterForProvider, addon.resolveUsageAuth, addon.queryProviderUsage].map((value) => typeof value),
       providers: ["github-copilot", "opencode-go"].map((id) => addon.adapterForProvider(id)?.id ?? null),
+      adapters: ["openai", "github-copilot", "opencode-go", "opencode"].map((id) => { const adapter = addon.adapterForProvider(id); return adapter ? [adapter.id, adapter.semantics?.kind, typeof adapter.query] : null; }),
       copilot, go, variants, rejected, noGoQuota,
     } };
   } });
@@ -606,6 +730,7 @@ export default function(pi) {
     const actual = (await probeLoaded.extensions[0].tools.get("fixture_probe").definition.execute()).details;
     assert.deepEqual(actual.namedExports, ["function", "function", "function"]);
     assert.deepEqual(actual.providers, ["github-copilot", "opencode-go"]);
+    assert.deepEqual(actual.adapters, [["openai", "consumer-subscription", "function"], ["github-copilot", "consumer-subscription", "function"], ["opencode-go", "consumer-subscription", "function"], null], "the helper still exposes the three adapters and no opencode (Zen) adapter");
     assert.equal(actual.copilot.buckets[0].used, 125);
     assert.equal(actual.go.buckets[0].used, 0);
     assert.deepEqual(actual.rejected, [true, true, true, true, true]);
@@ -621,13 +746,13 @@ export default function(pi) {
     const variants = actual.variants.map((value) => sanitize("github-copilot", value));
     assert.deepEqual(variants.map((value) => value.windows[0].used), [30, 50, 10, null, 0, 125]);
     assert.deepEqual(variants.map((value) => value.windows[0].limit), [100, 300, 50, null, 0, 100]);
-    const runtimeSnapshot = { providers: [nativeResult.structuredContent.providers[0], missingClaude.structuredContent.providers[1], copilot, go, sanitize("opencode", report)] };
+    const runtimeSnapshot = { providers: [nativeResult.structuredContent.providers[0], missingClaude.structuredContent.providers[1], nativeResult.structuredContent.providers[2], copilot, go, sanitize("opencode", report)] };
     assert(Check(tool.outputSchema, nativeResult.structuredContent));
     assert(Check(tool.outputSchema, runtimeSnapshot));
     safe(nativeResult.details);
     safe(runtimeSnapshot);
     safe(variants);
-    console.log(`PASS: Pi ${hostVersion} discovery/Jiti, installed @narumitw/pi-usage@0.64.1 helper imports/auth/query with fake auth and mocked HTTP; missing/wrong helper leaves local Claude independent`);
+    console.log(`PASS: Pi ${hostVersion} discovery/Jiti, installed @narumitw/pi-usage@0.66.0 helper imports/auth/query with fake auth and mocked HTTP; missing/wrong helper leaves local Claude independent`);
   } finally {
     globalThis.fetch = originalFetch;
     delete globalThis.quotaHelperLookups;

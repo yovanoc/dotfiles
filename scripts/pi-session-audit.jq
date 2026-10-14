@@ -87,7 +87,7 @@ def handle_block($block; $in_window):
 
 def process_event($event):
   ($event.timestamp | epoch) as $timestamp
-  | ($timestamp != null and $timestamp >= $cutoff) as $in_window
+  | ($timestamp != null and $timestamp >= $cutoff and ($until == null or $timestamp <= $until)) as $in_window
   | if $event.type == "session" then
       .created = (if .created == null then $timestamp else .created end)
       | if ($event.parentSession | type) == "string" then .parent_session = $event.parentSession else . end
@@ -113,6 +113,18 @@ def process_event($event):
           | (if ($identity | type) == "string" or ($identity | type) == "number" or ($identity | type) == "boolean" then $identity else .line_number end) as $identity
           | .notifications |= (. + [([$path, $identity, $status] | tojson)] | unique)
         end
+    else . end
+  | if $in_window and ($event.message | type) == "object" and $event.message.role == "assistant" then
+      ($event.message.usage | if type == "object" then . else {} end) as $usage
+      | (($event.message.provider | safe_label) + "/" + ($event.message.model | safe_label)) as $key
+      | def num($v): if ($v | type) == "number" then $v else 0 end;
+      .models[$key] |= (. // {requests: 0, input: 0, output: 0, cache_read: 0, cache_write: 0, cost_total: 0})
+      | .models[$key].requests += 1
+      | .models[$key].input += num($usage.input)
+      | .models[$key].output += num($usage.output)
+      | .models[$key].cache_read += num($usage.cacheRead)
+      | .models[$key].cache_write += num($usage.cacheWrite)
+      | .models[$key].cost_total += num($usage.cost.total? // null)
     else . end
   | if ($event.message | type) != "object" then .
     elif $event.message.role == "assistant" and ($event.message.content | type) == "array" then
@@ -140,7 +152,7 @@ def scan_file:
       earliest: null, first_recent: null, last_recent: null, recent: false,
       bash: {calls: 0, timeout_argument_present: 0, timeout_over_3600s: 0, by_value: {}},
       dispatch: {max_turns: {}, model: {}, thinking: {}, background: {}, resume: {}},
-      notifications: [], calls: {}, retrieval: {attempts: 0, results: 0, misses: 0, targets: []}
+      notifications: [], models: {}, calls: {}, retrieval: {attempts: 0, results: 0, misses: 0, targets: []}
     };
     .line_number += 1
     | if ($line | test("^\\s*$")) then .
@@ -157,6 +169,7 @@ def scan_file:
       bash: $summary.bash,
       dispatch: $summary.dispatch,
       notifications: $summary.notifications,
+      models: $summary.models,
       retrieval: $summary.retrieval
     }
   + (if $summary.recent then
@@ -178,6 +191,12 @@ def sum_counts($objects):
     reduce ($object | to_entries[]) as $entry (.;
       .[$entry.key] = ((.[$entry.key] // 0) + $entry.value)
     )
+  );
+
+def merge_models($files):
+  reduce ($files[] | .models // {} | to_entries[]) as $e ({};
+    .[$e.key] = (if .[$e.key] == null then $e.value
+                 else reduce ($e.value | to_entries[]) as $f (.[$e.key]; .[$f.key] += $f.value) end)
   );
 
 def aggregate:
@@ -206,9 +225,15 @@ def aggregate:
       ) | max // 0) as $concurrency
   | {
       window_start_local: $window_start_local,
+      window_end_local: (if $window_end_local == "" then null else $window_end_local end),
+      model_metrics: {
+        workers: merge_models([$files[] | select(.classification == "worker")]),
+        nonworker_coordinators: merge_models([$files[] | select(.classification != "worker" and .classification != null)])
+      },
       limitations: [
         "Counts direct tool calls only; nested codemode calls are uncounted. Files last modified before --since are skipped.",
-        "Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound."
+        "Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound.",
+        "Terminal statuses come from notifications logged in the parent session, so they are counted per unique notification, not attributed to individual worker sessions or models. Model metrics count assistant messages; missing usage fields count as 0."
       ],
       main_sessions: $main,
       fork_sessions: $forks,

@@ -4,10 +4,11 @@ set -o pipefail
 
 usage() {
   cat <<'EOF'
-Usage: pi-session-audit.sh [--since ISO_TIMESTAMP] [--sessions-dir DIR] [--json]
+Usage: pi-session-audit.sh [--since ISO_TIMESTAMP] [--until ISO_TIMESTAMP] [--sessions-dir DIR] [--json]
 
 Summarize metadata from Pi session JSONL files (never prompts or tool arguments).
---since accepts an ISO timestamp with an offset; naive timestamps are local time.
+--since and --until accept an ISO timestamp with an offset; naive timestamps are local time.
+Events after --until are excluded.
 The default window is the last 48 hours.
 EOF
 }
@@ -18,6 +19,7 @@ error() {
 }
 
 since=
+until=
 sessions_dir="$HOME/.pi/agent/sessions"
 json_output=false
 while (($#)); do
@@ -27,6 +29,12 @@ while (($#)); do
       since=$2
       shift 2
       ;;
+    --until)
+      (($# >= 2)) || error 'missing value for --until'
+      until=$2
+      shift 2
+      ;;
+    --until=*) until=${1#*=}; shift ;;
     --since=*) since=${1#*=}; shift ;;
     --sessions-dir)
       (($# >= 2)) || error 'missing value for --sessions-dir'
@@ -59,7 +67,7 @@ filter="$script_dir/pi-session-audit.jq"
 if [[ -n $since ]]; then
   # jq resolves naive timestamps in the local zone on every platform; GNU date rejects DST-gap times.
   cutoff=$("$JQ" -nr --arg mode time --arg time "$since" --arg path '' \
-    --argjson cutoff 0 --arg window_start_local '' -f "$filter") || error 'invalid --since timestamp; expected ISO format'
+    --argjson cutoff 0 --argjson until null --arg window_end_local '' --arg window_start_local '' -f "$filter") || error 'invalid --since timestamp; expected ISO format'
   [[ -n $cutoff && $cutoff != null ]] || error 'invalid --since timestamp; expected ISO format'
 else
   now=$(date +%s) || error 'could not read current time'
@@ -67,7 +75,17 @@ else
 fi
 [[ $cutoff =~ ^-?[0-9]+([.][0-9]+)?$ ]] || error 'could not parse --since timestamp'
 
-window_start_local=$("$JQ" -nr --argjson cutoff "$cutoff" '
+until_epoch=null
+if [[ -n $until ]]; then
+  until_epoch=$("$JQ" -nr --arg mode time --arg time "$until" --arg path '' \
+    --argjson cutoff 0 --argjson until null --arg window_end_local '' --arg window_start_local '' -f "$filter") || error 'invalid --until timestamp; expected ISO format'
+  [[ -n $until_epoch && $until_epoch != null ]] || error 'invalid --until timestamp; expected ISO format'
+  [[ $until_epoch =~ ^-?[0-9]+([.][0-9]+)?$ ]] || error 'could not parse --until timestamp'
+  "$JQ" -ne --argjson a "$until_epoch" --argjson b "$cutoff" '$a >= $b' > /dev/null || error '--until must not be earlier than --since'
+fi
+
+local_time() {
+  "$JQ" -nr --argjson cutoff "$1" '
   ($cutoff | localtime) as $local
   | ($cutoff - ($local | mktime)) as $west
   | ($west | abs | floor) as $offset
@@ -77,7 +95,13 @@ window_start_local=$("$JQ" -nr --argjson cutoff "$cutoff" '
   | ($date + (if $west > 0 then "-" else "+" end)
      + (if $hours < 10 then "0" else "" end) + ($hours | tostring)
      + ":" + (if $minutes < 10 then "0" else "" end) + ($minutes | tostring))
-') || error 'could not format local cutoff'
+'
+}
+window_start_local=$(local_time "$cutoff") || error 'could not format local cutoff'
+window_end_local=
+if [[ $until_epoch != null ]]; then
+  window_end_local=$(local_time "$until_epoch") || error 'could not format local until'
+fi
 
 # Session files are append-only, so a file last modified before the cutoff has no
 # in-window events; skip it instead of parsing gigabytes of history.
@@ -88,14 +112,14 @@ report=$(
   {
     while IFS= read -r -d '' path; do
       if summary=$("$JQ" -Rn --arg mode scan --arg time '' --arg path "$path" --argjson cutoff "$cutoff" \
-        --arg window_start_local "$window_start_local" -f "$filter" < "$path" 2>/dev/null); then
+        --argjson until "$until_epoch" --arg window_end_local "$window_end_local" --arg window_start_local "$window_start_local" -f "$filter" < "$path" 2>/dev/null); then
         printf '%s\n' "$summary"
       else
         printf '%s\n' '{"_unreadable":true}'
       fi
     done < <(find "$sessions_dir" -type f -name '*.jsonl' -mmin "-$window_minutes" -print0)
   } | "$JQ" -s --arg mode aggregate --arg time '' --arg path '' --argjson cutoff "$cutoff" \
-      --arg window_start_local "$window_start_local" -f "$filter"
+      --argjson until "$until_epoch" --arg window_end_local "$window_end_local" --arg window_start_local "$window_start_local" -f "$filter"
 )
 status=$?
 ((status == 0)) || exit "$status"
@@ -107,6 +131,7 @@ else
     def counts: if length == 0 then "none" else (to_entries | sort_by(.key) | map("\(.key)=\(.value)") | join(", ")) end;
     . as $r
     | "Window start (local): \($r.window_start_local)",
+      (if $r.window_end_local != null then "Window end (local): \($r.window_end_local)" else empty end),
       "Main sessions: \($r.main_sessions.older_with_activity // 0) older, \($r.main_sessions.created_within_window // 0) created in window",
       "Forks: \($r.fork_sessions.older_with_activity // 0) older, \($r.fork_sessions.created_within_window // 0) created in window",
       "Workers identified by session_info: \($r.workers.sessions) (\($r.workers.types | counts))",
@@ -116,8 +141,11 @@ else
       "Unique terminal notification statuses: \($r.terminal_notification_statuses_unique | counts)",
       "get_subagent_result: \($r.get_subagent_result.attempts) attempts, \($r.get_subagent_result.misses) misses (\($r.get_subagent_result.unique_missed_targets) unique targets, \($r.get_subagent_result.duplicate_misses) duplicate misses)",
       "Observed worker-span overlap proxy: \($r.workers.max_concurrency_observed_span_upper_bound)",
+      (["workers", "nonworker_coordinators"][] as $g | $r.model_metrics[$g] | to_entries | sort_by(.key)[]
+        | "Model \($g) \(.key): requests=\(.value.requests), input=\(.value.input), output=\(.value.output), cache_read=\(.value.cache_read), cache_write=\(.value.cache_write), cost=\(.value.cost_total)"),
       "Scanned \($r.scan.files) files; malformed lines \($r.scan.malformed_lines); unreadable files \($r.scan.unreadable_files)",
       "Limitations: \($r.limitations[0])",
-      "              \($r.limitations[1])"
+      "              \($r.limitations[1])",
+      "              \($r.limitations[2])"
   '
 fi

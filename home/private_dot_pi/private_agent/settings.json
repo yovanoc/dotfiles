@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.1.0",
+  "lastChangelogVersion": "1.2.0",
   "packages": [
     "npm:@tintinweb/pi-subagents",
     "npm:@gotgenes/pi-permission-system",
@@ -16,13 +16,13 @@
     "npm:@plannotator/pi-extension",
     "npm:pi-model-fallback",
     "git:github.com/earendil-works/pi-review",
-    "npm:@narumitw/pi-usage"
+    "npm:@narumitw/pi-usage@0.66.0"
   ],
   "theme": "tokyonight",
-  "defaultProvider": "openai",
-  "defaultModel": "gpt-6.1-sol",
-  "defaultThinkingLevel": "high",
-  "hideThinkingBlock": false,
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-sonnet-5-5",
+  "defaultThinkingLevel": "medium",
+  "hideThinkingBlock": true,
   "followUpMode": "all",
   "steeringMode": "all",
   "terminal": {

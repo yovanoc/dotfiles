@@ -59,8 +59,10 @@ jq -e '
   and .workers.max_concurrency_observed_span_upper_bound == 1
   and .limitations == [
     "Counts direct tool calls only; nested codemode calls are uncounted. Files last modified before --since are skipped.",
-    "Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound."
+    "Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound.",
+    "Terminal statuses come from notifications logged in the parent session, so they are counted per unique notification, not attributed to individual worker sessions or models. Model metrics count assistant messages; missing usage fields count as 0."
   ]
+  and .window_end_local == null
   and .bash_timeouts.workers == {calls:3,timeout_argument_present:2,timeout_over_3600s:1,by_value:{"30":1,"3601":1,not_set:1}}
   and .bash_timeouts.nonworker_coordinators == {calls:3,timeout_argument_present:2,timeout_over_3600s:1,by_value:{"120000":1,"999":1,not_set:1}}
   and .agent_dispatches.max_turns == {"7":1}
@@ -98,6 +100,48 @@ if grep -E 'PROMPT_SECRET|OLD_PROMPT_SECRET|TOOL_ARGUMENT_SECRET|FORK_ARGUMENT_S
   echo 'audit output leaked fixture content' >&2
   exit 1
 fi
+
+# --until and per-model metrics use their own fixtures.
+mroot="$tmp_root/model-sessions"
+mkdir -p "$mroot"
+msg() { # timestamp provider model input output cost
+  jq -nc --arg t "$1" --arg p "$2" --arg m "$3" --argjson i "$4" --argjson o "$5" --argjson c "$6" \
+    '{type:"message",timestamp:$t,message:{role:"assistant",provider:$p,model:$m,content:[{type:"text",text:"MODEL_SECRET"}],usage:{input:$i,output:$o,cacheRead:10,cacheWrite:5,cost:{total:$c}}}}'
+}
+jq -nc '{type:"session",id:"c",timestamp:"2024-05-02T12:00:00Z"}' > "$mroot/coord.jsonl"
+msg 2024-05-02T12:10:00Z anthropic m1 1 2 0.5 >> "$mroot/coord.jsonl"
+msg 2024-05-02T12:20:00Z anthropic m1 3 4 0.25 >> "$mroot/coord.jsonl"
+msg 2024-05-02T13:30:00Z anthropic m1 100 100 9 >> "$mroot/coord.jsonl"
+jq -nc --arg parent "$mroot/coord.jsonl" '{type:"session",id:"w",timestamp:"2024-05-02T12:00:00Z",parentSession:$parent}' > "$mroot/worker.jsonl"
+jq -nc '{type:"session_info",timestamp:"2024-05-02T12:00:01Z",name:"general-purpose#WORKER02"}' >> "$mroot/worker.jsonl"
+msg 2024-05-02T12:15:00Z openai m2 7 8 1.5 >> "$mroot/worker.jsonl"
+jq -nc '{type:"message",timestamp:"2024-05-02T12:16:00Z",message:{role:"assistant",provider:"openai",model:"m2",content:[]}}' >> "$mroot/worker.jsonl"
+touch -t 202405021400 "$mroot/coord.jsonl" "$mroot/worker.jsonl"
+"$SCRIPT" --sessions-dir "$mroot" --since 2024-05-02T12:00:00Z --until=2024-05-02T13:00:00Z --json > "$tmp_root/model.json"
+jq -e '
+  (.window_end_local | type) == "string"
+  and .model_metrics.nonworker_coordinators == {"anthropic/m1":{requests:2,input:4,output:6,cache_read:20,cache_write:10,cost_total:0.75}}
+  and .model_metrics.workers == {"openai/m2":{requests:2,input:7,output:8,cache_read:10,cache_write:5,cost_total:1.5}}
+' "$tmp_root/model.json" >/dev/null
+"$SCRIPT" --sessions-dir "$mroot" --since 2024-05-02T12:00:00Z --json > "$tmp_root/model-open.json"
+jq -e '.window_end_local == null and .model_metrics.nonworker_coordinators["anthropic/m1"].requests == 3' "$tmp_root/model-open.json" >/dev/null
+"$SCRIPT" --sessions-dir "$mroot" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z > "$tmp_root/model.txt"
+grep -Fq 'Window end (local):' "$tmp_root/model.txt"
+grep -Fq 'Model nonworker_coordinators anthropic/m1: requests=2' "$tmp_root/model.txt"
+if grep -E 'MODEL_SECRET|WORKER02' "$tmp_root/model.json" "$tmp_root/model.txt"; then
+  echo 'model output leaked fixture content' >&2
+  exit 1
+fi
+if "$SCRIPT" --sessions-dir "$mroot" --since 2024-05-02T12:00:00Z --until 2024-05-02T11:00:00Z > /dev/null 2> "$tmp_root/until.err"; then
+  echo 'until before since unexpectedly succeeded' >&2
+  exit 1
+fi
+grep -q -- '--until must not be earlier than --since' "$tmp_root/until.err"
+if "$SCRIPT" --sessions-dir "$mroot" --until bogus > /dev/null 2> "$tmp_root/until.err"; then
+  echo 'bad until unexpectedly succeeded' >&2
+  exit 1
+fi
+grep -q 'invalid --until timestamp' "$tmp_root/until.err"
 
 # Exercise the default last-48-hour window with a current event.
 default_root="$tmp_root/default-sessions"
