@@ -8,7 +8,7 @@ This documents the managed configuration and installed `pi-model-fallback`
 - Managed source: `home/private_dot_pi/private_agent/private_model-fallback/config.json`.
 - Runtime config: `~/.pi/agent/model-fallback/config.json`.
 - Runtime cooldown state: `~/.pi/agent/model-fallback/state.json`.
-- The managed source is enabled, has `autoRetry: false`, and contains 14 ordered rules. This does not claim the runtime copy has been applied.
+- The managed source is enabled, has `autoRetry: false`, and contains 17 ordered rules. This does not claim the runtime copy has been applied.
 
 The extension records cooldowns by failing source `provider/model`, not by
 account or subscription pool. `/model-fallback:status` and
@@ -20,6 +20,7 @@ provider/source limitations are documented in [quota access](pi-quota-usage.md).
 
 - Rules are evaluated in order. In 0.5.2, `findFallback` selects the first rule matching the source model/provider and status.
 - The two exact `openai/gpt-6-luna` rules precede the broad OpenAI rules: both quota statuses (402/429) and transient statuses (500/502/503/504/529) route Luna to `anthropic/claude-sonnet-5-5`. `openai/gpt-6.1-sol` and other native OpenAI models use the broad Opus route for those classes.
+- Subscription Anthropic Opus, Sonnet and Haiku quota errors (402/429) switch to the same model on `anthropic-api` (expiring prepaid credits) before any other provider; other `anthropic/` models keep the broad Sol route. `anthropic-api` 402/429 falls back to Sol with a ten-minute cooldown. Its out-of-credits refusal is a 400, which no rule matches; the `quota_status` ledger reports it as exhausted.
 - Evidence and caveats: see [routing research](model-routing-research.md). These are model-recovery routes, not quota optimization. Fallback config selects a model; it neither configures per-fallback reasoning effort nor guarantees its preservation.
 - Fallbacks can chain when a selected fallback model later fails and matches another rule. The loop guard tracks visited `provider/model` pairs for the current agent run and resets at `agent_start`; it does not track shared subscription pools. `Anthropic Sonnet → OpenAI Sol → Anthropic Opus` can still return to Anthropic under a different model after a Sonnet failure, potentially re-entering an exhausted account.
 - Matching non-2xx responses in `after_provider_response` and parsed assistant errors at `turn_end` can switch models. There is no automatic return to the primary model during the session; `/model-fallback:reset` clears persistent state and returns to the remembered original model when possible.

@@ -64,7 +64,7 @@
       "matchModels": [{ "provider": "anthropic", "model": "claude-opus-5-5" }],
       "statuses": [402, 429],
       "cooldownMs": 18000000,
-      "fallback": { "provider": "github-copilot", "model": "gpt-6-luna" }
+      "fallback": { "provider": "anthropic-api", "model": "claude-opus-5-5" }
     },
     {
       "name": "anthropic-opus-transient",
@@ -72,6 +72,20 @@
       "statuses": [500, 502, 503, 504, 529],
       "cooldownMs": 600000,
       "fallback": { "provider": "github-copilot", "model": "gpt-6-luna" }
+    },
+    {
+      "name": "anthropic-sonnet-credits",
+      "matchModels": [{ "provider": "anthropic", "model": "claude-sonnet-5-5" }],
+      "statuses": [402, 429],
+      "cooldownMs": 18000000,
+      "fallback": { "provider": "anthropic-api", "model": "claude-sonnet-5-5" }
+    },
+    {
+      "name": "anthropic-haiku-credits",
+      "matchModels": [{ "provider": "anthropic", "model": "claude-haiku-5-5" }],
+      "statuses": [402, 429],
+      "cooldownMs": 18000000,
+      "fallback": { "provider": "anthropic-api", "model": "claude-haiku-5-5" }
     },
     {
       "name": "anthropic-credits",
@@ -84,6 +98,13 @@
       "name": "anthropic-transient",
       "matchProviders": ["anthropic"],
       "statuses": [500, 502, 503, 504, 529],
+      "cooldownMs": 600000,
+      "fallback": { "provider": "openai", "model": "gpt-6.1-sol" }
+    },
+    {
+      "name": "anthropic-api-limit",
+      "matchProviders": ["anthropic-api"],
+      "statuses": [402, 429],
       "cooldownMs": 600000,
       "fallback": { "provider": "openai", "model": "gpt-6.1-sol" }
     },

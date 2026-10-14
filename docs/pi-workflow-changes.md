@@ -54,3 +54,17 @@ Applied to `~/.pi` (timestamp = last target written); active only in Pi processe
   split by worker and coordinator. Why: retro of 2026-10-14
   (`/tmp/retro-models.txt`, `/tmp/retro-current.json`). Next retro: after a few
   days of normal use, close this period with `--until`.
+
+## 2026-10-14T23:04:57+02:00 — anthropic-api-credit-pacing
+
+Applied to `~/.pi` (coordinator.md and model-fallback/config.json); active after `/reload` or restart.
+
+- Routing: expiring prepaid `anthropic-api` credits ($360 by 2026-10-21, $1,000 by
+  2027-04-08; console $129.04 spent on 2026-10-14) are no longer opt-in. They take
+  Anthropic relief at 80%+ subscription windows and routine Anthropic packets while
+  the Pi-local count is behind 57.56 + $35/day (to 2026-10-21), then + $6/day.
+- Fallback: subscription Opus/Sonnet/Haiku 402/429 switch to the same model on
+  `anthropic-api`; `anthropic-api` 402/429 falls back to Sol.
+- Why: the user asked not to lose credits (console screenshot, 2026-10-14).
+- Measure: console spend ≥ $360 by 2026-10-21; Pi-local `Prepaid credits` on pace;
+  no unexpected exhaustion; worker share on `anthropic-api` (audit per-model metrics).

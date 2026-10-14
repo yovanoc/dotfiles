@@ -42,8 +42,8 @@ task priorities, soft quota states, scope checks and reset handling; this is
 prompt policy, not an automatic routing engine. Do not duplicate that table here.
 In short: Haiku/Luna first for bounded mapping, extraction and checkable leaves;
 Sonnet `medium` for everyday work; Opus or Sol chosen deliberately for difficult
-implementation and deep review. Quota pacing is reset-aware, and `anthropic-api/`
-routes are used only when the user explicitly asks. Handoff checkpoints are per-session
+implementation and deep review. Quota pacing is reset-aware; expiring `anthropic-api/`
+prepaid credits take Anthropic relief and pace-based routine work (see the coordinator policy). Handoff checkpoints are per-session
 files whose exact path the notice names; legacy `tasks/handoff.md` is not authority.
 
 ## Haiku availability

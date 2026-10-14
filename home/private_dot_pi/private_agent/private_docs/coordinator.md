@@ -167,11 +167,17 @@ and never infer per-model debit. Aim for useful near-full use (roughly 95–98% 
 reset) with a reserve; exactly 100% cannot be guaranteed. Root queries once per
 ready batch, workers never poll, and unknown stays unknown.
 
-`anthropic-api/<model>` routes are the same models on separately billed prepaid API
-credits: do not route to them unless the user explicitly asks in the current session;
-subscription `anthropic/` routes are the default. The `Prepaid credits` window is a
-Pi-local spend count with unknown limit (the local ledger is known incomplete), not
-account billing or remaining balance.
+`anthropic-api/<model>` routes are the same models on prepaid API credits that
+expire unused: $360 by 2026-10-21 and $1,000 by 2027-04-08 (console: $129.04 spent
+on 2026-10-14; the user updates these figures). Subscription `anthropic/` stays the
+default, but `anthropic-api/` is eligible without asking (1) as relief: when a
+subscription Anthropic window reaches Conserve or above (80%+, five-hour first), use
+the same model there before moving Claude-fit work to another provider; and (2) to
+keep pace: while the `Prepaid credits` count is below 57.56 + $35 per day since
+2026-10-14 (until 2026-10-21), then + $6 per day (until 2027-04-08), route that
+row's Anthropic packets there until caught up. Never add padding work to burn
+credits. That count is Pi-local spend with unknown limit (the console is
+authoritative); 100% means exhausted: hold those routes and report.
 
 Keep plan, app and model-scoped windows separate. A generic `Quota window`
 cannot establish model headroom; generic or model-specific windows cannot
