@@ -25,6 +25,9 @@ path=("$PNPM_HOME/bin" "$PNPM_HOME" $path)
 # turso
 [[ -r "$HOME/.turso/env" ]] && source "$HOME/.turso/env"
 
+# Vite+ (https://viteplus.dev): PATH, the vp wrapper and its completions
+[[ -r "$HOME/.config/vite-plus/env" ]] && source "$HOME/.config/vite-plus/env"
+
 # windsurf
 path=("$HOME/.codeium/windsurf/bin" $path)
 

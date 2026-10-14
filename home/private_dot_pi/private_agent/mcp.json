@@ -20,6 +20,24 @@
         "serve",
         "--mcp"
       ]
+    },
+    "rea": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "rea-agents@6.4.0",
+        "mcp"
+      ],
+      "env": {
+        "HOPPER_LAUNCHER_PATH": "/Users/yovanoc/Applications/Hopper Disassembler.app/Contents/MacOS/hopper"
+      }
+    },
+    "canopy": {
+      "url": "http://ipsum-bot.com:5555/mcp",
+      "headers": {
+        "Authorization": "!node --env-file=/Users/yovanoc/Projects/big-leaf/scripts/.env -e 'const token = process.env.CANOPY_TOKEN; if (!token) process.exit(1); process.stdout.write(\"Bearer \" + token)'"
+      }
     }
   }
 }

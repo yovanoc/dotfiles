@@ -5,3 +5,6 @@ typeset -U path PATH fpath FPATH
 . "$HOME/.cargo/env"
 
 export PATH="$PATH:$HOME/.foundry/bin"
+
+# Vite+ (https://viteplus.dev); path.zsh re-sources it for completions after compinit.
+[[ -r "$HOME/.config/vite-plus/env" ]] && . "$HOME/.config/vite-plus/env"
