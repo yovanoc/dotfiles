@@ -19,8 +19,8 @@
     "npm:@narumitw/pi-usage@0.66.0"
   ],
   "theme": "tokyonight",
-  "defaultProvider": "anthropic",
-  "defaultModel": "claude-sonnet-5-5",
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-6.1-sol",
   "defaultThinkingLevel": "medium",
   "hideThinkingBlock": true,
   "followUpMode": "all",

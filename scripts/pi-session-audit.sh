@@ -144,8 +144,8 @@ else
       (["workers", "nonworker_coordinators"][] as $g | $r.model_metrics[$g] | to_entries | sort_by(.key)[]
         | "Model \($g) \(.key): requests=\(.value.requests), input=\(.value.input), output=\(.value.output), cache_read=\(.value.cache_read), cache_write=\(.value.cache_write), cost=\(.value.cost_total)"),
       "Scanned \($r.scan.files) files; malformed lines \($r.scan.malformed_lines); unreadable files \($r.scan.unreadable_files)",
-      "Limitations: \($r.limitations[0])",
-      "              \($r.limitations[1])",
-      "              \($r.limitations[2])"
+      "Retrospective metadata: \($r.retrospective | tojson)",
+      "Session files: \($r.scan.session_files); non-session JSONL: \($r.scan.non_session_jsonl_files); skipped lines: \($r.scan.skipped_lines)",
+      ($r.limitations[] | "Limitations: \(.)")
   '
 fi

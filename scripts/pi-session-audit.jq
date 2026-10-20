@@ -31,6 +31,10 @@ def epoch:
 def safe_label:
   if type == "string" and test("^[A-Za-z0-9._:/@+-]{1,100}$") then . else "other" end;
 
+# Never emit error text or arbitrary extracted error codes.
+def auth_category:
+  if type == "string" and test("\\bapi_key_expired\\b"; "i") then "api_key_expired" else "unclassified" end;
+
 def bump($key): .[$key] = ((.[$key] // 0) + 1);
 
 def terminal_status:
@@ -77,6 +81,8 @@ def handle_block($block; $in_window):
   | if $name == "get_subagent_result" then
       (if ($block.id | type) == "string" then .calls[$block.id] = $args.agent_id else . end)
       | if $in_window then .retrieval.attempts += 1 else . end
+    elif $in_window and $name == "unattended_checkpoint" then
+      .checkpoints |= bump(if $args.status == "continue" or $args.status == "blocked" or $args.status == "done" then $args.status else "other" end)
     elif $in_window and $name == "Agent" then dispatch($args)
     elif $in_window and ($name == "bash" or $name == "Bash") then
       .bash.calls += 1
@@ -89,7 +95,8 @@ def process_event($event):
   ($event.timestamp | epoch) as $timestamp
   | ($timestamp != null and $timestamp >= $cutoff and ($until == null or $timestamp <= $until)) as $in_window
   | if $event.type == "session" then
-      .created = (if .created == null then $timestamp else .created end)
+      .has_header = true
+      | .created = (if .created == null then $timestamp else .created end)
       | if ($event.parentSession | type) == "string" then .parent_session = $event.parentSession else . end
     else . end
   | if $event.type == "session_info" and ($event.name | type) == "string"
@@ -104,6 +111,19 @@ def process_event($event):
           | .last_recent = (if .last_recent == null then $timestamp else ([.last_recent, $timestamp] | max) end)
         else . end
     else . end
+  | if $in_window and $event.type == "compaction" then .compactions += 1 else . end
+  | if $in_window and ($event.type == "custom" or $event.type == "custom_message")
+      and ($event.customType == "unattended-handoff" or $event.customType == "compaction-handoff") then
+      .handoffs[$event.type] |= bump($event.customType)
+    else . end
+  | if $event.type == "model_change" then
+      (($event.provider | safe_label) + "/" + ($event.modelId | safe_label)) as $selection
+      | if $in_window then
+          (if .selection == null then "initial_selection" elif .selection == $selection then "same_selection" else "transition" end) as $kind
+          | .model_changes |= bump($kind)
+        else . end
+      | .selection = $selection
+    else . end
   | if $in_window and $event.customType == "subagent-notification" then
       ($event.content | terminal_status) as $status
       | if $status == null then . else
@@ -117,6 +137,12 @@ def process_event($event):
   | if $in_window and ($event.message | type) == "object" and $event.message.role == "assistant" then
       ($event.message.usage | if type == "object" then . else {} end) as $usage
       | (($event.message.provider | safe_label) + "/" + ($event.message.model | safe_label)) as $key
+      | if $event.message.stopReason == "error" then
+          .errors |= bump($key)
+          | ($event.message.errorMessage | auth_category) as $category
+          | .auth_categories |= bump($category)
+          | .error_categories[$key] |= (. // {} | bump($category))
+        else . end
       | def num($v): if ($v | type) == "number" then $v else 0 end;
       .models[$key] |= (. // {requests: 0, input: 0, output: 0, cache_read: 0, cache_write: 0, cost_total: 0})
       | .models[$key].requests += 1
@@ -125,6 +151,10 @@ def process_event($event):
       | .models[$key].cache_read += num($usage.cacheRead)
       | .models[$key].cache_write += num($usage.cacheWrite)
       | .models[$key].cost_total += num($usage.cost.total? // null)
+    else . end
+  | if ($event.message | type) == "object" and $event.message.role == "assistant"
+      and ($event.message.provider | type) == "string" and ($event.message.model | type) == "string" then
+      .selection = (($event.message.provider | safe_label) + "/" + ($event.message.model | safe_label))
     else . end
   | if ($event.message | type) != "object" then .
     elif $event.message.role == "assistant" and ($event.message.content | type) == "array" then
@@ -148,7 +178,9 @@ def process_event($event):
 def scan_file:
   reduce inputs as $line (
     {
-      line_number: 0, malformed_lines: 0, created: null, parent_session: null, worker_name: null,
+      line_number: 0, malformed_lines: 0, has_header: false,
+      compactions: 0, handoffs: {custom: {}, custom_message: {}}, checkpoints: {},
+      selection: null, model_changes: {}, errors: {}, auth_categories: {}, error_categories: {}, created: null, parent_session: null, worker_name: null,
       earliest: null, first_recent: null, last_recent: null, recent: false,
       bash: {calls: 0, timeout_argument_present: 0, timeout_over_3600s: 0, by_value: {}},
       dispatch: {max_turns: {}, model: {}, thinking: {}, background: {}, resume: {}},
@@ -156,6 +188,7 @@ def scan_file:
     };
     .line_number += 1
     | if ($line | test("^\\s*$")) then .
+      elif ($line | contains("�")) then .malformed_lines += 1
       else (try {ok: true, event: ($line | fromjson)} catch {ok: false}) as $parsed
       | if ($parsed.ok | not) or ($parsed.event | type) != "object" then .malformed_lines += 1
         else process_event($parsed.event)
@@ -164,7 +197,12 @@ def scan_file:
   )
   | . as $summary
   | {
+      path: $path,
+      has_header: $summary.has_header,
       recent: $summary.recent,
+      compactions: $summary.compactions, handoffs: $summary.handoffs, checkpoints: $summary.checkpoints,
+      model_changes: $summary.model_changes, errors: $summary.errors,
+      auth_categories: $summary.auth_categories, error_categories: $summary.error_categories,
       malformed_lines: $summary.malformed_lines,
       bash: $summary.bash,
       dispatch: $summary.dispatch,
@@ -172,7 +210,7 @@ def scan_file:
       models: $summary.models,
       retrieval: $summary.retrieval
     }
-  + (if $summary.recent then
+  + (if $summary.recent and $summary.has_header then
        ($summary.created // $summary.earliest) as $created
        | (if $summary.worker_name != null and ($summary.parent_session | type) == "string" and $summary.parent_session != "" then "worker"
           elif ($summary.parent_session | type) == "string" and $summary.parent_session != "" then "fork" else "main" end) as $classification
@@ -200,7 +238,8 @@ def merge_models($files):
   );
 
 def aggregate:
-  . as $files
+  . as $scanned
+  | map(select(.has_header == true)) as $files
   | ([$files[] | select(.classification == "main") | {(.age): 1}] | sum_counts(.)) as $main
   | ([$files[] | select(.classification == "fork") | {(.age): 1}] | sum_counts(.)) as $forks
   | ([$files[] | select(.classification == "worker") | {(.worker_type): 1}] | sum_counts(.)) as $worker_types
@@ -230,10 +269,44 @@ def aggregate:
         workers: merge_models([$files[] | select(.classification == "worker")]),
         nonworker_coordinators: merge_models([$files[] | select(.classification != "worker" and .classification != null)])
       },
+      retrospective: {
+        compactions: ([$files[].compactions] | add // 0),
+        handoffs: {
+          custom: sum_counts([$files[].handoffs.custom]),
+          custom_message: sum_counts([$files[].handoffs.custom_message])
+        },
+        unattended_checkpoint: (
+          reduce ["workers", "nonworker_coordinators"][] as $group ({};
+            ([$files[] | select(if $group == "workers" then .classification == "worker" else .classification != "worker" end)]) as $group_files
+            | .[$group] = {
+                by_status: sum_counts([$group_files[].checkpoints]),
+                files: ([$group_files[] | select((.checkpoints | length) > 0)] | length),
+                files_by_status: sum_counts([$group_files[].checkpoints | with_entries(.value = 1)])
+              })
+        ),
+        stop_reason_errors: {
+          by_provider_model: sum_counts([$files[].errors]),
+          auth_categories: sum_counts([$files[].auth_categories]),
+          by_provider_model_auth_category: (
+            reduce ($files[].error_categories | to_entries[]) as $e ({};
+              .[$e.key] = sum_counts([.[$e.key] // {}, $e.value]))
+          )
+        },
+        model_change_events: sum_counts([$files[].model_changes]),
+        top_error_sessions: ([$files[] | (.errors | [.[]] | add // 0) as $count
+          | select($count > 0) | {path, classification, errors: $count}]
+          | sort_by(-.errors, .path) | .[:10]),
+        top_turn_limit_sessions: {available: false, reason: "Notification task IDs have no reliable session-path/model join."},
+        accepted_outcomes: {available: false}, rework: {available: false}
+      },
       limitations: [
         "Counts direct tool calls only; nested codemode calls are uncounted. Files last modified before --since are skipped.",
         "Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound.",
-        "Terminal statuses come from notifications logged in the parent session, so they are counted per unique notification, not attributed to individual worker sessions or models. Model metrics count assistant messages; missing usage fields count as 0."
+        "Terminal statuses come from notifications logged in the parent session, so they are counted per unique notification, not attributed to individual worker sessions or models. Model metrics count assistant messages; missing usage fields count as 0.",
+        "No nested codemode parsing or tool-definition counting. Checkpoint calls are attempts, not saved files or accepted outcomes; done is not acceptance.",
+        "Handoffs count only custom/custom_message unattended-handoff and compaction-handoff entries (state writes are not necessarily handoffs). Model changes are observed selections/transitions, not automatic fallbacks.",
+        "Headerless JSONL is excluded from session metrics. Malformed/skipped lines include invalid JSON/unicode and raw replacement characters; scan counters cover entire candidate files, not timed events.",
+        "Model selection classification uses preceding logged model_change/assistant metadata; missing history can make the first observed selection initial. Accepted outcomes and rework have no explicit structured evidence."
       ],
       main_sessions: $main,
       fork_sessions: $forks,
@@ -263,9 +336,12 @@ def aggregate:
         duplicate_misses: (([ $files[] | .retrieval.misses // 0 ] | add // 0) - $unique_misses)
       },
       scan: {
-        files: ($files | length),
-        malformed_lines: ([ $files[] | .malformed_lines // 0 ] | add // 0),
-        unreadable_files: ([$files[] | select(._unreadable == true)] | length)
+        files: ($scanned | length),
+        session_files: ($files | length),
+        non_session_jsonl_files: ([$scanned[] | select(.has_header == false)] | length),
+        skipped_lines: ([$scanned[] | .malformed_lines // 0] | add // 0),
+        malformed_lines: ([ $scanned[] | .malformed_lines // 0 ] | add // 0),
+        unreadable_files: ([$scanned[] | select(._unreadable == true)] | length)
       }
     };
 
