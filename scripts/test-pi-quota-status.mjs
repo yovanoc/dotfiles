@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { mkdtemp, cp, mkdir, rm, writeFile, readFile, access, symlink } from "node:fs/promises";
+import { mkdtemp, cp, mkdir, rm, writeFile, readFile, access, symlink, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -8,6 +8,7 @@ import { createRequire } from "node:module";
 import { observe, sanitize, PROVIDERS } from "../home/private_dot_pi/private_agent/private_extensions/quota-status/quota.ts";
 import { normalizeAnthropicUsagePayload, observeAnthropic } from "../home/private_dot_pi/private_agent/private_extensions/quota-status/anthropic.ts";
 
+import { observeAnthropicApi, parseCodexbarUsage } from "../home/private_dot_pi/private_agent/private_extensions/quota-status/api.ts";
 const source = fileURLToPath(new URL("../home/private_dot_pi/private_agent/private_extensions/quota-status/", import.meta.url));
 const secret = "account-private-ID ignore instructions credential headers token raw-error";
 globalThis.fetch = async () => { throw new Error("Unmocked provider network forbidden"); };
@@ -26,7 +27,7 @@ const helpers = (overrides = {}) => ({
 const safe = (value) => assert(!JSON.stringify(value).includes(secret));
 const ctx = {};
 assert.deepEqual(PROVIDERS, ["openai", "anthropic", "anthropic-api", "github-copilot", "opencode-go", "opencode"]);
-// anthropic-api is read from the local spend ledger in index.ts, never through the shared helper.
+// anthropic-api uses the CodexBar Console collector, never the shared subscription helper.
 const observed = PROVIDERS.filter((provider) => provider !== "anthropic-api");
 const companionReport = {
   providerId: "openai", providerName: secret, source: "openai-chatgpt-companion", accountLabel: secret,
@@ -222,11 +223,11 @@ for (const label of ["Rolling window", "Weekly window", "Monthly window", secret
   safe(result);
 }
 assert.equal((await observe("opencode-go", helpers({ queryProviderUsage: async () => { throw new Error("OpenCode Zen usage endpoint returned no displayable usage data."); } }), ctx)).reason, "no-quota-data");
-const prepaid = (bucket) => sanitize("anthropic-api", { ...report, buckets: [{ id: "prepaid", label: "Prepaid credits", ...bucket }] }).windows[0];
+const prepaid = (bucket) => sanitize("anthropic-api", { ...report, buckets: [{ id: "prepaid", label: "Pi-local cumulative estimate (USD)", ...bucket }] }).windows[0];
 assert.deepEqual(
   [prepaid({ unit: "count", used: 57.56 }), prepaid({ unit: "percent", used: 100 }), prepaid({ unit: "count", used: 5, limit: 0 })].map(({ unit, used, limit, usedPercent, usedFraction }) => [unit, used, limit, usedPercent, usedFraction]),
-  [["count", 57.56, null, null, null], ["percent", 100, null, 100, 1], ["count", 5, 0, null, null]],
-  "anthropic-api spend is a count with unknown limit; only exhaustion is a percent",
+  [["count", 57.56, null, null, null], [null, null, null, null, null], ["count", 5, 0, null, null]],
+  "anthropic-api spend is a count with unknown limit; percent exhaustion is rejected",
 );
 const forbidden = () => { throw new Error("Unsupported providers must never look up an adapter, credentials or HTTP"); };
 assert.deepEqual(await observe("opencode", helpers({ adapterForProvider: forbidden, resolveUsageAuth: forbidden, queryProviderUsage: forbidden }), ctx), {
@@ -349,7 +350,7 @@ try {
       return new Response(secret, { status, headers: status === 302 ? { Location: "https://evil.example" } : {} });
     };
     const failed = await observeAnthropic(anthropicContext(), undefined, 100);
-    assert.equal(failed.reason, "query-failed");
+    assert.equal(failed.reason, status === 401 ? "auth-expired" : "query-failed");
     safe(failed);
   }
   globalThis.fetch = async () => new Response(new Uint8Array(64 * 1024 + 1), { status: 200 });
@@ -379,6 +380,169 @@ try {
   delete globalThis.anthropicPendingSignal;
 }
 
+// CodexBar Console fixtures: all command output is mocked; no CLI, network, or credential access.
+const apiNow = Date.parse("2026-10-20T08:23:05Z");
+const apiLedger = async () => ({ spentUsd: 57.56, exhausted: true });
+const observedSectionPayload = [{
+  usage: {
+    tertiary: null,
+    secondary: null,
+    providerCost: { used: 851.79, period: "<REDACTED>", balance: 851.79 },
+    details: [
+      { rows: [{ label: "API credit", secondaryValue: "Expires Apr 8, 2027 (UTC)", progress: { used: 0.14822 }, value: "$851.78 of $1,000.00 left" }], title: "Other credit grants" },
+      { rows: [{ label: "This month (UTC)", value: "$868.21" }], title: "Billing" },
+    ],
+    primary: null,
+  },
+  provider: "claudeplatform",
+}];
+const observedSection = parseCodexbarUsage(JSON.stringify(observedSectionPayload), apiNow);
+assert.equal(observedSection.status, "fresh");
+assert.deepEqual(observedSection.console, {
+  totalBalanceUsd: 851.79,
+  grants: [{ label: "Prepaid grant", grantUsd: 1000, remainingUsd: 851.78, expiresAt: "2027-04-08" }],
+  monthSpendUsd: 868.21,
+});
+const apiEntry = (balance, rows, lanes = {}) => [{
+  provider: "claudeplatform", account: secret,
+  usage: {
+    providerCost: { balance, organizationId: secret },
+    details: [
+      { title: "Other credit grants", rows: rows.filter((row) => row.label !== "This month (UTC)" && row.label !== "Spend") },
+      { title: "Billing", rows: rows.filter((row) => row.label === "This month (UTC)" || row.label === "Spend") },
+    ],
+    primary: lanes.primary ?? null,
+    secondary: lanes.secondary ?? null,
+  },
+  organization: secret,
+}];
+const laneObserved = parseCodexbarUsage(JSON.stringify(apiEntry(851.79, [
+  { label: "API credit", value: "$30.00 of $50.00 left", secondaryValue: "Expires Apr 8, 2027 (UTC)" },
+  { label: "This month (UTC)", value: "$868.21" },
+], {
+  primary: { resetDescription: "$30.00 of $50.00 left · Expires Apr 8, 2027 (UTC)" },
+  secondary: { resetDescription: "$5.00 of $20.00 left · Expires Oct 21 (UTC)" },
+})), apiNow);
+assert.deepEqual(laneObserved.console, {
+  totalBalanceUsd: 851.79,
+  grants: [
+    { label: "Prepaid grant", grantUsd: 50, remainingUsd: 30, expiresAt: "2027-04-08" },
+    { label: "Prepaid grant", grantUsd: 20, remainingUsd: 5, expiresAt: "2026-10-21" },
+    { label: "Prepaid grant", grantUsd: 50, remainingUsd: 30, expiresAt: "2027-04-08" },
+  ],
+  monthSpendUsd: 868.21,
+}, "primary/secondary lanes and the disjoint Other grants section are all retained without summing or speculative deduplication");
+const unavailableSpend = parseCodexbarUsage(JSON.stringify(apiEntry(44.25, [{ label: "Spend", value: "Unavailable" }])), apiNow);
+assert.equal(unavailableSpend.status, "fresh", "known balance remains available when Billing spend is unavailable");
+assert.equal(unavailableSpend.console.totalBalanceUsd, 44.25);
+assert.equal(unavailableSpend.console.monthSpendUsd, null);
+const apiPayload = apiEntry(857.32, [
+  { label: "Purchased credit", value: "$857.31 of $1,000.00 left", secondaryValue: "Expires Apr 8, 2027 (UTC)", organizationId: secret },
+  { label: "Purchased credit", value: "$0.00 of $360.00 left", secondaryValue: "Expires Unknown", account: secret },
+  { label: "This month (UTC)", value: "$751.47", secondaryValue: secret },
+  { label: secret, value: secret, secondaryValue: secret },
+]);
+const apiRunner = (payload = apiPayload) => async (file, args, options) => {
+  assert.equal(file, "codexbar");
+  assert.deepEqual(args, ["usage", "--provider", "claudeplatform", "--source", "web", "--json"]);
+  assert.equal(options.encoding, "utf8");
+  assert.equal(options.maxBuffer, 64 * 1024);
+  assert(options.signal instanceof AbortSignal);
+  return { stdout: typeof payload === "string" ? payload : JSON.stringify(payload), stderr: secret };
+};
+const liveApi = await observeAnthropicApi(apiLedger, undefined, 100, () => apiNow, apiRunner());
+assert.equal(liveApi.source, "codexbar-console-web");
+assert.equal(liveApi.status, "fresh");
+assert.equal(liveApi.capturedAt, apiNow);
+assert.deepEqual(liveApi.windows, [], "Console balances are typed telemetry, not percent quota windows");
+assert.deepEqual(liveApi.console, {
+  totalBalanceUsd: 857.32,
+  grants: [
+    { label: "Prepaid grant", grantUsd: 1000, remainingUsd: 857.31, expiresAt: "2027-04-08" },
+    { label: "Prepaid grant", grantUsd: 360, remainingUsd: 0, expiresAt: null },
+  ],
+  monthSpendUsd: 751.47,
+});
+assert.deepEqual(liveApi.piLocalRefusal, { source: "pi-local-exhausted-refusal", status: "observed" }, "Pi refusal evidence is separate from the live Console balance");
+safe(liveApi);
+assert(!JSON.stringify(liveApi).includes("857.32 of"), "total balance is not reconstructed from grants");
+
+const zeroPayload = apiEntry(0, [{ label: "This month (UTC)", value: "$0.00" }]);
+const zeroApi = await observeAnthropicApi(async () => ({ spentUsd: 0, exhausted: false }), undefined, 100, () => apiNow, apiRunner(zeroPayload));
+assert.equal(zeroApi.status, "fresh");
+assert.equal(zeroApi.console.totalBalanceUsd, 0, "an explicit numeric zero is valid");
+assert.deepEqual(zeroApi.console.grants, []);
+assert.equal(zeroApi.console.monthSpendUsd, 0, "an explicit formatted USD zero is valid");
+assert.equal(zeroApi.piLocalRefusal, undefined, "absence of refusal evidence is not reported as a balance or an exhaustion marker");
+
+const noGrants = await observeAnthropicApi(apiLedger, undefined, 100, () => apiNow, apiRunner(apiEntry(12.34, [{ label: "This month (UTC)", value: "$1.00" }])));
+assert.equal(noGrants.console.totalBalanceUsd, 12.34);
+assert.deepEqual(noGrants.console.grants, [], "missing grant rows are not inferred from the balance");
+const absentExpiry = await observeAnthropicApi(apiLedger, undefined, 100, () => apiNow, apiRunner(apiEntry(1, [
+  { label: "Purchased credit", value: "$1.00 of $2.00 left" },
+  { label: "This month (UTC)", value: "$0.00" },
+])));
+assert.equal(absentExpiry.console.grants[0].expiresAt, null, "an omitted expiry stays unknown");
+
+const malformedPayloads = [
+  "not JSON",
+  JSON.stringify({ unexpected: secret }),
+  JSON.stringify({ providers: [] }),
+  JSON.stringify([]),
+  JSON.stringify([...apiPayload, ...apiPayload]),
+  JSON.stringify(apiEntry("857.32", [])),
+  JSON.stringify(apiEntry(1.234, [])),
+  JSON.stringify(apiEntry(1, [{ label: "Spend", value: "Unavailable" }, { label: "This month (UTC)", value: "$1.00" }])),
+  JSON.stringify(apiEntry(1, [{ label: "This month (UTC)", value: "EUR 1.00" }])),
+  JSON.stringify(apiEntry(1, [{ label: "This month (UTC)", value: "$1,00.00" }])),
+  JSON.stringify(apiEntry(1, [{ label: "This month (UTC)", value: "$1.001" }])),
+  JSON.stringify(apiEntry(1, [{ label: "This month (UTC)", value: "$1.00" }, { label: "This month (UTC)", value: "$1.00" }])),
+  JSON.stringify(apiEntry(1, [{ label: "Purchased credit", value: "$2.00 of $1.00 left", secondaryValue: "Expires Apr 8, 2027 (UTC)" }, { label: "This month (UTC)", value: "$1.00" }])),
+  JSON.stringify(apiEntry(1, [{ label: "Purchased credit", value: "$1.00 of $1.00 left", secondaryValue: "Expires Feb 30, 2027 (UTC)" }, { label: "This month (UTC)", value: "$1.00" }])),
+  JSON.stringify(apiEntry(1, [{ label: "Purchased credit", value: "$1.00 of $1.00 left", secondaryValue: "next month" }, { label: "This month (UTC)", value: "$1.00" }])),
+];
+for (const payload of malformedPayloads) {
+  const failed = await observeAnthropicApi(apiLedger, undefined, 100, () => apiNow, apiRunner(payload));
+  assert.equal(failed.status, "unavailable");
+  assert.equal(failed.reason, "query-failed");
+  assert.equal(failed.source, null);
+  assert.equal(failed.console, undefined, "malformed or unknown data never becomes zero or stale balance");
+  safe(failed);
+}
+
+const missingExecutable = await observeAnthropicApi(apiLedger, undefined, 100, () => apiNow, async () => { throw Object.assign(new Error(secret), { code: "ENOENT", stderr: secret }); });
+assert.equal(missingExecutable.reason, "dependency-unavailable");
+assert.deepEqual(missingExecutable.piLocalRefusal, { source: "pi-local-exhausted-refusal", status: "observed" });
+safe(missingExecutable);
+for (const error of [Object.assign(new Error(secret), { code: 1, stderr: secret }), Object.assign(new Error(secret), { code: "EACCES", stderr: secret })]) {
+  const failed = await observeAnthropicApi(apiLedger, undefined, 100, () => apiNow, async () => { throw error; });
+  assert.equal(failed.reason, "query-failed");
+  safe(failed);
+}
+const oversized = await observeAnthropicApi(apiLedger, undefined, 100, () => apiNow, async () => ({ stdout: "x".repeat(64 * 1024 + 1), stderr: secret }));
+assert.equal(oversized.reason, "query-failed");
+safe(oversized);
+
+const apiCancelController = new AbortController();
+let commandCancelled = false;
+const pendingRunner = (_file, _args, options) => new Promise((_resolve, reject) => {
+  options.signal.addEventListener("abort", () => { commandCancelled = true; reject(new Error(secret)); }, { once: true });
+});
+const cancelledApi = observeAnthropicApi(apiLedger, apiCancelController.signal, 100, () => apiNow, pendingRunner);
+await new Promise((done) => setTimeout(done, 1));
+apiCancelController.abort();
+assert.equal((await cancelledApi).reason, "cancelled");
+assert(commandCancelled, "external cancellation reaches the child-process signal");
+const keepAlive = setTimeout(() => {}, 100);
+try {
+  const timedOut = await observeAnthropicApi(apiLedger, undefined, 10, () => apiNow, pendingRunner);
+  assert.equal(timedOut.reason, "timeout");
+  safe(timedOut);
+} finally { clearTimeout(keepAlive); }
+const apiCostFixture = liveApi;
+const apiUnknownSpendFixture = unavailableSpend;
+console.log("PASS: CodexBar Console fixtures (sections, lanes, UTC expiry, nullable spend, fixed argv, privacy, missing executable, timeout, cancellation)");
+
 console.log("PASS: credential-free quota fixtures and local Claude auth/query/normalization (origin, identity, body cap, redirect, deadline, cancellation)");
 
 // Opt-in host integration uses an isolated agent directory, a symlink to the installed helper, fake auth, and mocked HTTP only.
@@ -393,12 +557,15 @@ if (process.argv[2] === "--runtime") {
   const workspace = await mkdtemp(join(tmpdir(), "pi-quota-status-test-"));
   const originalFetch = globalThis.fetch;
   const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
+  const originalPath = process.env.PATH;
   const agentDir = join(workspace, "agent");
   const helperPath = join(agentDir, "npm", "node_modules", "@narumitw", "pi-usage");
   console.log(`TEMP owner=quota-test path=${workspace}`);
   process.env.PI_CODING_AGENT_DIR = agentDir;
+  process.env.PATH = join(workspace, "empty-bin");
   try {
     assert.equal(hostConfig.getAgentDir(), agentDir, "all test auth paths must stay inside the disposable agent directory");
+    await mkdir(process.env.PATH, { recursive: true });
     const { discoverAndLoadExtensions, loadExtensions } = await import(pathToFileURL(join(host, "dist/core/extensions/loader.js")));
     const folder = join(agentDir, "extensions", "quota-status");
     await mkdir(join(workspace, "project"), { recursive: true });
@@ -418,7 +585,7 @@ if (process.argv[2] === "--runtime") {
       getProviderAuth: async () => undefined, getApiKeyAndHeaders: async () => ({ ok: false, error: secret }), isUsingOAuth: () => false,
     } };
     const checkUnavailable = (result, expectedExternal) => {
-      assert.deepEqual(result.structuredContent.providers.map((provider) => provider.reason), [expectedExternal, "auth-unavailable", "ok", expectedExternal, expectedExternal, "unsupported"]);
+      assert.deepEqual(result.structuredContent.providers.map((provider) => provider.reason), [expectedExternal, "auth-unavailable", "dependency-unavailable", expectedExternal, expectedExternal, "unsupported"]);
       assert.deepEqual(JSON.parse(result.content[0].text), result.details);
       safe(result.details);
     };
@@ -426,6 +593,33 @@ if (process.argv[2] === "--runtime") {
     globalThis.fetch = () => { throw new Error("Unmocked provider network forbidden"); };
     const missing = await tool.execute("fixture", {}, undefined, undefined, emptyContext);
     checkUnavailable(missing, "dependency-unavailable");
+
+    const fakeCliBin = join(workspace, "fake-codexbar-bin");
+    const fakeCli = join(fakeCliBin, "codexbar");
+    await mkdir(fakeCliBin);
+    await writeFile(fakeCli, `#!/bin/sh
+if [ "$#" -ne 6 ] || [ "$1" != "usage" ] || [ "$2" != "--provider" ] || [ "$3" != "claudeplatform" ] || [ "$4" != "--source" ] || [ "$5" != "web" ] || [ "$6" != "--json" ]; then exit 23; fi
+printf '%s\\n' '${JSON.stringify(observedSectionPayload)}'
+`);
+    await chmod(fakeCli, 0o755);
+    console.log(`TEMP owner=quota-test path=${fakeCli}`);
+    const emptyPath = process.env.PATH;
+    try {
+      process.env.PATH = fakeCliBin;
+      const fakeCliResult = await tool.execute("fixture", {}, undefined, undefined, emptyContext);
+      const consoleProvider = fakeCliResult.structuredContent.providers[2];
+      assert.equal(consoleProvider.status, "fresh");
+      assert.equal(consoleProvider.reason, "ok");
+      assert.equal(consoleProvider.console.totalBalanceUsd, 851.79);
+      assert.deepEqual(consoleProvider.console.grants, [{ label: "Prepaid grant", grantUsd: 1000, remainingUsd: 851.78, expiresAt: "2027-04-08" }]);
+      assert.equal(consoleProvider.console.monthSpendUsd, 868.21);
+      safe(fakeCliResult.structuredContent);
+    } finally {
+      process.env.PATH = emptyPath;
+      await rm(fakeCliBin, { recursive: true, force: true });
+      await assert.rejects(access(fakeCliBin), { code: "ENOENT" });
+      console.log(`CLEANED owner=quota-test path=${fakeCli}`);
+    }
 
     const claudeMock = async (url, options) => {
       assert.equal(url, "https://api.anthropic.com/api/oauth/usage");
@@ -436,7 +630,7 @@ if (process.argv[2] === "--runtime") {
     };
     globalThis.fetch = claudeMock;
     const missingClaude = await tool.execute("fixture", {}, undefined, undefined, anthropicContext());
-    assert.deepEqual(missingClaude.structuredContent.providers.map((provider) => provider.reason), ["dependency-unavailable", "ok", "ok", "dependency-unavailable", "dependency-unavailable", "unsupported"]);
+    assert.deepEqual(missingClaude.structuredContent.providers.map((provider) => provider.reason), ["dependency-unavailable", "ok", "dependency-unavailable", "dependency-unavailable", "dependency-unavailable", "unsupported"]);
     assert.equal(missingClaude.structuredContent.providers[1].windows[0].usedPercent, 0);
     safe(missingClaude.details);
 
@@ -505,13 +699,13 @@ if (process.argv[2] === "--runtime") {
     await symlink(addonRoot, helperPath, "dir");
     globalThis.fetch = () => { throw new Error("Empty auth fixture must not make a request"); };
     const installed = await tool.execute("fixture", {}, undefined, undefined, emptyContext);
-    assert.deepEqual(installed.structuredContent.providers.map((provider) => provider.reason), ["auth-unavailable", "auth-unavailable", "ok", "auth-unavailable", "auth-unavailable", "unsupported"], "the installed 0.66.0 helper loaded successfully");
+    assert.deepEqual(installed.structuredContent.providers.map((provider) => provider.reason), ["auth-unavailable", "auth-unavailable", "dependency-unavailable", "auth-unavailable", "auth-unavailable", "unsupported"], "the installed 0.66.0 helper loaded successfully; no real CodexBar binary is on the fixture PATH");
     assert.deepEqual(installed.details, installed.structuredContent);
 
     const runtimeCancelled = new AbortController();
     runtimeCancelled.abort();
     const cancelled = await tool.execute("fixture", {}, undefined, undefined, { ...emptyContext, signal: runtimeCancelled.signal });
-    assert.deepEqual(cancelled.structuredContent.providers.map((provider) => provider.reason), ["cancelled", "cancelled", "ok", "cancelled", "cancelled", "unsupported"], "the local ledger read is not a cancellable helper request");
+    assert.deepEqual(cancelled.structuredContent.providers.map((provider) => provider.reason), ["cancelled", "cancelled", "cancelled", "cancelled", "cancelled", "unsupported"], "all supported collectors respect cancellation");
 
     const nativeToken = `fixture.${Buffer.from(JSON.stringify({ sub: "fixture-native-user" })).toString("base64url")}.signature`;
     const companionAccountId = "fixture-companion-account";
@@ -560,7 +754,7 @@ if (process.argv[2] === "--runtime") {
       } }), { status: 200 });
     };
     const nativeResult = await tool.execute("fixture", {}, undefined, undefined, nativeContext());
-    assert.deepEqual(nativeResult.structuredContent.providers.map((provider) => provider.reason), ["ok", "auth-unavailable", "ok", "auth-unavailable", "auth-unavailable", "unsupported"]);
+    assert.deepEqual(nativeResult.structuredContent.providers.map((provider) => provider.reason), ["ok", "auth-unavailable", "dependency-unavailable", "auth-unavailable", "auth-unavailable", "unsupported"]);
     assert.equal(nativeHttpLookups, 2, "native numerical reporting uses the installed companion adapter's two guarded requests");
     assert(nativeAuthReads >= 6 && companionAuthReads >= 6, "combined native/companion identity is re-resolved before both requests and publication");
     assert.equal(nativeResult.structuredContent.providers[0].source, "openai-chatgpt-companion-experimental");
@@ -655,6 +849,8 @@ if (process.argv[2] === "--runtime") {
     const hostRequire = createRequire(join(host, "package.json"));
     const { Check } = await import(pathToFileURL(hostRequire.resolve("typebox/value")));
     assert(Check(tool.outputSchema, installed.structuredContent));
+    assert(Check(tool.outputSchema, { providers: installed.structuredContent.providers.map((value, index) => index === 2 ? apiCostFixture : value) }), "live CodexBar balance/grants, UTC spend, capture time and separate refusal evidence match the output schema");
+    assert(Check(tool.outputSchema, { providers: installed.structuredContent.providers.map((value, index) => index === 2 ? apiUnknownSpendFixture : value) }), "unknown CodexBar spend is nullable while its balance remains fresh");
     assert(Check(tool.outputSchema, missingClaude.structuredContent));
     assert(Check(tool.outputSchema, nativeResult.structuredContent));
     assert(Check(tool.outputSchema, missingCompanionRuntime.structuredContent));
@@ -758,6 +954,8 @@ export default function(pi) {
     delete globalThis.quotaHelperLookups;
     if (originalAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
     else process.env.PI_CODING_AGENT_DIR = originalAgentDir;
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
     await rm(workspace, { recursive: true, force: true });
     await assert.rejects(access(workspace), { code: "ENOENT" });
     console.log(`CLEANED owner=quota-test path=${workspace}`);

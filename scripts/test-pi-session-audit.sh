@@ -57,7 +57,7 @@ jq -e '
   and .fork_sessions == {created_within_window:1}
   and .workers.sessions == 1 and .workers.types == {"general-purpose":1}
   and .workers.max_concurrency_observed_span_upper_bound == 1
-  and .limitations == [
+  and .limitations[0:3] == [
     "Counts direct tool calls only; nested codemode calls are uncounted. Files last modified before --since are skipped.",
     "Worker overlap is a first/last logged-span proxy, not actual execution concurrency or a guaranteed lifecycle upper bound.",
     "Terminal statuses come from notifications logged in the parent session, so they are counted per unique notification, not attributed to individual worker sessions or models. Model metrics count assistant messages; missing usage fields count as 0."
@@ -142,6 +142,68 @@ if "$SCRIPT" --sessions-dir "$mroot" --until bogus > /dev/null 2> "$tmp_root/unt
   exit 1
 fi
 grep -q 'invalid --until timestamp' "$tmp_root/until.err"
+
+# Retrospective metrics must filter event times even in old session files.
+retro_root="$tmp_root/retro"
+mkdir -p "$retro_root"
+for role in coord worker; do
+  file="$retro_root/$role.jsonl"
+  jq -nc --arg role "$role" '{type:"session",timestamp:"2024-05-01T00:00:00Z"} + (if $role == "worker" then {parentSession:"/fixture/parent.jsonl"} else {} end)' > "$file"
+  if [[ $role == worker ]]; then
+    jq -nc '{type:"session_info",timestamp:"2024-05-01T00:00:01Z",name:"general-purpose#WORKER03"}' >> "$file"
+  fi
+  for time in 2024-05-01T01:00:00Z 2024-05-02T12:30:00Z 2024-05-03T00:00:00Z; do
+    jq -nc --arg t "$time" '
+      {type:"model_change",timestamp:$t,provider:"fixture",modelId:"m1"},
+      {type:"compaction",timestamp:$t,summary:"COMPACTION_SECRET"},
+      {type:"custom",timestamp:$t,customType:"unattended-handoff",data:{checkpoint:"HANDOFF_SECRET"}},
+      {type:"custom_message",timestamp:$t,customType:"compaction-handoff",content:"HANDOFF_SECRET"},
+      {type:"message",timestamp:$t,message:{role:"assistant",provider:"fixture",model:"m1",stopReason:"error",errorMessage:"api_key_expired ERROR_SECRET",content:[
+        {type:"toolCall",name:"unattended_checkpoint",arguments:{status:"done",markdown:"CHECKPOINT_SECRET"}},
+        {type:"text",text:"unattended_checkpoint TOOL_DEFINITION_SECRET"}
+      ]}},
+      {type:"message",timestamp:$t,message:{role:"assistant",provider:"fixture",model:"m2",stopReason:"error",errorMessage:"FREEFORM_ERROR_SECRET",content:[]}},
+      {type:"model_change",timestamp:$t,provider:"fixture",modelId:"m3"}
+    ' >> "$file"
+  done
+  # Invalid surrogate JSON and invalid UTF-8 must not lose valid later lines.
+  printf '%s\n' '{"type":"message","text":"\ud800"}' >> "$file"
+  printf '{"bad":"\377"}\n' >> "$file"
+  jq -nc '{type:"compaction",timestamp:"2024-05-02T12:40:00Z",summary:"AFTER_MALFORMED_SECRET"}' >> "$file"
+done
+# Evidence files may contain plausible events, but no session header.
+cp "$retro_root/coord.jsonl" "$retro_root/evidence.jsonl"
+sed '1d' "$retro_root/evidence.jsonl" > "$tmp_root/evidence-no-header"
+mv "$tmp_root/evidence-no-header" "$retro_root/evidence.jsonl"
+# Actual structured tool calls only; neither definitions nor embedded codemode source count.
+jq -nc '{type:"message",timestamp:"2024-05-02T12:30:00Z",message:{role:"assistant",content:[{type:"toolCall",name:"codemode",arguments:{code:"unattended_checkpoint({status: blocked})"}},{type:"tool",name:"unattended_checkpoint",arguments:{status:"blocked"}}]}}' >> "$retro_root/coord.jsonl"
+"$SCRIPT" --sessions-dir "$retro_root" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z --json > "$tmp_root/retro.json"
+jq -e '
+  .main_sessions == {older_with_activity:1} and .workers.sessions == 1
+  and .scan == {files:3,session_files:2,non_session_jsonl_files:1,malformed_lines:6,skipped_lines:6,unreadable_files:0}
+  and .retrospective.compactions == 4
+  and .retrospective.handoffs == {custom:{"unattended-handoff":2},custom_message:{"compaction-handoff":2}}
+  and .retrospective.unattended_checkpoint == {
+    workers:{by_status:{done:1},files:1,files_by_status:{done:1}},
+    nonworker_coordinators:{by_status:{done:1},files:1,files_by_status:{done:1}}}
+  and .retrospective.stop_reason_errors == {
+    by_provider_model:{"fixture/m1":2,"fixture/m2":2},
+    auth_categories:{api_key_expired:2,unclassified:2},
+    by_provider_model_auth_category:{"fixture/m1":{api_key_expired:2},"fixture/m2":{unclassified:2}}}
+  and .retrospective.model_change_events == {transition:4}
+  and (.retrospective.top_error_sessions | length) == 2
+  and ([.retrospective.top_error_sessions[].errors] == [2,2])
+  and .retrospective.top_turn_limit_sessions.available == false
+  and .retrospective.accepted_outcomes.available == false and .retrospective.rework.available == false
+' "$tmp_root/retro.json" >/dev/null || { cat "$tmp_root/retro.json"; exit 1; }
+# Initial selections are distinguished from later events, never labeled fallback.
+"$SCRIPT" --sessions-dir "$retro_root" --since 2024-05-01T00:00:00Z --until 2024-05-01T02:00:00Z --json > "$tmp_root/retro-initial.json"
+jq -e '.retrospective.model_change_events == {initial_selection:2,transition:2}' "$tmp_root/retro-initial.json" >/dev/null
+"$SCRIPT" --sessions-dir "$retro_root" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z > "$tmp_root/retro.txt"
+if grep -E 'SECRET|WORKER03|errorMessage|markdown|toolCall' "$tmp_root/retro.json" "$tmp_root/retro.txt"; then
+  echo 'retrospective output leaked fixture content' >&2
+  exit 1
+fi
 
 # Exercise the default last-48-hour window with a current event.
 default_root="$tmp_root/default-sessions"

@@ -36,6 +36,8 @@ const LEGACY_LIMITS = [
   ["seven_day_oauth_apps", "Weekly OAuth apps", 10080],
 ] as const;
 
+class AuthRejected extends Error {}
+
 type AnthropicAuth = { token: string; fingerprint: string };
 type RequestAuth = { apiKey?: string; headers?: Record<string, string | null>; baseUrl?: string };
 type AuthEntry = { present: boolean; value?: string | null };
@@ -180,6 +182,7 @@ async function fetchAnthropicUsage(auth: AnthropicAuth, signal: AbortSignal): Pr
     redirect: "error",
     signal,
   });
+  if (response.status === 401) throw new AuthRejected();
   if (response.redirected || !response.ok || !response.body) throw new Error("Anthropic usage request failed.");
 
   const reader = response.body.getReader();
@@ -251,7 +254,8 @@ export async function observeAnthropic(
       if (stopped) return unavailable(PROVIDER, stopped);
       if (!current || current.fingerprint !== auth.fingerprint) return unavailable(PROVIDER, "identity-changed");
       return normalizeAnthropicUsagePayload(payload, Date.now());
-    } catch {
+    } catch (error) {
+      if (error instanceof AuthRejected) return unavailable(PROVIDER, "auth-expired");
       if (stopped) return unavailable(PROVIDER, stopped);
       return unavailable(PROVIDER, phase);
     }

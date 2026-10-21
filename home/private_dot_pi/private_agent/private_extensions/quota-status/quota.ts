@@ -8,7 +8,7 @@ export type Helpers = {
   resolveUsageAuth(ctx: ExtensionContext, adapter: UsageProviderAdapter): Promise<ResolvedUsageAuth | undefined>;
   queryProviderUsage(adapter: UsageProviderAdapter, auth: ResolvedUsageAuth, signal: AbortSignal, timeoutMs: number, guard?: UsageRequestGuard): Promise<UsageReport>;
 };
-export type Reason = "ok" | "unsupported" | "no-quota-data" | "dependency-unavailable" | "auth-unavailable" | "auth-failed" | "query-failed" | "identity-changed" | "timeout" | "cancelled";
+export type Reason = "ok" | "unsupported" | "no-quota-data" | "dependency-unavailable" | "auth-unavailable" | "auth-failed" | "auth-expired" | "query-failed" | "identity-changed" | "timeout" | "cancelled";
 export type Window = {
   label: string;
   group: "ChatGPT plan" | "ChatGPT app" | null;
@@ -24,14 +24,20 @@ export type Window = {
 };
 export type Observation = {
   provider: Provider;
-  source: "openai-chatgpt-auth" | "openai-chatgpt-companion-experimental" | "anthropic-oauth-usage" | "pi-spend-ledger" | "github-copilot-user" | "opencode-zen-usage" | null;
+  source: "openai-chatgpt-auth" | "openai-chatgpt-companion-experimental" | "anthropic-oauth-usage" | "codexbar-console-web" | "github-copilot-user" | "opencode-zen-usage" | null;
   capturedAt: number | null;
   status: "fresh" | "unknown" | "unavailable";
   reason: Reason;
   windows: Window[];
+  console?: {
+    totalBalanceUsd: number;
+    grants: { label: "Prepaid grant"; grantUsd: number; remainingUsd: number; expiresAt: string | null }[];
+    monthSpendUsd: number | null;
+  };
+  piLocalRefusal?: { source: "pi-local-exhausted-refusal"; status: "observed" };
 };
 
-const SOURCES = { openai: null, anthropic: "anthropic-oauth-usage", "anthropic-api": "pi-spend-ledger", "github-copilot": "github-copilot-user", "opencode-go": "opencode-zen-usage", opencode: null } as const;
+const SOURCES = { openai: null, anthropic: "anthropic-oauth-usage", "anthropic-api": null, "github-copilot": "github-copilot-user", "opencode-go": "opencode-zen-usage", opencode: null } as const;
 
 export function unavailable(provider: Provider, reason: Reason): Observation {
   if (provider === "opencode") reason = "unsupported";
@@ -40,7 +46,7 @@ export function unavailable(provider: Provider, reason: Reason): Observation {
 
 const LABELS = {
   anthropic: new Set(["Five-hour", "Weekly", "Weekly Sonnet", "Weekly Opus", "Weekly OAuth apps"]),
-  "anthropic-api": new Set(["Prepaid credits"]),
+  "anthropic-api": new Set(["Organization month cost (USD)", "Pi-local cumulative estimate (USD)"]),
   "github-copilot": new Set(["AI credits", "Premium requests", "Chat requests"]),
   "opencode-go": new Set(["Rolling window", "Weekly window", "Monthly window"]),
 };
@@ -96,7 +102,7 @@ function sanitizeOpenAI(report: UsageReport): Observation {
 export function sanitizeBuckets(provider: Provider, capturedAtValue: unknown, buckets: readonly UsageBucket[]): Observation {
   if (provider === "openai" || provider === "opencode") return unavailable(provider, "unsupported");
   const windows: Window[] = (Array.isArray(buckets) ? buckets : []).map((bucket: UsageBucket) => {
-    const unit = bucket?.unit === "percent"
+    const unit = provider !== "anthropic-api" && bucket?.unit === "percent"
       ? "percent"
       : (provider === "github-copilot" || provider === "anthropic-api") && bucket?.unit === "count" ? "count" : null;
     const used = unit !== null && nonnegative(bucket?.used) ? bucket.used : null;

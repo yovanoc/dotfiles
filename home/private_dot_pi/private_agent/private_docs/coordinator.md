@@ -1,7 +1,7 @@
 # Root coordinator policy
 
 Root owns coordination and evidence; its active Pi model governs the session
-(managed startup pilot: Sonnet `medium`). Apply shared safety/authorization in `../AGENTS.md`.
+(managed startup: Sol `medium`). Apply shared safety/authorization in `../AGENTS.md`.
 Handle authorized, scoped, trivial, well-understood local work when ownership is clear;
 delegate exploratory, long-running, material multi-file or independent parallel work.
 
@@ -43,14 +43,13 @@ may use the model's default effort instead of the parent's live effort.
 
 ### Coordinator model
 
-Routine dispatching, status and bookkeeping use Sonnet `medium` during the
-startup pilot (`anthropic/claude-sonnet-5-5`, not the separately billed API route).
-New unpinned Pi starts use this default; existing sessions and explicit
-model/effort choices retain their runtime. Confirm the actual provider/model
-and effort at startup; an unavailable route or fallback is not a Sonnet trial.
-Delegate substantive work by the task table below. Evaluate the pilot using accepted outcomes, rework, elapsed time and actual
-runtime/fallback cost, not worker done counts. Before making it permanent, review
-those results; rollback restores startup to `openai/gpt-6.1-sol` `high`.
+Routine dispatching, status and bookkeeping use `openai/gpt-6.1-sol` `medium`.
+The Sonnet startup pilot was not evaluable: most requests stayed on user-selected
+Sol sessions to use frequent OpenAI resets. This is deliberate pool use, not a
+routing failure. New unpinned starts use Sol; existing sessions and explicit
+choices retain their runtime. Confirm actual provider/model and effort at startup.
+Delegate bounded work to Haiku, Sonnet or Luna rather than inheriting Sol for every
+worker. Compare accepted outcomes, rework and actual runtime cost, not done counts.
 Choose Opus/Astra deliberately for difficult implementation, deep or high-risk review
 and hard architecture decisions, not only as a last fallback. State a
 `MODEL RATIONALE:` (explicit user choice, costly hidden failure, interacting
@@ -80,11 +79,10 @@ For each fresh call:
 ### Classify before dispatch
 
 Before each fresh dispatch write `CLASS: narrow | substantive | difficult` for
-the packet and pick the route from the table by that class. A Sonnet coordinator
-must not start difficult packets on Sonnet: use the Opus/Sol routes first (Sonnet
-appears in those rows only as a late fallback), or, if the session needs sustained hard reasoning, ask the user to switch the
-coordinator to Sol `high` instead of drifting. Do not default every packet to
-the coordinator's own model.
+the packet and pick the route from the table by that class. Choose a lighter
+route for bounded work even when the coordinator is Sol or Opus. Streaming a large
+archive, joining session evidence or open-ended web research is substantive:
+split extraction from synthesis and give the latter Sonnet or Sol.
 
 ### Task priorities
 
@@ -103,7 +101,9 @@ failure cost—not file count:
 
 Lighter-first: Haiku/Luna take bounded read-only mapping, extraction/summaries and
 narrow checkable leaves; Sonnet `medium` takes everyday implementation, debugging,
-bounded planning and ordinary review; Opus or Sol take difficult work. Real
+bounded planning and ordinary review; Sol takes difficult implementation, while
+Opus stays available for deep review and architecture. Prefer Copilot Luna over
+native OpenAI Luna for equal-fit bounded tasks when Copilot has headroom. Real
 verification before acceptance stays mandatory for every route.
 Split large repetitive work; a small risky patch can still need deep review.
 Use each route's listed thinking by default: effort labels are not comparable
@@ -114,17 +114,23 @@ task fit; Effect expertise stays with the role. API price is not subscription de
 
 | Task | Ordered routes and thinking |
 | --- | --- |
-| Bounded read-only mapping (`Explore`) | `opencode-go/claude-haiku-5-5` `medium` → `anthropic/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `high` → `openai/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium`. Use the research row only for open-ended or hard tracing; never Luna `max` here (it hit the turn limit in 29 of 43 Explore runs). |
-| Narrow, mechanically checkable code meeting all five conditions above | `opencode-go/claude-haiku-5-5` `medium` → `anthropic/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `low` for single-step edits or `high` for multi-step → `openai/gpt-6-luna` at the same effort → `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium`. At a turn limit, inspect partial edits and re-split the remaining packet, not more effort or a bigger model. Keep Haiku prompts under 100k tokens (price steps 5× above). |
-| Substantive implementation, debugging or bounded Effect work | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium` → `anthropic/claude-opus-5-5` `medium`. Use Sonnet `high` for longer or harder but still bounded work. |
-| Genuinely difficult end-to-end implementation (multistep repository work carried until tests pass) | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `xhigh`. |
-| Research, open-ended work or hard repository tracing | `openai/gpt-6.1-sol` `medium` → `anthropic/claude-sonnet-5-5` `high`. |
-| Bounded planning or ordinary review (Sonnet `medium` by default) | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium`. |
-| Deep or cross-layer review | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. |
-| Exceptional/adversarial review with costly hidden failure, interacting invariants or prior verified misses | `anthropic/claude-opus-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `xhigh`. |
-| Architecture or decisions where judgment is the bottleneck | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. |
-| Visual/UI work | `opencode/gemini-3.8-flash` `medium` → `openai/gpt-6.1-sol` `medium`. Use `high` only for a genuinely harder visual task. |
-| Short extraction, summaries or classification | `opencode-go/claude-haiku-5-5` `low` for single-step leaves or `medium` for multi-step leaves → `anthropic/claude-haiku-5-5` at the same effort → `github-copilot/gpt-6-luna` `low` for single-step or `high` for multi-step leaves → `openai/gpt-6-luna` at the same effort. |
+| Bounded read-only mapping (`Explore`) | `opencode-go/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `high` → `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` `high`. Luna `max` is locally discouraged here (29 of 43 historical Explore runs hit the turn limit), not a provider rule. |
+| Narrow, mechanically checkable code meeting all five conditions above | `opencode-go/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `low` for single-step or `high` for multi-step → `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` at the same effort → `anthropic/claude-sonnet-5-5` `medium`. At a turn limit inspect partial edits and re-split. Keep Haiku prompts under 100k tokens (price steps 5× above). |
+| Substantive implementation, debugging or bounded Effect work | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium`. Use Sonnet `high` for harder but bounded work. A small risky packet still belongs here or on the difficult row, not Haiku. |
+| Genuinely difficult end-to-end implementation | `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high` → `anthropic/claude-opus-5-5` `medium` with a rationale. |
+| Research, open-ended work or hard repository tracing | `anthropic/claude-sonnet-5-5` `high` for bounded synthesis → `openai/gpt-6.1-sol` `medium` for hard tracing. Split exact extraction to Haiku/Luna first. |
+| Bounded planning or ordinary review | `anthropic/claude-sonnet-5-5` `medium` → `github-copilot/gpt-6-luna` `high` for self-contained checks → `openai/gpt-6.1-sol` `medium`. |
+| Deep or cross-layer review | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
+| Exceptional/adversarial review with costly hidden failure, interacting invariants or verified misses | `anthropic/claude-opus-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
+| Architecture where judgment is the bottleneck | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
+| Visual/UI work | `opencode-go/kimi-k3` `high` → `github-copilot/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium`. Verify image input and effort support before dispatch. K3 is a local trial, not a proven winner; inspect screenshots, mobile layout, keyboard navigation and accessibility before acceptance. |
+| Short extraction, summaries or classification | `opencode-go/claude-haiku-5-5` `low` for single-step or `medium` for multi-step → `github-copilot/gpt-6-luna` `low` or `high` respectively → `anthropic/claude-haiku-5-5` at the same effort → `openai/gpt-6-luna` at the same effort. |
+
+Zen (`opencode/`) is disabled while the user declines to refill its wallet: omit it
+from fresh routes and automatic fallback. Go is a different subscription.
+`opencode-go/gemini-4-argon-contributor` is a non-confidential, explicitly selected
+alternative only: its prompts/completions may train Google models and it is not
+zero-retention. Automatic fallback cannot enforce that boundary, so excludes it.
 
 For Luna, try `xhigh` for constrained multi-step code; `max` needs task-local
 evidence or an explicit user choice. Sol `medium` suits complex technical work;
@@ -167,17 +173,22 @@ and never infer per-model debit. Aim for useful near-full use (roughly 95–98% 
 reset) with a reserve; exactly 100% cannot be guaranteed. Root queries once per
 ready batch, workers never poll, and unknown stays unknown.
 
-`anthropic-api/<model>` routes are the same models on prepaid API credits that
-expire unused: $360 by 2026-10-21 and $1,000 by 2027-04-08 (console: $129.04 spent
-on 2026-10-14; the user updates these figures). Subscription `anthropic/` stays the
-default, but `anthropic-api/` is eligible without asking (1) as relief: when a
-subscription Anthropic window reaches Conserve or above (80%+, five-hour first), use
-the same model there before moving Claude-fit work to another provider; and (2) to
-keep pace: while the `Prepaid credits` count is below 57.56 + $35 per day since
-2026-10-14 (until 2026-10-21), then + $6 per day (until 2027-04-08), route that
-row's Anthropic packets there until caught up. Never add padding work to burn
-credits. That count is Pi-local spend with unknown limit (the console is
-authoritative); 100% means exhausted: hold those routes and report.
+`anthropic-api/<model>` is budgeted relief, not a quota-burning target. Use it
+only for Claude-fit work under subscription Conserve or above after checking the
+live Console credit observation and UTC month spend in `quota_status`, plus
+a separately authorized monthly spend cap. Prefer
+eligible Go/Copilot/OpenAI subscriptions for routine work. Hold fresh API work at
+90% of the monthly cap, an exhaustion refusal, or when the long-lived grant is
+below its straight-line reserve to expiry. Missing/stale cap or grant evidence is
+not permission to spend: use a subscription or ask for a fresh console reading.
+The monthly promotional grant recurs; its actual amount, remaining balance and
+expiry come from live Console observations, not a hardcoded daily formula.
+The optional CodexBar CLI uses the signed-in Console session; verify its first-readable
+API organization before treating it as the inference-key budget. Missing expiry or
+reserve baseline holds API relief. Console balances, UTC month spend and Pi-local
+API-equivalent estimates are separate sources; a local refusal is not a balance.
+See `~/dotfiles/docs/pi-quota-usage.md` for session requirements and private-endpoint
+limitations. Explicit session spending restrictions always take precedence.
 
 Keep plan, app and model-scoped windows separate. A generic `Quota window`
 cannot establish model headroom; generic or model-specific windows cannot
@@ -191,6 +202,8 @@ Infer neither per-model debit nor remaining-message counts.
 can move; ease pressure only after fresh evidence of replenishment, and requery
 at the next ready batch. Waiting/scheduling requires the user's request.
 A missing/failed quota query or generic 402/429 is not shared-pool exhaustion.
+A verified expired credential holds only its affected route until repaired; an
+unexplained query failure remains unknown, not a reason to disable inference.
 Separate quota/auth failures from transient/rate/loader failures; stop launches
 only on routes affected by a hard failure. Reactive fallback has a separate
 managed JSON order and does not allocate quota; cooldowns are not allowance.

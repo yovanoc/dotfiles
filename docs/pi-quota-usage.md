@@ -4,17 +4,37 @@
 
 The managed [quota-status extension](../home/private_dot_pi/private_agent/private_extensions/quota-status/index.ts) adds **`quota_status({})`**. It reuses the user's already-working Pi subscription authentication and the already-installed `@narumitw/pi-usage` **0.66.0** auth/query helpers for native OpenAI, Copilot and Go. Narumitw has no Anthropic adapter, so the tool retains the small Claude collector/normalization logic from the original integration, using native Pi auth and no second package. It does not invoke the addon factory or install a second copy. No runtime installation or application was performed. [^1][^4][^8]
 
-Each call queries **`openai`, `anthropic`, `github-copilot`, and `opencode-go`** independently and reads the local **`anthropic-api`** spend ledger, with a 15-second deadline per provider including auth and identity revalidation. **`opencode`** is included as explicitly unsupported telemetry: no credential lookup or HTTP request is made for it. There is no cache, disk state, automatic polling, configuration, or quota-reset mutation. The coordinator owns calls before dispatch batches and reuses a result within the batch; workers do not poll independently.
+Each call queries **`openai`, `anthropic`, `github-copilot`, and `opencode-go`** independently and collects **`anthropic-api`** balances, grants and month spend through the optional installed CodexBar CLI and its signed-in Console browser session. Each provider has a 15-second full-operation deadline. **`opencode`** is explicitly unsupported: no credential lookup or request is made for it. There is no cache, automatic polling, quota-reset mutation or Admin-key route. The coordinator calls before dispatch batches and reuses a result within the batch; workers do not poll independently.
 
 The result is identical in model-facing text, details and structured content:
 
-- `providers`: six observations (`anthropic-api` is the local prepaid spend ledger count, not account billing or remaining balance) with fixed public `provider` and allowlisted `source` (null when unavailable or unsupported), `capturedAt` in Unix **milliseconds**, `status` (`fresh`, `unknown`, `unavailable`), fixed `reason`, and `windows`.
+- `providers`: six observations with fixed public `provider` and allowlisted `source` (null when unavailable or unsupported), `capturedAt` in Unix **milliseconds**, `status` (`fresh`, `unknown`, `unavailable`), fixed `reason`, and `windows`. `anthropic-api` has no quota windows: its optional `console` object contains `totalBalanceUsd`, `grants` and `monthSpendUsd`; `piLocalRefusal` is separate historical refusal evidence, never a balance.
 - Each window has a safe `label`, `group` (`ChatGPT plan`, `ChatGPT app`, or `null`), `status`, native `unit`/`used`/`remaining`/`limit` when known, consumed `usedPercent`/`usedFraction`, duration `windowMinutes`, and reset `resetsAt` in Unix **seconds**.
 - Copilot preserves native credit/request counts, including known used, remaining and limit. Its percentage is derived only from a finite positive known limit; unlimited, missing or zero denominators do not imply free headroom. Credits are not dollars.
 - Unknown/invalid values are `null`, not zero. Zero usage is valid; overages remain above 100%. Successful providers are retained when another fails.
 - Only known public labels survive; trusted native plan/app scopes use fixed labels and groups. Other labels become **`Quota window`** with no inferred scope; raw model/account IDs, credentials, headers, fingerprints, notes, metrics and error bodies are omitted. A generic window cannot establish a particular model's or the whole account's exhaustion. [^5][^10]
 
 Auth identity is rechecked before publishing. An account/credential change discards the observation. Pi may refresh OAuth while resolving auth; therefore read-only refers to quota operations, not a guarantee that the credential store remains untouched. Cancelling or timing out stops waiting and quota HTTP work; Pi's underlying auth refresh may finish later, but no late quota query or result is published. [^8]
+
+## Anthropic Console balances and grants
+
+`anthropic-api` uses **`codexbar-console-web`**, not an Admin cost API or a Pi-local spend estimate. The optional dependency is the installed `codexbar` executable on `PATH` (qualified here with **0.78.0**), invoked without a shell using fixed arguments:
+
+```sh
+codexbar usage --provider claudeplatform --source web --json
+```
+
+CodexBar uses the user's signed-in Console browser session. The extension does not read browser cookies itself, provision credentials, use an Admin key, or fall back to another account or spend source. CodexBar tries API organizations in the browser session's listed order and uses the first with readable billing; this is not necessarily the organization selected in the Console UI or used by Pi's inference key. Independently verify the intended organization before using the numbers for spending decisions; the model-facing projection deliberately omits organization identity. This is an **undocumented/private endpoint** behind a third-party CLI, not a stable official grants API. Missing CLI returns `dependency-unavailable`; session, schema and other failures return `query-failed` (or `timeout`/`cancelled`), never invented zero balances.
+
+The parser reads `usage.providerCost.balance`, sibling `usage.details` sections and their `rows`, plus selected grants in primary/secondary lane descriptions. Only validated numeric USD amounts and normalized grant expiry dates survive. Each grant has a fixed `Prepaid grant` label, `grantUsd`, `remainingUsd`, and `expiresAt` (UTC date or null if unknown). `monthSpendUsd` comes from `This month (UTC)` (null if CodexBar explicitly reports spend unavailable). Same-year expiry labels omit the year; normalization uses the capture time's UTC year, matching CodexBar formatting. Organization identifiers, arbitrary labels, raw responses, credentials and errors are omitted. Total balance and displayed grant balances are independent reported values: rounding may differ by a cent, so the tool does not sum grants into the total, allocate spend across grants or infer absent tranches/renewals. Retrieval time is not a guarantee of upstream freshness.
+
+A user-authorized read-only CodexBar smoke test confirmed that this host can retrieve live Console balance, grants and UTC month spend without an Admin key. Those point-in-time values are not embedded in managed source. Monthly credits are applied before purchased credits and expire each billing cycle; an absent monthly grant does not prove its next renewal amount or date. The existing Pi-local ledger is consulted only for an explicit exhausted-credit refusal, returned as `piLocalRefusal`; it never supplies a fresh balance or percentage. A refusal may be historical and does not override later verified replenishment without reconciliation.
+
+API use remains separately budget-authorized. A fresh balance does not supply a monthly spending cap or permission to spend. Missing/stale cap or reserve evidence holds API relief; subscription routes remain available. The collector performs read-only quota operations, not inference, top-ups or mutations.
+
+The separate subscription collector maps a verified HTTP 401 to `auth-expired` (authentication rejected, not proof of the exact expiry cause). Other HTTP failures remain `query-failed`; generic failures do not establish exhaustion.
+
+Sources: [CodexBar Claude platform collector and session requirements](https://github.com/steipete/CodexBar/blob/main/docs/claudeplatform.md), [collector source](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Resources/Plugins/claudeplatform.ts), and [official prepaid-credit semantics](https://platform.claude.com/docs/en/manage-claude/usage-cost-api). CodexBar's moving upstream contract must be requalified if its JSON or Console endpoint changes.
 
 ## Enable it (commands not executed)
 
@@ -83,7 +103,7 @@ therefore do not display Claude usage, even when Pi's Claude OAuth login works.
 The tool's local Claude collector serves **`quota_status`**, not the
 third-party menu. It reuses native Pi-resolved OAuth, checks official origins,
 revalidates the token identity, and reads the same undocumented usage endpoint.
-No extra usage addon, copied credentials, or API-key billing path is added.
+No extra usage addon or copied OAuth credentials are added. The separate CodexBar Console collector described above is not the OAuth subscription collector.
 After the user applied and reloaded the tool, live calls returned fresh Claude
 observations. Dashboard/account agreement remains unverified; later managed
 source updates still require applying the extension and reloading it.
@@ -101,12 +121,12 @@ Report only the endpoint's actual buckets: the user's Team plan label does not p
 ```sh
 node scripts/test-pi-quota-status.mjs
 node scripts/test-pi-quota-status.mjs --runtime \
-  /opt/homebrew/Cellar/pi-coding-agent/1.1.0/libexec/lib/node_modules/@earendil-works/pi-coding-agent
+  /opt/homebrew/Cellar/pi-coding-agent/1.3.0/libexec/lib/node_modules/@earendil-works/pi-coding-agent
 ```
 
 Replace the example host path with your installed Pi package directory; the test prints its manifest version, which need not match the directory name.
 
-The first command runs credential-free fixture checks. The opt-in runtime check uses a disposable directory to check Pi folder discovery/Jiti imports and schemas, and invokes shipped Narumitw helpers with fake credentials and mocked HTTP. It does not read real auth or contact inference/quota endpoints. Tests cover native companion/auth-only provenance, plan/app scopes, cap omission, request-boundary identity guards, no-lookup behavior for unsupported Zen, missing dependencies, mixed success/failure, unknown/zero/overage values, reset units, hostile labels/errors, identity changes, deadlines and cancellation. Separately,
+The first command runs credential-free fixture checks. The opt-in runtime check uses a disposable directory to check Pi folder discovery/Jiti imports and schemas, and invokes shipped Narumitw helpers with fake credentials and mocked HTTP. It does not read real auth or contact inference/quota endpoints. Console fixtures cover the observed JSON nesting, decimal USD validation, grant expiry and unknown expiry, redaction, missing CLI, malformed output, cancellation, deadlines and no inferred grant balances. Console fixtures inject a command runner. The installed-runtime check uses a disposable PATH for both a missing-executable check and a fake CodexBar success/argv check; neither accesses the real Console session. Tests cover native companion/auth-only provenance, plan/app scopes, cap omission, request-boundary identity guards, no-lookup behavior for unsupported Zen, missing dependencies, mixed success/failure, unknown/zero/overage values, reset units, hostile labels/errors, identity changes, deadlines and cancellation. Separately,
 after user deployment/reload, live calls returned fresh OpenAI, Claude, Copilot
 and Go observations with Zen unsupported. These confirm endpoint responses,
 not dashboard/account/app agreement, per-model debit or reset replenishment.

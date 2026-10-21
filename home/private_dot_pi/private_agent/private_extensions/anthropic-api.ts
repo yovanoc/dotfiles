@@ -11,7 +11,7 @@ const OUT_OF_CREDITS = /credit balance is too low|reached your specified (worksp
 
 type Entry = { usd?: number; exhausted?: boolean }
 
-// shortcut: no balance API exists for this key type, so spend is Pi-local and exhaustion is learned from the first refused request.
+// Pi-local cumulative cost estimate only; refused requests are not a percentage quota or a balance.
 export function summarize(text: string): { spentUsd: number; exhausted: boolean } {
   let spentUsd = 0
   let exhausted = false
@@ -19,13 +19,16 @@ export function summarize(text: string): { spentUsd: number; exhausted: boolean 
     if (!line) continue
     const entry = JSON.parse(line) as Entry
     if (entry.exhausted) exhausted = true
-    else if (entry.usd) { spentUsd += entry.usd; exhausted = false } // a later success means credits were topped up
+    else if (typeof entry.usd === "number" && Number.isFinite(entry.usd) && entry.usd >= 0) { spentUsd += entry.usd; exhausted = false } // a later success means credits were topped up
   }
   return { spentUsd, exhausted }
 }
 
 export async function readLedger() {
-  return summarize(await readFile(LEDGER, "utf8").catch(() => ""))
+  return summarize(await readFile(LEDGER, "utf8").catch((error) => {
+    if (error.code === "ENOENT") return ""
+    throw error
+  }))
 }
 
 export default function (pi: ExtensionAPI) {

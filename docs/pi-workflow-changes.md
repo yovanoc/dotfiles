@@ -68,3 +68,59 @@ Applied to `~/.pi` (coordinator.md and model-fallback/config.json); active after
 - Why: the user asked not to lose credits (console screenshot, 2026-10-14).
 - Measure: console spend ≥ $360 by 2026-10-21; Pi-local `Prepaid credits` on pace;
   no unexpected exhaustion; worker share on `anthropic-api` (audit per-model metrics).
+
+- Measured (`pi-session-audit.sh --since 2026-10-14T23:04:57+02:00`, run
+  2026-10-20 about 10:15+02:00, no end bound; 2,845 files): 134 coordinator,
+  2,701 worker sessions; terminal notifications 2,281: done 1,948 (85.4%),
+  turn_limit 309 (13.5%), error 24 (1.1%). Worker assistant requests 49,003,
+  Pi-local cost $1,697.51 ($0.03464/request); coordinator 29,822,
+  $1,369.47 ($0.04592/request). Worker mix: Opus 32.7%, Sonnet 32.3%,
+  Sol 26.8%, Haiku 4.0%, Luna 3.1%, Gemini 1.0%; anthropic-api 14,151
+  requests, $619.61. Coordinator Sol 27,144/29,822 (91.0%): user deliberately
+  selected Sol to use frequent subscription resets, not an unexplained routing
+  failure. Fresh/resumed dispatches 2,571/887 of 3,458.
+  Not measured: accepted outcomes, rework, quality or per-model turn-limit rates.
+  Previous entry stores only a five-minute baseline, so no comparable prior
+  period; the 10-12→10-14 baseline is a historical reference, not a control.
+  Earlier Console screenshot transcription is superseded: its grant dates were
+  misread. The user confirmed the monthly $360 was consumed; the later live
+  Console read reported only the remaining long-lived grant. No historical
+  grant constants are used for routing or balance calculations.
+  This does not prove which previous grants paid the monthly spend. Pi-local
+  cumulative ledger $509.97 starts Oct 10 and is not a comparable billing window
+  or balance. Its discrepancy with session estimates needs reconciliation;
+  neither identifies real account charges or exact missing-request percentage.
+  Quota snapshot 10:18+02:00: Anthropic weekly 92%, five-hour 15%; OpenAI 5%;
+  Copilot 650/1500; Go monthly 12%; Zen inference 402 (no wallet top-up planned).
+  Supplemental whole-file event counts from this retro are withdrawn as period
+  metrics: they filtered file mtime but included events before --since. In
+  particular, 551 compactions/297 checkpoints and the apparent handoff violations
+  are not evidence for this period. Use the enhanced time-filtered audit next.
+  Evidence: `/tmp/pi-retro-2026-10-20/current.json`, session-retro transcript and
+  user-provided Console screenshot; temporary files are not durable archives.
+
+## PENDING — credit-anchor-provider-health
+
+Not applied to `~/.pi`. Replace PENDING with the last target-write ISO timestamp
+only after an explicit scoped apply; source edits and a PR are not application.
+
+- Coordinator: Sol medium, respecting user subscription choices. Workers:
+  Go Haiku and Copilot Luna for bounded leaves, Sonnet for substantive work;
+  Sol before Opus for difficult implementation and under Anthropic pressure.
+- UI/UX: Go Kimi K3 trial first, then Copilot Luna/native Sol. Zen is unfunded
+  and excluded. Contributor routes require explicit non-confidential selection,
+  never automatic fallback. No automatic fallback into budgeted anthropic-api.
+- API credits: remove the daily burn formula; monthly grants recur. Read official
+  balances, grants, expiry and UTC month spend through the optional CodexBar
+  Console-session route, with no Admin key or static balance anchor. Keep
+  Pi-local refusal evidence separate; verify the Console organization. Hold API relief on
+  uncertain budget evidence, at 90% of the monthly cap or below the reserve line.
+- Handoff and audit: enforce interactive handoff thresholds while preserving
+  authorized unattended checkpointing; add time-filtered event metadata and
+  provider health categories, with offline privacy/regression fixtures.
+- Why: retro of 2026-10-20 and user corrections to grant recurrence and deliberate
+  Sol selection. Earlier whole-file event-count inferences were withdrawn above.
+- Measure: accepted results/rework where explicit evidence exists; lighter-worker
+  mix and Copilot share; worker cost/request; auth-lost launches; time-filtered
+  compaction/checkpoint counts; no monthly-cap lockout; cost/source reconciliation.
+- Commit: see `Pi-Workflow: credit-anchor-provider-health` trailer.

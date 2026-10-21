@@ -4,123 +4,102 @@
   "autoRetry": false,
   "rules": [
     {
-      "name": "opencode-gemini-quota-or-auth",
-      "matchModels": [{ "provider": "opencode", "model": "gemini-3.8-flash" }],
+      "name": "go-quota-or-auth",
+      "matchProviders": ["opencode-go"],
       "statuses": [401, 402, 429],
       "cooldownMs": 18000000,
-      "fallback": { "provider": "github-copilot", "model": "gemini-3.8-flash" }
+      "fallback": {"provider": "github-copilot", "model": "gpt-6-luna"}
     },
     {
-      "name": "opencode-gemini-transient",
-      "matchModels": [{ "provider": "opencode", "model": "gemini-3.8-flash" }],
+      "name": "go-transient",
+      "matchProviders": ["opencode-go"],
       "statuses": [500, 502, 503, 504, 529],
       "cooldownMs": 600000,
-      "fallback": { "provider": "github-copilot", "model": "gemini-3.8-flash" }
+      "fallback": {"provider": "github-copilot", "model": "gpt-6-luna"}
     },
     {
-      "name": "copilot-gemini-credits",
-      "matchModels": [{ "provider": "github-copilot", "model": "gemini-3.8-flash" }],
-      "statuses": [402, 429],
-      "cooldownMs": 18000000,
-      "fallback": { "provider": "openai", "model": "gpt-6.1-sol" }
-    },
-    {
-      "name": "copilot-gemini-transient",
-      "matchModels": [{ "provider": "github-copilot", "model": "gemini-3.8-flash" }],
-      "statuses": [500, 502, 503, 504, 529],
-      "cooldownMs": 600000,
-      "fallback": { "provider": "openai", "model": "gpt-6.1-sol" }
-    },
-    {
-      "name": "codex-luna-credits",
-      "matchModels": [{ "provider": "openai", "model": "gpt-6-luna" }],
-      "statuses": [402, 429],
-      "cooldownMs": 18000000,
-      "fallback": { "provider": "anthropic", "model": "claude-sonnet-5-5" }
-    },
-    {
-      "name": "codex-luna-transient",
-      "matchModels": [{ "provider": "openai", "model": "gpt-6-luna" }],
-      "statuses": [500, 502, 503, 504, 529],
-      "cooldownMs": 600000,
-      "fallback": { "provider": "anthropic", "model": "claude-sonnet-5-5" }
-    },
-    {
-      "name": "codex-credits",
-      "matchProviders": ["openai"],
-      "statuses": [402, 429],
-      "cooldownMs": 18000000,
-      "fallback": { "provider": "anthropic", "model": "claude-opus-5-5" }
-    },
-    {
-      "name": "codex-transient",
-      "matchProviders": ["openai"],
-      "statuses": [500, 502, 503, 504, 529],
-      "cooldownMs": 600000,
-      "fallback": { "provider": "anthropic", "model": "claude-opus-5-5" }
-    },
-    {
-      "name": "anthropic-opus-credits",
-      "matchModels": [{ "provider": "anthropic", "model": "claude-opus-5-5" }],
-      "statuses": [402, 429],
-      "cooldownMs": 18000000,
-      "fallback": { "provider": "anthropic-api", "model": "claude-opus-5-5" }
-    },
-    {
-      "name": "anthropic-opus-transient",
-      "matchModels": [{ "provider": "anthropic", "model": "claude-opus-5-5" }],
-      "statuses": [500, 502, 503, 504, 529],
-      "cooldownMs": 600000,
-      "fallback": { "provider": "github-copilot", "model": "gpt-6-luna" }
-    },
-    {
-      "name": "anthropic-sonnet-credits",
-      "matchModels": [{ "provider": "anthropic", "model": "claude-sonnet-5-5" }],
-      "statuses": [402, 429],
-      "cooldownMs": 18000000,
-      "fallback": { "provider": "anthropic-api", "model": "claude-sonnet-5-5" }
-    },
-    {
-      "name": "anthropic-haiku-credits",
-      "matchModels": [{ "provider": "anthropic", "model": "claude-haiku-5-5" }],
-      "statuses": [402, 429],
-      "cooldownMs": 18000000,
-      "fallback": { "provider": "anthropic-api", "model": "claude-haiku-5-5" }
-    },
-    {
-      "name": "anthropic-credits",
-      "matchProviders": ["anthropic"],
-      "statuses": [402, 429],
-      "cooldownMs": 18000000,
-      "fallback": { "provider": "openai", "model": "gpt-6.1-sol" }
-    },
-    {
-      "name": "anthropic-transient",
-      "matchProviders": ["anthropic"],
-      "statuses": [500, 502, 503, 504, 529],
-      "cooldownMs": 600000,
-      "fallback": { "provider": "openai", "model": "gpt-6.1-sol" }
-    },
-    {
-      "name": "anthropic-api-limit",
-      "matchProviders": ["anthropic-api"],
-      "statuses": [402, 429],
-      "cooldownMs": 600000,
-      "fallback": { "provider": "openai", "model": "gpt-6.1-sol" }
-    },
-    {
-      "name": "copilot-credits",
+      "name": "copilot-quota-or-auth",
       "matchProviders": ["github-copilot"],
-      "statuses": [402, 429],
+      "statuses": [401, 402, 429],
       "cooldownMs": 18000000,
-      "fallback": { "provider": "opencode-go", "model": "gpt-6-luna" }
+      "fallback": {"provider": "openai", "model": "gpt-6-luna"}
     },
     {
       "name": "copilot-transient",
       "matchProviders": ["github-copilot"],
       "statuses": [500, 502, 503, 504, 529],
       "cooldownMs": 600000,
-      "fallback": { "provider": "opencode-go", "model": "gpt-6-luna" }
+      "fallback": {"provider": "openai", "model": "gpt-6-luna"}
+    },
+    {
+      "name": "native-luna-quota-or-auth",
+      "matchModels": [{"provider": "openai", "model": "gpt-6-luna"}],
+      "statuses": [401, 402, 429],
+      "cooldownMs": 18000000,
+      "fallback": {"provider": "anthropic", "model": "claude-sonnet-5-5"}
+    },
+    {
+      "name": "native-luna-transient",
+      "matchModels": [{"provider": "openai", "model": "gpt-6-luna"}],
+      "statuses": [500, 502, 503, 504, 529],
+      "cooldownMs": 600000,
+      "fallback": {"provider": "anthropic", "model": "claude-sonnet-5-5"}
+    },
+    {
+      "name": "native-openai-quota-or-auth",
+      "matchProviders": ["openai"],
+      "statuses": [401, 402, 429],
+      "cooldownMs": 18000000,
+      "fallback": {"provider": "anthropic", "model": "claude-sonnet-5-5"}
+    },
+    {
+      "name": "native-openai-transient",
+      "matchProviders": ["openai"],
+      "statuses": [500, 502, 503, 504, 529],
+      "cooldownMs": 600000,
+      "fallback": {"provider": "anthropic", "model": "claude-sonnet-5-5"}
+    },
+    {
+      "name": "anthropic-haiku-quota-or-auth",
+      "matchModels": [{"provider": "anthropic", "model": "claude-haiku-5-5"}],
+      "statuses": [401, 402, 429],
+      "cooldownMs": 18000000,
+      "fallback": {"provider": "github-copilot", "model": "gpt-6-luna"}
+    },
+    {
+      "name": "anthropic-haiku-transient",
+      "matchModels": [{"provider": "anthropic", "model": "claude-haiku-5-5"}],
+      "statuses": [500, 502, 503, 504, 529],
+      "cooldownMs": 600000,
+      "fallback": {"provider": "github-copilot", "model": "gpt-6-luna"}
+    },
+    {
+      "name": "anthropic-quota-or-auth",
+      "matchProviders": ["anthropic"],
+      "statuses": [401, 402, 429],
+      "cooldownMs": 18000000,
+      "fallback": {"provider": "openai", "model": "gpt-6.1-sol"}
+    },
+    {
+      "name": "anthropic-transient",
+      "matchProviders": ["anthropic"],
+      "statuses": [500, 502, 503, 504, 529],
+      "cooldownMs": 600000,
+      "fallback": {"provider": "openai", "model": "gpt-6.1-sol"}
+    },
+    {
+      "name": "anthropic-api-quota-or-auth",
+      "matchProviders": ["anthropic-api"],
+      "statuses": [401, 402, 429],
+      "cooldownMs": 18000000,
+      "fallback": {"provider": "openai", "model": "gpt-6.1-sol"}
+    },
+    {
+      "name": "anthropic-api-transient",
+      "matchProviders": ["anthropic-api"],
+      "statuses": [500, 502, 503, 504, 529],
+      "cooldownMs": 600000,
+      "fallback": {"provider": "openai", "model": "gpt-6.1-sol"}
     }
   ]
 }

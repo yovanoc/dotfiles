@@ -1,6 +1,6 @@
 # Pi subagents and model routing
 
-This guide describes managed policy for installed Pi SDK 1.1.0 and `pi-subagents` 0.19.0;
+This guide describes managed policy for Pi SDK (runtime checked at 1.3.0 on 2026-10-20) and managed `pi-subagents`;
 it does not claim runtime configuration was applied. The operational
 model/effort routes, quota contract, and retry policy live only in the [root
 coordinator](../home/private_dot_pi/private_agent/private_docs/coordinator.md).
@@ -17,8 +17,8 @@ coordinator choices. On a fresh
 coordinator-created `Agent` call, explicit user/task model and effort choices
 come first; otherwise use the coordinator's route and pass both fields. A
 resume omits both to retain the worker's established runtime. The root startup
-default is `anthropic/claude-sonnet-5-5` medium, while Pi's active runtime
-model controls the root session. The installed SDK 1.1.0 catalog statically
+default is `openai/gpt-6.1-sol` medium, while Pi's active runtime
+model controls the root session. The catalog statically
 registers native `openai/gpt-6.1-sol`, `openai/gpt-6-luna`, and
 `openai/gpt-6-astra`; Sol high and Luna max have identity thinking mappings.
 Catalog registration and mappings do not prove account entitlement, live
@@ -41,9 +41,11 @@ Ordinary delegation uses native `Agent` calls. The coordinator owns ordered
 task priorities, soft quota states, scope checks and reset handling; this is
 prompt policy, not an automatic routing engine. Do not duplicate that table here.
 In short: Haiku/Luna first for bounded mapping, extraction and checkable leaves;
-Sonnet `medium` for everyday work; Opus or Sol chosen deliberately for difficult
-implementation and deep review. Quota pacing is reset-aware; expiring `anthropic-api/`
-prepaid credits take Anthropic relief and pace-based routine work (see the coordinator policy). Handoff checkpoints are per-session
+Copilot Luna is preferred over native Luna for equal-fit bounded work with headroom;
+Sonnet `medium` for everyday work; Sol for difficult implementation; Opus for deep
+review and architecture. User-selected Sol coordinators deliberately use frequent
+OpenAI resets; they are not policy failures. Quota pacing is reset-aware, while
+`anthropic-api/` is budget-checked relief only (no daily credit-burning formula). Handoff checkpoints are per-session
 files whose exact path the notice names; legacy `tasks/handoff.md` is not authority.
 
 ## Haiku availability
@@ -53,6 +55,24 @@ The refreshed catalog now includes `anthropic/claude-haiku-5-5`,
 and 128k output. Installed adapters advertise low/medium and adaptive thinking.
 No custom registration is needed. These are separate provider routes, not
 interchangeable billing pools; the coordinator owns their task selection.
+
+## Visual work and privacy
+
+UI/UX starts on Go Kimi K3, with Copilot Luna and native Sol as independent
+alternatives (exact efforts in the coordinator). This is a local trial: screenshot
+quality is not evidence of accessibility or correct interactions. Verify those
+before accepting a result. The SDK advertises K3 reasoning, but adapter effort
+mapping must be checked at dispatch; do not claim controlled effort if ignored.
+
+OpenCode Go documents Kimi K3 as zero-retention/no-training.
+Gemini 4 Argon Contributor may train Google models and is not zero-retention:
+use it only with explicit selection for non-confidential input, never automatic
+fallback. Zen is excluded until the user chooses to fund it.
+Sources: [Go privacy](https://opencode.ai/docs/en/go/#privacy),
+[Kimi K3](https://www.kimi.com/en/blog/kimi-k3),
+[Design Arena](https://www.designarena.ai/leaderboard).
+Arena rankings conflict and do not establish harness-specific success; compare
+accepted UI results, rework and turn limits next period.
 
 ## Installed behavior worth preserving
 
