@@ -73,8 +73,8 @@ For each fresh call:
    Between equal-fit alternatives prefer observed headroom over unknown.
 4. Pass exact `provider/model` as `model`, plus `thinking`; briefly explain any
    non-default choice. If suitable routes are blocked or a full applicable
-   window rules them out, leave work pending, report the gap and preserve
-   running workers. Unknown quota alone does not establish broken inference.
+   window rules them out (subject to the credit-rollover exception below), leave
+   work pending, report the gap and preserve running workers. Unknown quota alone does not establish broken inference.
 
 ### Classify before dispatch
 
@@ -160,7 +160,31 @@ limits or measured model costs. Explicit user choices still take precedence.
 | Full window: 100% or more, or zero remaining with a known positive count limit | Hold new discretionary work on affected routes until fresh evidence or explicit user choice changes the decision. This observation is not proof of whole-provider exhaustion or failed inference. |
 | Missing, stale, unavailable or unknown-scope data | Unknown: preserve task priority and report the gap. It is neither zero use nor exhaustion; known headroom may break an equal-fit tie. |
 
-Reset-aware preference (the 80/95/100% rows stay hard caps; never invent work):
+### OpenAI ChatGPT credit rollover
+
+The user enabled ChatGPT's “Allow other apps to use credits after reaching your
+usage limit” for Pi and confirmed that requests continue on credits after the
+weekly allowance is exhausted. Continue authorized OpenAI work through the
+existing ChatGPT login, including fresh workers, when subscription windows reach
+Reserve or Full; those percentages describe the included allowance, not the
+credit balance. This exception overrides the table's OpenAI quota holds and
+reset-aware caps while rollover remains available. No separate API key or
+API-platform balance is involved. Prefer task-fit routes normally; credit
+rollover is not a reason to add work or choose a more expensive model.
+
+Treat this user-confirmed rollover as available until revoked or contradicted by
+fresh evidence. Report that beyond-allowance work spends ChatGPT credits; honor
+explicit spending limits. A 100% window or missing credit telemetry alone is not
+a blocker. `quota_status.codexbarCredits` reports the CodexBar web session's
+remaining credit count separately from subscription usage. Check its freshness
+and account/workspace agreement with Pi before treating it as this route's
+balance; it is neither API dollars nor proof of app spending permission.
+Hold the affected route on an actual credit/usage refusal or auth
+failure, and reconcile it before retrying; never assume an unlimited balance or
+purchase/reload credits automatically.
+
+Reset-aware preference (subject to the OpenAI credit-rollover exception above,
+the 80/95/100% rows stay hard caps; never invent work):
 compare each pool's used fraction with the elapsed fraction of its window (linear
 reference: expected used = elapsed/`windowMinutes`, from `resetsAt`), using the most
 constrained known applicable window; a near-full five-hour window outranks weekly

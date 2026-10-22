@@ -25,6 +25,8 @@ home/private_dot_pi/**
 !home/private_dot_pi/private_agent/private_extensions/quota-status/index.ts
 !home/private_dot_pi/private_agent/private_extensions/quota-status/quota.ts
 !home/private_dot_pi/private_agent/private_extensions/quota-status/anthropic.ts
+!home/private_dot_pi/private_agent/private_extensions/quota-status/credits.ts
+!home/private_dot_pi/private_agent/private_extensions/quota-status/credits.test.mjs
 !home/private_dot_pi/private_agent/private_extensions/quota-status/package.json
 !home/private_dot_pi/private_agent/private_extensions/private_pi-permission-system/config.json
 !home/private_dot_pi/private_agent/private_model-fallback/config.json

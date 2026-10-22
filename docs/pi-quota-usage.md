@@ -36,6 +36,30 @@ The separate subscription collector maps a verified HTTP 401 to `auth-expired` (
 
 Sources: [CodexBar Claude platform collector and session requirements](https://github.com/steipete/CodexBar/blob/main/docs/claudeplatform.md), [collector source](https://github.com/steipete/CodexBar/blob/main/Sources/CodexBarCore/Resources/Plugins/claudeplatform.ts), and [official prepaid-credit semantics](https://platform.claude.com/docs/en/manage-claude/usage-cost-api). CodexBar's moving upstream contract must be requalified if its JSON or Console endpoint changes.
 
+## ChatGPT credit counts through CodexBar
+
+The tool also returns a separate top-level **`codexbarCredits`** observation, leaving the six provider quota observations unchanged. It runs the installed CodexBar **0.79.0** with a fixed, explicit web source (never `auto`, OAuth or a Codex CLI fallback):
+
+```sh
+codexbar usage --provider codex --source web --web-timeout 8 --json
+```
+
+The collector uses the same bounded child-process pattern as the Console collector: no shell, 64 KiB output cap, full-operation deadline and cancellation. It starts alongside the other collectors, within the existing 15-second tool deadline. It does not read cookies or Pi/OpenAI credentials itself, purchase credits, redeem reset credits, or invoke inference. CodexBar owns browser-session acquisition; no custom browser scraping is added.
+
+Only a single `codex` entry with `source: openai-web`, `credits.balanceReadSucceeded: true`, a finite nonnegative numeric `credits.remaining`, and boolean `credits.balanceIsWorkspace` is accepted. `remainingCredits` preserves fractional **credit counts**, not API USD, percentages, reset-credit inventory or a capacity estimate. Neither `usage.providerCost` nor dashboard fallback values are used. Zero is valid. The projection includes its own `source: codexbar-codex-web`, retrieval `capturedAt` (Unix milliseconds), `status`, `reason`, and `balanceIsWorkspace`. Missing CLI, malformed/missing balance, errors, timeout and cancellation produce unavailable/null values, never invented zero. Account identifiers, credit events, purchase URLs, credentials and raw errors never enter the result. The schema makes the additive field optional for older snapshots; current calls always return an observation.
+
+**Account and permission boundary:** this is the signed-in **CodexBar session's** balance, not an independently verified match to Pi's native OpenAI account/workspace. `balanceIsWorkspace: true` denotes a workspace pool, not a personal balance or member spending allowance. Independently verify account/workspace agreement before using either kind of balance for routing. It does not establish per-app permissions, app caps, spend authorization or an API-dollar budget. Native OpenAI inference auth, companion subscription telemetry and the coordinator's existing user-authorized ChatGPT credit rollover exception are unchanged. Missing credit telemetry is not proof of exhaustion.
+
+OpenAI's [third-party app usage guide](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites) describes opt-in credit use after included usage, while its [personal flexible-credit guide](https://help.openai.com/en/articles/12642688-using-credits-for-flexible-usage-in-chatgpt-personal-plans) describes credit balances in ChatGPT/Codex usage settings. These official pages were found through source-linked search; direct fetching returned HTTP 403 during this investigation, so this is **not independent proof that the observed CodexBar session is Pi's shared wallet**. [CodexBar's versioned source documentation](https://github.com/steipete/CodexBar/blob/v0.79.0/docs/codex.md) identifies the explicit web dashboard and credits fields. Its private endpoint/JSON contract can change and requires requalification after changes.
+
+A bounded, read-only host probe succeeded with `source: openai-web`, numeric `credits.remaining`, `balanceReadSucceeded: true`, and `balanceIsWorkspace: false`, without printing identities. An initial probe exceeded 18 seconds and was killed/reaped; the explicit 8-second web-timeout command subsequently succeeded twice. Live amounts are intentionally not embedded in managed source. No inference, purchases or chezmoi apply were performed.
+
+Focused credential-free checks:
+
+```sh
+node home/private_dot_pi/private_agent/private_extensions/quota-status/credits.test.mjs
+```
+
 ## Enable it (commands not executed)
 
 Preview and apply the native routing, fallback, extension, coordinator and unpinned roles without running setup scripts:
