@@ -8,6 +8,7 @@ export PI_RUNTIME="${PI_RUNTIME:-$(brew --prefix pi-coding-agent)/libexec/lib/no
 bun --no-install - <<'TS'
 import assert from "node:assert/strict"
 import { join } from "node:path"
+import { readFileSync } from "node:fs"
 const runtime = process.env.PI_RUNTIME!
 const { createJiti } = await import(join(runtime, "node_modules/jiti/lib/jiti.mjs"))
 const jiti = createJiti(join(process.cwd(), "scripts/test-agent-prompt-guard.sh"), {
@@ -73,6 +74,27 @@ const need = (type: string, line: string, extra: object = {}) => requiredToolsRe
 assert.match(need("ro", "read, bash") ?? "", /cannot use required tools bash/)
 assert.match(need("ro", "grep") ?? "", /cannot use required tools grep/)
 assert.equal(need("ro", "read"), undefined)
+const explore = resolveRole("Explore", "/x", () => [{ file: "Explore.md", text: readFileSync("home/private_dot_pi/private_agent/private_agents/Explore.md", "utf8") }])
+const exploreNeed = (line: string) => requiredToolsReason({ prompt: `REQUIRED TOOLS: ${line}` }, explore)
+assert.equal(exploreNeed("read, grep, find, ls"), undefined)
+const punctuationReason = exploreNeed("read, grep, find, ls.")
+console.log("Punctuated Explore preflight:", punctuationReason ?? "allowed")
+assert.equal(punctuationReason, undefined)
+assert.match(exploreNeed("bash") ?? "", /cannot use required tools bash/)
+assert.match(exploreNeed("read, bash.") ?? "", /cannot use required tools bash\./)
+assert.match(exploreNeed("bash, ls.") ?? "", /cannot use required tools bash/)
+assert.match(exploreNeed("read., ls.") ?? "", /cannot use required tools read\./) // only the last item
+assert.match(exploreNeed("ls..") ?? "", /cannot use required tools ls\.\./) // only a single final period
+assert.match(need("ro", "grep.") ?? "", /cannot use required tools grep/) // stripped name is still denied
+const exactRole = { enabled: true, tools: "read, functions.read, mcp:tools.ls, ls., blocked.", disallowed: "ls, blocked., read." }
+const exactNeed = (line: string) => requiredToolsReason({ prompt: `REQUIRED TOOLS: ${line}` }, exactRole)
+assert.equal(exactNeed("functions.read, mcp:tools.ls, ls."), undefined) // exact ls. wins over denied ls
+assert.match(exactNeed("read.") ?? "", /cannot use required tools read\./) // denied exact name wins over allowed read
+assert.match(exactNeed("blocked.") ?? "", /cannot use required tools blocked\./)
+assert.match(exactNeed("functions.write") ?? "", /cannot use required tools functions.write/)
+assert.equal(exactNeed("functions.read."), undefined)
+assert.equal(exactNeed("mcp:tools.ls."), undefined)
+assert.match(exactNeed("ls..") ?? "", /cannot use required tools ls\.\./) // do not strip to an exact trailing-period name
 assert.equal(need("sh", "Read, bash"), undefined) // YAML array
 assert.equal(need("open", "bash"), undefined) // unresolvable: policy/manual check retained
 assert.equal(need("star", "bash"), undefined)

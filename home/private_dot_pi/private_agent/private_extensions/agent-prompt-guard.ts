@@ -55,6 +55,11 @@ export function requiredToolsReason(input: { prompt?: unknown, resume?: unknown 
   const allowed = csv(role.tools)
   if (allowed.some((tool) => tool === "*" || tool === "all" || tool.startsWith("ext:"))) return
   const denied = role.disallowed === undefined || role.disallowed === null ? [] : csv(role.disallowed)
+  const last = required[required.length - 1].toLowerCase()
+  // Exact declarations win; tolerate one sentence-final period only for an allowed name.
+  if (last.endsWith(".") && !last.endsWith("..") && !allowed.includes(last) && !denied.includes(last) && allowed.includes(last.slice(0, -1))) {
+    required[required.length - 1] = required[required.length - 1].slice(0, -1)
+  }
   const missing = required.filter((tool) => !allowed.includes(tool.toLowerCase()) || denied.includes(tool.toLowerCase()))
   if (missing.length) return `Agent preflight rejected: this role cannot use required tools ${missing.join(", ")}. Choose a role whose tools allowlist includes them or drop them from REQUIRED TOOLS.`
 }
