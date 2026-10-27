@@ -48,8 +48,8 @@ The Sonnet startup pilot was not evaluable: most requests stayed on user-selecte
 Sol sessions to use frequent OpenAI resets. This is deliberate pool use, not a
 routing failure. New unpinned starts use Sol; existing sessions and explicit
 choices retain their runtime. Confirm actual provider/model and effort at startup.
-Delegate bounded work to Haiku, Sonnet or Luna rather than inheriting Sol for every
-worker. Compare accepted outcomes, rework and actual runtime cost, not done counts.
+Delegate bounded work to Haiku, Sonnet, Luna or task-fit Terra rather than
+inheriting Sol for every worker. Compare accepted outcomes, rework and actual runtime cost, not done counts.
 Choose Opus/Astra deliberately for difficult implementation, deep or high-risk review
 and hard architecture decisions, not only as a last fallback. State a
 `MODEL RATIONALE:` (explicit user choice, costly hidden failure, interacting
@@ -113,7 +113,8 @@ failure cost—not file count:
 
 Lighter-first: Haiku/Luna take bounded read-only mapping, extraction/summaries and
 narrow checkable leaves; Sonnet `medium` takes everyday implementation, debugging,
-bounded planning and ordinary review; Sol takes difficult implementation, while
+bounded planning and ordinary review; Terra `medium` takes the task-fit rows below;
+Sol takes difficult implementation, while
 Opus stays available for deep review and architecture. Prefer Copilot Luna over
 native OpenAI Luna for equal-fit bounded tasks when Copilot has headroom. Real
 verification before acceptance stays mandatory for every route.
@@ -128,14 +129,17 @@ task fit; Effect expertise stays with the role. API price is not subscription de
 | --- | --- |
 | Bounded read-only mapping (`Explore`) | `opencode-go/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `high` → `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` `high`. Luna `max` is locally discouraged here (29 of 43 historical Explore runs hit the turn limit), not a provider rule. |
 | Narrow, mechanically checkable code meeting all five conditions above | `opencode-go/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `low` for single-step or `high` for multi-step → `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` at the same effort → `anthropic/claude-sonnet-5-5` `medium`. At a turn limit inspect partial edits and re-split. Keep Haiku prompts under 100k tokens (price steps 5× above). |
-| Substantive implementation, debugging or bounded Effect work | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium`. Use Sonnet `high` for harder but bounded work. A small risky packet still belongs here or on the difficult row, not Haiku. |
+| Concise writing or revision from supplied material (not extraction) | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. Verify facts, qualifications, audience, voice and useful detail against the supplied material. |
+| Scoped code fixes with clear inputs, requirements and regression checks, without hard/security/cross-layer invariants | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. Run regression tests and inspect the actual diff before acceptance. Mechanical leaves still use the narrow row. |
+| Substantive implementation, debugging or bounded Effect work outside the scoped-fix row | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium`. Use Sonnet `high` for harder but bounded work. A small risky packet still belongs here or on the difficult row, not Haiku. |
 | Genuinely difficult end-to-end implementation | `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high` → `anthropic/claude-opus-5-5` `medium` with a rationale. |
 | Research, open-ended work or hard repository tracing | `anthropic/claude-sonnet-5-5` `high` for bounded synthesis → `openai/gpt-6.1-sol` `medium` for hard tracing. Split exact extraction to Haiku/Luna first. |
 | Bounded planning or ordinary review | `anthropic/claude-sonnet-5-5` `medium` → `github-copilot/gpt-6-luna` `high` for self-contained checks → `openai/gpt-6.1-sol` `medium`. |
 | Deep or cross-layer review | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
 | Exceptional/adversarial review with costly hidden failure, interacting invariants or verified misses | `anthropic/claude-opus-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
 | Architecture where judgment is the bottleneck | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
-| Visual/UI work | `github-copilot/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium`. Go Kimi K3 `high` is held: the installed catalog marks it unsupported; do not substitute `max`. Verify image input and effort support; inspect screenshots, mobile layout, keyboard navigation and accessibility before acceptance. |
+| Defined visual/computer tasks with explicit inputs and a verifiable saved outcome | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. Verify the saved record/page, preserve unrelated data and check the completion report; UI changes also require rendered desktop/mobile, keyboard and accessibility checks. Role tools must actually support the interaction. |
+| Open-ended visual/UI design or connected visual systems | `github-copilot/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium`. Go Kimi K3 `high` is held: the installed catalog marks it unsupported; do not substitute `max`. Verify image input and effort support; inspect screenshots, mobile layout, keyboard navigation and accessibility before acceptance. |
 | Short extraction, summaries or classification | `opencode-go/claude-haiku-5-5` `low` for single-step or `medium` for multi-step → `github-copilot/gpt-6-luna` `low` or `high` respectively → `anthropic/claude-haiku-5-5` at the same effort → `openai/gpt-6-luna` at the same effort. |
 
 Zen (`opencode/`) is disabled while the user declines to refill its wallet: omit it
@@ -159,9 +163,20 @@ not quota relief; a switched effort requires a fresh worker, not a resume.
 Copilot Gemini is omitted here: its installed adapter ignores effort, so a
 requested `medium`/`high` is not a controlled alternative to OpenCode Gemini.
 
-Terra is qualification-only, not a route or startup default. Before any separately
-approved trial, read [Terra qualification](~/dotfiles/docs/pi-subagents-model-routing.md#terra-qualification-2026-10-27)
-for registration, account, tool/effort and accepted-task evidence gates.
+Terra is user-authorized selective routing through native `openai` with the
+existing ChatGPT login, not a startup change or a separate API-key route.
+Use its task-fit rows before the general substantive/visual rows, while retaining
+Haiku/Luna for mechanical work and extraction and stronger routes for hard,
+security or cross-layer work. Check registration, account availability, tools and
+`medium` support before dispatch; local registration alone is not live entitlement.
+On an actual auth/availability refusal hold Terra and report it; use an eligible
+next route without trying separate API credentials. On a verified acceptance miss,
+record the failure and escalate a fresh packet to Sol `medium` with the same
+inputs and checks, not repeated Terra retries. Compare same-effort accepted results,
+rework and review/repair time; do not run duplicate comparisons without a real need.
+API estimates are not ChatGPT credit-debit rates; no measured savings are claimed.
+See [Terra setup and evidence](~/dotfiles/docs/pi-subagents-model-routing.md#terra-selective-routing)
+for limits, native preflight and verification prerequisites.
 
 ### Quota states
 

@@ -20,7 +20,9 @@ resume omits both to retain the worker's established runtime. The root startup
 default is `openai/gpt-6.1-sol` medium, while Pi's active runtime
 model controls the root session. The catalog statically
 registers native `openai/gpt-6.1-sol`, `openai/gpt-6-luna`, and
-`openai/gpt-6-astra`; Sol high and Luna max have identity thinking mappings.
+`openai/gpt-6-astra`; managed `models.json` supplements this with
+`openai/gpt-6.1-terra` over Responses without changing native authentication.
+Sol high and Luna max have identity thinking mappings.
 Catalog registration and mappings do not prove account entitlement, live
 runtime behavior, effort equivalence, or quota debit. Managed inference uses
 only the native route; OpenAI quota reporting uses the retained login as
@@ -42,8 +44,8 @@ task priorities, soft quota states, scope checks and reset handling; this is
 prompt policy, not an automatic routing engine. Do not duplicate that table here.
 In short: Haiku/Luna first for bounded mapping, extraction and checkable leaves;
 Copilot Luna is preferred over native Luna for equal-fit bounded work with headroom;
-Sonnet `medium` for everyday work; Sol for difficult implementation; Opus for deep
-review and architecture. User-selected Sol coordinators deliberately use frequent
+Sonnet `medium` for everyday work outside Terra’s task-fit cases below; Sol for
+difficult implementation; Opus for deep review and architecture. User-selected Sol coordinators deliberately use frequent
 OpenAI resets; they are not policy failures. Quota pacing is reset-aware, while
 `anthropic-api/` is budget-checked relief only (no daily credit-burning formula). Handoff checkpoints are per-session
 files whose exact path the notice names; legacy `tasks/handoff.md` is not authority.
@@ -75,26 +77,75 @@ Sources: [Go privacy](https://opencode.ai/docs/en/go/#privacy),
 Arena rankings conflict and do not establish harness-specific success; compare
 accepted UI results, rework and turn limits next period.
 
-## Terra qualification (2026-10-27)
+## Terra selective routing
 
-OpenAI now recommends `gpt-6.1-terra` for supplied-material writing, defined
-computer-use tasks and scoped code fixes. Start at `medium`; compare against
-Sol on the same inputs and effort, including verification and repair time.
-Keep Haiku/Luna for cheap extraction and Sol/Opus for difficult work until
-accepted-task evidence supports changing a route. No default changes here.
+The user authorized task-fit `openai/gpt-6.1-terra` use through the existing native
+ChatGPT login. This is selective worker routing, not a startup or automatic
+fallback change. The coordinator is the single authority for ordered routes:
+Terra starts at `medium` for concise supplied-material writing, scoped code fixes
+with regression checks and defined visual/computer tasks with verifiable saved
+outcomes. Cheap extraction/mechanical routes and hard/security/cross-layer routes
+stay separate. Role tool permissions still apply; model computer-use capability
+does not install a browser or desktop tool.
 
-Standard API input/cached-input/output rates per million tokens are
-$1/$0.05/$5, half Sol's rates but ten times Luna's uncached-input/output rates.
-Above 272k input tokens, full-request input/cache rates double and output
-rates increase 1.5×; cache writes cost extra. API prices are neither actual
-account charges nor subscription-debit multipliers.
+The bundled Pi 1.4.0 catalog inspected on 2026-10-27 lacks `gpt-6.1-terra`.
+Managed `models.json` therefore adds it under native `openai`, rather than using
+`modelOverrides` (which ignores absent IDs). It specifies `openai-responses`,
+text/image input, a 1,050,000-token context and 128,000-token maximum output.
+The published maximum **input** is 922,000 tokens; the installed Pi model schema
+cannot encode that separate ceiling. Keep task inputs below it; the context
+window is not permission to send 1,050,000 input tokens. Pi effort `off` maps to
+`none`, `minimal` is unsupported, and `low`/`medium`/`high`/`xhigh`/`max` map
+identically. No speculative compatibility flags or hard image-count limits are
+added. `enabledModels` includes Terra for selection/cycling; Sol medium remains
+startup. A future native catalog entry with the same ID is replaced by this
+managed definition, so recheck it on SDK/catalog upgrades.
 
-The inspected bundled Pi 1.4.0 native catalog does not register Terra. Before
-any trial, verify registration, the selected account's model availability,
-Responses tool support and effort mapping. Do not read credentials, register
-a model, switch a session or spend API funds as an implicit qualification step.
-A separately authorized trial must record acceptance, rework, elapsed time and
-Pi-local cost, and inspect rendered desktop/mobile results for UI tasks.
+Standard API input/cached-input/cache-write/output rates per million tokens are
+$1/$0.05/$1.25/$5. The cache-write estimate is for 30-minute retention, not the
+higher 12-hour rate. Above 272k input tokens, full-request input/cache rates double
+and output rates increase 1.5×. Those rates are encoded as a request-wide tier.
+These are API-equivalent estimates, **not ChatGPT credit-debit rates** or measured
+savings. Compare accepted outputs, rework, review/repair time and actual account
+usage rather than promising savings from API price ratios.
+
+### Native availability and acceptance
+
+Offline checks (no inference, credential reads or live target writes):
+
+```bash
+python3 scripts/test-pi-routing.py
+./scripts/test-agent-prompt-guard.sh
+```
+
+The guard check loads the managed registration through the installed SDK schema
+and native provider composer, preserves the OAuth method, and checks Terra’s
+supported efforts without resolving credentials. This proves local registration,
+not account entitlement. After applying source, restart Pi, open `/model` and
+confirm `openai/gpt-6.1-terra` and `medium` are selectable through the existing
+OpenAI ChatGPT login. No API key, alternate provider or new funding is required
+or authorized. Do not print credentials. A missing model or actual auth/usage
+refusal is an affected-route blocker to reconcile, not permission to try an API key.
+
+Before relying on Terra, the coordinator should perform one bounded native check
+with a harmless read-only fixture tool and supplied-material answer at `medium`,
+recording the actual provider/model/effort, successful terminal completion, tool
+result and checked answer. Registration and an available picker alone do not
+prove that inference works. A bounded coordinator check on 2026-10-27 passed through the existing native
+login at `medium`: Terra called the fixture read tool and returned a factual
+supplied-material answer with terminal `stop`. Evidence for this local check is
+`/tmp/pi-terra-routing-check/smoke-result.log` (temporary, not a durable benchmark).
+This establishes current inference and basic tool behavior, not representative
+code/UI quality or measured ChatGPT credit savings.
+
+For real work, define acceptance first: writing needs factual/qualification,
+audience, voice and length checks; code needs regression tests; computer tasks
+need the saved record/page reopened and the report checked against it. Interactive
+UI changes additionally need rendered desktop/mobile, keyboard and accessibility
+checks. On verified misses, escalate to Sol on the same inputs and `medium` effort,
+including repair time in the evidence. Do not duplicate runs solely to claim a
+cost comparison. Retain stronger routes for hard work.
+
 Sources: [model selection](https://developers.openai.com/api/docs/guides/model-selection),
 [Terra model](https://developers.openai.com/api/docs/models/gpt-6.1-terra),
 [pricing](https://developers.openai.com/api/docs/pricing),
@@ -134,17 +185,17 @@ guide](model-fallback.md) for matching, cooldown, and configuration details.
 ## Activating source policy
 
 Applying only the quota extension does not update role pins, the coordinator,
-native startup defaults or reactive fallback routes. Preview and apply these
-managed targets when ready:
+native model registration/startup defaults or reactive fallback routes. Preview
+and apply these managed targets when ready:
 
 ```bash
 chezmoi diff --recursive \
-  ~/.pi/agent/settings.json ~/.pi/agent/model-fallback/config.json \
+  ~/.pi/agent/models.json ~/.pi/agent/settings.json ~/.pi/agent/model-fallback/config.json \
   ~/.pi/agent/agents ~/.pi/agent/docs \
   ~/.pi/agent/extensions/agent-prompt-guard.ts \
   ~/.pi/agent/extensions/task-outcome-receipt.ts
 chezmoi apply --recursive --exclude scripts \
-  ~/.pi/agent/settings.json ~/.pi/agent/model-fallback/config.json \
+  ~/.pi/agent/models.json ~/.pi/agent/settings.json ~/.pi/agent/model-fallback/config.json \
   ~/.pi/agent/agents ~/.pi/agent/docs \
   ~/.pi/agent/extensions/agent-prompt-guard.ts \
   ~/.pi/agent/extensions/task-outcome-receipt.ts

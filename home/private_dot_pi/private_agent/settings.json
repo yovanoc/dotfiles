@@ -116,7 +116,8 @@
     "anthropic/claude-sonnet-5-5",
     "openai/gpt-6-astra",
     "openai/gpt-6-luna",
-    "openai/gpt-6.1-sol"
+    "openai/gpt-6.1-sol",
+    "openai/gpt-6.1-terra"
   ],
   "images": {
     "autoResize": false
