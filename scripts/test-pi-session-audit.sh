@@ -205,6 +205,111 @@ if grep -E 'SECRET|WORKER03|errorMessage|markdown|toolCall' "$tmp_root/retro.jso
   exit 1
 fi
 
+# Receipts, task joins, checkpoint evidence, error categories and scan reconciliation.
+ev="$tmp_root/evidence"
+mkdir -p "$ev"
+T1=aaaaaaaa-1111-2222-3333-444444444444   # joined single model
+T2=bbbbbbbb-1111-2222-3333-444444444444   # mixed models
+T3=cccccccc-1111-2222-3333-444444444444   # unmatched
+T4=dddddddd-1111-2222-3333-444444444444   # prefix collision with T5
+T5=dddddddd-9999-2222-3333-444444444444
+coord="$ev/coord.jsonl"
+ts=2024-05-02T12:10:00Z
+{
+  jq -nc '{type:"session",id:"c",timestamp:"2024-05-02T12:00:00Z"}'
+  for t in "$T1" "$T2" "$T3" "$T4" "$T5"; do
+    jq -nc --arg t "$t" '{type:"message",timestamp:"2024-05-02T12:01:00Z",message:{role:"assistant",content:[{type:"toolCall",id:("call-"+$t[0:4]),name:"Agent",arguments:{model:"sonnet",thinking:"medium",prompt:"EVIDENCE_PROMPT_SECRET"}}]}}'
+    jq -nc --arg t "$t" '{type:"custom_message",customType:"subagent-notification",id:("n-"+$t[0:4]),timestamp:"2024-05-02T12:10:00Z",content:("<task-notification><task-id>"+$t+"</task-id><tool-use-id>call-"+$t[0:4]+"</tool-use-id><status>Done</status><result>RESULT_SECRET</result></task-notification>")}'
+  done
+  # Record evidence for T1 duplicates the notification; T3 is a record-only terminal task.
+  jq -nc --arg t "$T1" '{type:"custom",customType:"subagents:record",timestamp:"2024-05-02T12:10:01Z",data:{id:$t,type:"general-purpose",status:"completed",result:"RECORD_SECRET"}}'
+  jq -nc '{type:"custom",customType:"subagents:record",timestamp:"2024-05-02T12:10:01Z",data:{id:"eeeeeeee-1111",type:"x",status:"steered"}}'
+  rc() { jq -nc --arg ts "$2" --argjson d "$1" '{type:"custom",customType:"task-outcome-receipt",timestamp:$ts,data:$d}'; }
+  rc '{"taskId":"'"$T1"'","outcome":"reworked","model":"anthropic/m1","effort":"high","checkArtifact":"/tmp/CHECK_ARTIFACT_SECRET"}' 2024-05-02T12:11:00Z
+  rc '{"taskId":"'"$T1"'","outcome":"accepted","model":"anthropic/m1","effort":"high","checkArtifact":"/tmp/CHECK_ARTIFACT_SECRET"}' 2024-05-02T12:12:00Z
+  rc '{"taskId":"'"$T2"'","outcome":"rejected","model":"anthropic/m1","effort":"low","checkArtifact":"scripts/check.sh"}' 2024-05-02T12:12:00Z
+  rc '{"taskId":"'"$T3"'","outcome":"great","model":"anthropic/m1","effort":"low"}' 2024-05-02T12:12:00Z
+  rc '{"taskId":"'"$T3"'","outcome":"accepted","model":"bad model!","effort":"low"}' 2024-05-02T12:12:00Z
+  rc '{"taskId":"'"$T3"'","outcome":"accepted","model":"m","effort":"ludicrous"}' 2024-05-02T12:12:00Z
+  rc '{"taskId":"","outcome":"accepted","model":"m","effort":"low"}' 2024-05-02T12:12:00Z
+  rc '{"taskId":"x","outcome":"accepted","model":"m","effort":"low","checkArtifact":{"a":1}}' 2024-05-02T12:12:00Z
+  # Checkpoints: attempt, success, error result, unjoined, bad shape; continuation; handoff receipts.
+  ck() { jq -nc --arg id "$1" --arg name "$2" '{type:"message",timestamp:"2024-05-02T12:20:00Z",message:{role:"assistant",content:[{type:"toolCall",id:$id,name:$name,arguments:{status:"done",markdown:"CHECKPOINT_SECRET"}}]}}'; }
+  cr() { jq -nc --arg id "$1" --arg name "$2" --argjson err "$3" --argjson d "$4" '{type:"message",timestamp:"2024-05-02T12:21:00Z",message:{role:"toolResult",toolCallId:$id,toolName:$name,isError:$err,content:[{type:"text",text:"RESULT_TEXT_SECRET"}],details:$d}}'; }
+  ck u1 unattended_checkpoint; cr u1 unattended_checkpoint false '{"status":"continue","path":"/p/PATH_SECRET.md","cwd":"/c"}'
+  ck u2 unattended_checkpoint; cr u2 unattended_checkpoint true '{}'
+  ck u3 unattended_checkpoint; cr u3 unattended_checkpoint false '{"status":"weird","path":"/p/x.md","cwd":"/c"}'
+  cr u9 unattended_checkpoint false '{"status":"done","path":"/p/x.md","cwd":"/c"}'
+  ck h1 handoff_checkpoint; cr h1 handoff_checkpoint false '{"path":"/p/h.md","cwd":"/c"}'
+  ck h2 handoff_checkpoint; cr h2 handoff_checkpoint false '{"path":"relative.md","cwd":"/c"}'
+  jq -nc '{type:"custom_message",customType:"unattended-continuation",timestamp:"2024-05-02T12:22:00Z",content:"CONT_SECRET"}'
+  jq -nc '{type:"custom",customType:"compaction-handoff-written",timestamp:"2024-05-02T12:23:00Z",data:{sessionId:"c",checkpointPath:"/p/h.md"}}'
+  jq -nc '{type:"custom",customType:"compaction-handoff-approved",timestamp:"2024-05-02T12:23:00Z",data:{sessionId:"c",checkpointPath:"/p/h.md"}}'
+  jq -nc '{type:"custom",customType:"compaction-handoff-approved",timestamp:"2024-05-02T12:23:00Z",data:{}}'
+  for m in "overloaded_error" "rate_limit_error x" "ECONNRESET" "context_length_exceeded" "SOMETHING_SECRET_ERR"; do
+    jq -nc --arg e "$m" '{type:"message",timestamp:"2024-05-02T12:30:00Z",message:{role:"assistant",provider:"p",model:"m",stopReason:"error",errorMessage:$e,content:[]}}'
+  done
+} > "$coord"
+wk() { # name-task model...
+  local f="$ev/w-$1.jsonl"; shift
+  jq -nc --arg p "$coord" '{type:"session",id:"w",timestamp:"2024-05-02T12:00:00Z",parentSession:$p}' > "$f"
+  jq -nc --arg n "$1" '{type:"session_info",timestamp:"2024-05-02T12:00:01Z",name:$n}' >> "$f"
+  shift
+  for m in "$@"; do msg 2024-05-02T12:05:00Z openai "$m" 1 1 0 >> "$f"; done
+}
+wk a "general-purpose#${T1:0:8}" wm1
+wk b "general-purpose#${T2:0:8}" wm1 wm2
+wk d1 "general-purpose#${T4:0:8}" wm1
+wk d2 "general-purpose#${T5:0:8}" wm1
+: > "$ev/empty.jsonl"; printf '{"x":1}\n' > "$ev/headerless.jsonl"; printf 'not json\n' > "$ev/garbage.jsonl"
+jq -nc '{type:"session",timestamp:"2020-01-01T00:00:00Z"}' > "$ev/idle.jsonl"
+"$SCRIPT" --sessions-dir "$ev" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z --json > "$tmp_root/ev.json"
+jq -e '
+  .task_evidence.terminal_tasks == 6
+  and .task_evidence.status_sources == {both:1,notification_only:4,record_only:1}
+  and .task_evidence.worker_join == {joined_single_model:1,mixed_models:1,no_worker:2,ambiguous:2}
+  and .task_evidence.actual_model_terminal_status == {"openai/wm1":{done:1}}
+  and .task_evidence.requested_model == {sonnet:5} and .task_evidence.requested_effort == {medium:5}
+  and .task_evidence.request_join == {matched_agent_call:5,unmatched:1}
+  and .task_evidence.requested_vs_actual == {"requested=sonnet actual=openai/wm1":1}
+  and .task_evidence.runtime_effort.available == false
+  and .terminal_notification_statuses_unique == {done:5}
+  and .retrospective.task_outcomes.available == true and .retrospective.task_outcomes.actual_runtime_proof == false
+  and .retrospective.task_outcomes.receipts_valid == 3 and .retrospective.task_outcomes.receipts_invalid == 5
+  and .retrospective.task_outcomes.tasks_with_receipt == 2
+  and .retrospective.task_outcomes.latest_outcomes == {accepted:1,rejected:1}
+  and .retrospective.task_outcomes.rework_history_tasks == 1 and .retrospective.task_outcomes.rework_events == 1
+  and .retrospective.task_outcomes.coverage == {terminal_tasks_observed:6,dispatches_observed:5,receipted_tasks_with_terminal_evidence:2,receipted_tasks_without_terminal_evidence:0}
+  and .retrospective.task_outcomes.by_model_effort == {"anthropic/m1":{
+      high:{tasks:1,latest_outcomes:{accepted:1},rework_history_tasks:1,receipts:2,check_artifact_present:1},
+      low:{tasks:1,latest_outcomes:{rejected:1},rework_history_tasks:0,receipts:1,check_artifact_present:1}}}
+  and .retrospective.accepted_outcomes == {available:true,source:"coordinator_reported_task_outcome_receipt",accepted_latest:1,denominator_tasks_with_receipt:2}
+  and .retrospective.unattended_checkpoint.nonworker_coordinators.by_status == {done:3}
+  and .retrospective.checkpoint_evidence.unattended == {successful_by_status:{continue:1},successful:1,error_results:1,invalid_results:2,continuations:1}
+  and .retrospective.checkpoint_evidence.handoff_checkpoint == {attempts:2,successful:1,error_results:0,invalid_results:1,written_receipts:1,approved_receipts:1}
+  and .retrospective.stop_reason_errors.auth_categories == {overloaded:1,rate_limit:1,network:1,context_overflow:1,unclassified:1}
+  and .scan_reconciliation == {candidates:9,scanned:9,session_files_with_window_activity:5,session_files_without_window_activity:1,headerless_nonempty:2,headerless_empty:1,unreadable:0,classified_main_fork_worker:5,candidates_match_scanned:true,partition_balanced:true,classification_balanced:true,error_categories_match_errors:true}
+' "$tmp_root/ev.json" >/dev/null || { jq '.task_evidence,.retrospective.task_outcomes,.retrospective.checkpoint_evidence,.scan_reconciliation,.retrospective.stop_reason_errors' "$tmp_root/ev.json"; exit 1; }
+"$SCRIPT" --sessions-dir "$ev" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z > "$tmp_root/ev.txt"
+if grep -E "SECRET|$T1|${T1:0:8}|call-|/tmp/|/p/" "$tmp_root/ev.json" "$tmp_root/ev.txt"; then
+  echo 'evidence output leaked fixture content' >&2
+  exit 1
+fi
+# Without receipts, outcomes are unavailable rather than zero.
+"$SCRIPT" --sessions-dir "$mroot" --since 2024-05-02T12:00:00Z --json | jq -e '.retrospective.task_outcomes.available == false and .retrospective.rework.available == false and .scan_reconciliation.balanced != false' >/dev/null
+
+# Receipt trust-boundary limits match the emitting extension, including required artifacts.
+receipt_root="$tmp_root/receipt-boundaries"
+mkdir -p "$receipt_root"
+jq -nc '{type:"session",timestamp:"2024-05-02T12:00:00Z"},
+  ({taskId:"task/a@b+c",outcome:"accepted",model:("m" * 128),effort:"unknown",checkArtifact:("p" * 300)} as $good
+   | [$good, ($good | .taskId = "x" | del(.checkArtifact)),
+      ($good | .checkArtifact = ("p" * 301)), ($good | .checkArtifact = "a b"),
+      ($good | .model = ("m" * 129)), ($good | .taskId = ("t" * 129))][]
+   | {type:"custom",customType:"task-outcome-receipt",timestamp:"2024-05-02T12:01:00Z",data:.})' > "$receipt_root/c.jsonl"
+"$SCRIPT" --sessions-dir "$receipt_root" --since 2024-05-02T12:00:00Z --json |
+  jq -e '.retrospective.task_outcomes.receipts_valid == 1 and .retrospective.task_outcomes.receipts_invalid == 5' >/dev/null
+
 # Exercise the default last-48-hour window with a current event.
 default_root="$tmp_root/default-sessions"
 mkdir -p "$default_root"
@@ -220,6 +325,17 @@ if "$SCRIPT" --sessions-dir "$tmp_root/does-not-exist" > "$tmp_root/missing.out"
   exit 1
 fi
 grep -q 'sessions directory does not exist or is not a directory' "$tmp_root/missing.err"
+
+# Discovery failures must not produce a plausible partial-coverage report.
+failed_find="$tmp_root/failed-find-bin"
+mkdir -p "$failed_find"
+printf '#!/bin/sh\nexit 7\n' > "$failed_find/find"
+chmod +x "$failed_find/find"
+if PATH="$failed_find:$PATH" "$SCRIPT" --sessions-dir "$root" --json > "$tmp_root/failed-find.out"; then
+  echo 'failed candidate discovery unexpectedly succeeded' >&2
+  exit 1
+fi
+test ! -s "$tmp_root/failed-find.out"
 
 # Keep only the utilities needed before jq detection on PATH to verify its diagnostic.
 no_jq_path="$tmp_root/no-jq-bin"

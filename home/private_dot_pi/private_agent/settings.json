@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.2.0",
+  "lastChangelogVersion": "1.4.0",
   "packages": [
     "npm:@tintinweb/pi-subagents",
     "npm:@gotgenes/pi-permission-system",

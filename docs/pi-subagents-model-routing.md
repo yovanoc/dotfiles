@@ -1,6 +1,6 @@
 # Pi subagents and model routing
 
-This guide describes managed policy for Pi SDK (runtime checked at 1.3.0 on 2026-10-20) and managed `pi-subagents`;
+This guide describes managed policy for Pi SDK (preflight checked at 1.4.0 on 2026-10-27) and managed `pi-subagents`;
 it does not claim runtime configuration was applied. The operational
 model/effort routes, quota contract, and retry policy live only in the [root
 coordinator](../home/private_dot_pi/private_agent/private_docs/coordinator.md).
@@ -58,11 +58,12 @@ interchangeable billing pools; the coordinator owns their task selection.
 
 ## Visual work and privacy
 
-UI/UX starts on Go Kimi K3, with Copilot Luna and native Sol as independent
-alternatives (exact efforts in the coordinator). This is a local trial: screenshot
-quality is not evidence of accessibility or correct interactions. Verify those
-before accepting a result. The SDK advertises K3 reasoning, but adapter effort
-mapping must be checked at dispatch; do not claim controlled effort if ignored.
+The Go Kimi K3 `high` trial is on hold: the inspected Pi 1.4.0 catalog maps
+`high` to unsupported and only advertises `max`. Do not silently select max.
+Use the eligible alternatives in the coordinator until the requested effort is
+qualified. Screenshot quality is not evidence of accessibility or correct
+interactions; verify those before accepting a result. Registration alone does
+not establish live behavior.
 
 OpenCode Go documents Kimi K3 as zero-retention/no-training.
 Gemini 4 Argon Contributor may train Google models and is not zero-retention:
@@ -73,6 +74,31 @@ Sources: [Go privacy](https://opencode.ai/docs/en/go/#privacy),
 [Design Arena](https://www.designarena.ai/leaderboard).
 Arena rankings conflict and do not establish harness-specific success; compare
 accepted UI results, rework and turn limits next period.
+
+## Terra qualification (2026-10-27)
+
+OpenAI now recommends `gpt-6.1-terra` for supplied-material writing, defined
+computer-use tasks and scoped code fixes. Start at `medium`; compare against
+Sol on the same inputs and effort, including verification and repair time.
+Keep Haiku/Luna for cheap extraction and Sol/Opus for difficult work until
+accepted-task evidence supports changing a route. No default changes here.
+
+Standard API input/cached-input/output rates per million tokens are
+$1/$0.05/$5, half Sol's rates but ten times Luna's uncached-input/output rates.
+Above 272k input tokens, full-request input/cache rates double and output
+rates increase 1.5×; cache writes cost extra. API prices are neither actual
+account charges nor subscription-debit multipliers.
+
+The inspected bundled Pi 1.4.0 native catalog does not register Terra. Before
+any trial, verify registration, the selected account's model availability,
+Responses tool support and effort mapping. Do not read credentials, register
+a model, switch a session or spend API funds as an implicit qualification step.
+A separately authorized trial must record acceptance, rework, elapsed time and
+Pi-local cost, and inspect rendered desktop/mobile results for UI tasks.
+Sources: [model selection](https://developers.openai.com/api/docs/guides/model-selection),
+[Terra model](https://developers.openai.com/api/docs/models/gpt-6.1-terra),
+[pricing](https://developers.openai.com/api/docs/pricing),
+[native model discovery](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference).
 
 ## Installed behavior worth preserving
 
@@ -114,16 +140,20 @@ managed targets when ready:
 ```bash
 chezmoi diff --recursive \
   ~/.pi/agent/settings.json ~/.pi/agent/model-fallback/config.json \
-  ~/.pi/agent/agents ~/.pi/agent/docs
+  ~/.pi/agent/agents ~/.pi/agent/docs \
+  ~/.pi/agent/extensions/agent-prompt-guard.ts \
+  ~/.pi/agent/extensions/task-outcome-receipt.ts
 chezmoi apply --recursive --exclude scripts \
   ~/.pi/agent/settings.json ~/.pi/agent/model-fallback/config.json \
-  ~/.pi/agent/agents ~/.pi/agent/docs
+  ~/.pi/agent/agents ~/.pi/agent/docs \
+  ~/.pi/agent/extensions/agent-prompt-guard.ts \
+  ~/.pi/agent/extensions/task-outcome-receipt.ts
 ```
 
 Restart Pi to refresh role definitions and the policy. If an SDK update left a
 missing provider bundle chunk in the running process, use a full exit/start;
 `/reload` refreshes extensions but does not fix that stale module reference.
 Let running workers finish before restarting. These targets activate the
-already-managed native defaults/fallbacks and unpinned policy; role permissions
-and concurrency remain unchanged. Neither command is run automatically by
+already-managed native defaults/fallbacks, unpinned policy and preflight/receipt
+extensions; role permissions and concurrency remain unchanged. Neither command is run automatically by
 this guide.

@@ -1,6 +1,7 @@
 # Agent Guidelines
 
 - Use only the active Pi harness for coding-agent work; never launch external Codex or Claude CLIs; keep all delegation inside Pi.
+- Always develop in a dedicated Git worktree on a task/topic branch. Create both before repository edits; keep the user's primary checkout clean.
 
 ## Reading and Navigation
 
