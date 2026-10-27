@@ -109,15 +109,20 @@ window_minutes=$(( ($(date +%s) - ${cutoff%.*}) / 60 + 1 ))
 ((window_minutes >= 1)) || window_minutes=1
 
 report=$(
-  {
+  find "$sessions_dir" -type f -name '*.jsonl' -mmin "-$window_minutes" -print0 | {
+    candidates=0
     while IFS= read -r -d '' path; do
+      candidates=$((candidates + 1))
       if summary=$("$JQ" -Rn --arg mode scan --arg time '' --arg path "$path" --argjson cutoff "$cutoff" \
         --argjson until "$until_epoch" --arg window_end_local "$window_end_local" --arg window_start_local "$window_start_local" -f "$filter" < "$path" 2>/dev/null); then
+        [[ -n $summary ]] || summary='{"_unreadable":true}'
         printf '%s\n' "$summary"
       else
         printf '%s\n' '{"_unreadable":true}'
       fi
-    done < <(find "$sessions_dir" -type f -name '*.jsonl' -mmin "-$window_minutes" -print0)
+    done
+    # The loop's own count lets the aggregate prove no candidate vanished.
+    printf '{"_candidates":%d}\n' "$candidates"
   } | "$JQ" -s --arg mode aggregate --arg time '' --arg path '' --argjson cutoff "$cutoff" \
       --argjson until "$until_epoch" --arg window_end_local "$window_end_local" --arg window_start_local "$window_start_local" -f "$filter"
 )
@@ -143,6 +148,8 @@ else
       "Observed worker-span overlap proxy: \($r.workers.max_concurrency_observed_span_upper_bound)",
       (["workers", "nonworker_coordinators"][] as $g | $r.model_metrics[$g] | to_entries | sort_by(.key)[]
         | "Model \($g) \(.key): requests=\(.value.requests), input=\(.value.input), output=\(.value.output), cache_read=\(.value.cache_read), cache_write=\(.value.cache_write), cost=\(.value.cost_total)"),
+      "Task evidence: \($r.task_evidence | tojson)",
+      "Scan reconciliation: \($r.scan_reconciliation | tojson)",
       "Scanned \($r.scan.files) files; malformed lines \($r.scan.malformed_lines); unreadable files \($r.scan.unreadable_files)",
       "Retrospective metadata: \($r.retrospective | tojson)",
       "Session files: \($r.scan.session_files); non-session JSONL: \($r.scan.non_session_jsonl_files); skipped lines: \($r.scan.skipped_lines)",

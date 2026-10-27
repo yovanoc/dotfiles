@@ -2,8 +2,8 @@
 
 Timed treatments and their measured baselines for `/workflow-retro`. Git cannot
 replace this file: commits record source edits, not when a change reached `~/.pi`
-(often days apart, sometimes uncommitted), and `pi-session-audit.sh` has no end
-bound, so each period's numbers must be stored here when measured. Commits that
+(often days apart, sometimes uncommitted). Unbounded audit runs cannot reconstruct
+a previous period, so each period's numbers must be stored here when measured. Commits that
 change workflow end with a `Pi-Workflow: <slug>` trailer matching an entry, which
 links the two (`git log --grep '^Pi-Workflow:'`).
 
@@ -99,10 +99,50 @@ Applied to `~/.pi` (coordinator.md and model-fallback/config.json); active after
   Evidence: `/tmp/pi-retro-2026-10-20/current.json`, session-retro transcript and
   user-provided Console screenshot; temporary files are not durable archives.
 
+- Measured (`pi-session-audit.sh --since 2026-10-14T23:04:57+02:00 --json`;
+  scan 2026-10-27T06:24:47Z–06:28:44Z, no explicit end bound):
+  6,615 candidates; 6,466 session files; 139 non-session files;
+  10 candidates unexplained by these categories; 54 malformed/skipped
+  lines; 0 unreadable files. Sessions with activity: 402 coordinators,
+  6,064 workers.
+  Terminal notifications 4,269: done 3,546 (83.1%), turn_limit 679
+  (15.9%), error 44 (1.0%). These are notifications, not accepted outcomes.
+  Worker assistant requests 115,578, Pi-local estimated cost $3,245.40
+  ($0.02808/request); coordinator requests 65,503, $2,337.67
+  ($0.03569/request). Not billing or subscription debit.
+  Worker request mix: Sol 49,652 (42.96%), Sonnet 32,777 (28.36%),
+  Opus 20,986 (18.16%), Haiku 5,113 (4.42%), Luna 6,502 (5.63%);
+  Haiku+Luna 11,615 (10.05%). Coordinator Sol 61,836/65,503 (94.40%);
+  deliberate user choices cannot be classified as routing failures.
+  Direct Agent dispatches 6,262: fresh 4,683, resumed 1,579.
+  Assistant stop-error events 569: 566 unclassified, 3 api_key_expired.
+  These differ from terminal error notifications.
+  Time-filtered compactions 691. Coordinator checkpoint attempts 283
+  across 64 files: continue 209, blocked 62, done 12. Worker checkpoint
+  attempts 3 across 3 files. Handoff entries: unattended custom 3,319;
+  compaction custom 276, custom_message 277. Attempts and notices do not
+  prove successful continuation or saved checkpoints.
+  Retrieval misses 29/2,849 results, all unique.
+  Accepted outcomes, rework, per-model turn-limit rates and handoff
+  continuity are unavailable. Previous stored baseline covers only
+  about five minutes and is not a useful control. October 20 values
+  are an overlapping interim observation, not a previous period.
+  Treatment timing remains ambiguous: credit-anchor-provider-health
+  is PENDING despite commit b150ed1 and matching current coordinator
+  source/runtime files; application time is not established. The user
+  confirmed keeping this entry's timestamp as the audit start.
+  Original evidence: `/tmp/pi-retro-20261027.Gppe91/current.json`.
+  Temporary evidence is not a durable archive; the verified aggregate
+  baseline is preserved here. Different workloads, model releases,
+  user choices and fallbacks confound causal comparisons.
+
 ## PENDING — credit-anchor-provider-health
 
-Not applied to `~/.pi`. Replace PENDING with the last target-write ISO timestamp
-only after an explicit scoped apply; source edits and a PR are not application.
+Application time unverified as of the October 27 retrospective. Commit `b150ed1`
+(2026-10-21) carries the trailer, and current coordinator source/runtime files
+match, but neither proves the full treatment's apply time. Keep PENDING until
+the user supplies that time or a new scoped apply establishes a known boundary;
+source edits and commits are not application.
 
 - Coordinator: Sol medium, respecting user subscription choices. Workers:
   Go Haiku and Copilot Luna for bounded leaves, Sonnet for substantive work;
@@ -123,4 +163,33 @@ only after an explicit scoped apply; source edits and a PR are not application.
 - Measure: accepted results/rework where explicit evidence exists; lighter-worker
   mix and Copilot share; worker cost/request; auth-lost launches; time-filtered
   compaction/checkpoint counts; no monthly-cap lockout; cost/source reconciliation.
-- Commit: see `Pi-Workflow: credit-anchor-provider-health` trailer.
+- Commit: `b150ed1` (`Pi-Workflow: credit-anchor-provider-health`).
+
+## 2026-10-27T09:24:57+01:00 — outcome-evidence-route-preflight
+
+Applied to `~/.pi` with explicit user approval (timestamp = last target written):
+`docs/coordinator.md`, `extensions/agent-prompt-guard.ts` and
+`extensions/task-outcome-receipt.ts`; all three targets verified against source.
+Active only in Pi processes started or `/reload`ed after this write. No reload,
+model change or Terra trial was performed; unrelated runtime drift was preserved.
+Audit scripts remain repository-only and run from this task branch until merged.
+
+- Record coordinator-reported model/effort, verification-artifact paths and
+  accepted/reworked/rejected receipts (latest verdict per task, rework history).
+  Join terminal tasks to requested routes and unique single-model worker sessions
+  separately; actual runtime effort remains unknown, not receipt-proven.
+- Extend privacy-safe error classification and reconcile scan coverage.
+- Preflight explicit registered/auth-configured routes and SDK-supported effort.
+  Check REQUIRED TOOLS against resolvable explicit target-role allowlists, with
+  manual verification for unresolved package/built-in roles and wildcard selectors; hold the
+  unsupported Kimi K3 high route rather than silently selecting max.
+- Distinguish checkpoint attempts, successful receipts and useful continuations.
+- Gate a future GPT-6.1 Terra medium trial on catalog/account availability and
+  verified task results; preserve coordinator defaults and spending restrictions.
+- Why: the October 27 baseline above records 679/4,269 turn-limit notifications,
+  unavailable acceptance/rework metrics, 566/569 unclassified stop errors,
+  and tool/effort qualification gaps.
+- Measure: receipt coverage; acceptance/rework and cost per accepted task;
+  classified-error coverage; zero unexplained scan candidates; unsupported
+  dispatches; verified continuation rate; Terra trial results if separately run.
+- Commit: this entry is committed with `Pi-Workflow: outcome-evidence-route-preflight`.

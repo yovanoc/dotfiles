@@ -64,6 +64,10 @@ rather than claiming it happened.
 For each fresh call:
 1. Classify the task, not the role name. Check actual pins, registration, input/
    context support and runtime/auth eligibility; registration is not entitlement.
+   Verify the target role's tools, not the parent's. Include a `REQUIRED TOOLS:`
+   comma-separated line for tools the packet needs. The prompt guard checks explicit
+   role allowlists from global and project agent files; unresolved package/built-in
+   roles and wildcard selectors still require manual verification.
 2. Root calls `quota_status` once when available before the first dispatch and
    each ready batch; reuse it only within that batch. A fresh user snapshot also works. Workers
    do not poll. Inspect each fresh window's source, status and applicable scope,
@@ -71,7 +75,15 @@ For each fresh call:
 3. Walk the task order below with the quota states. For relief choose an
    independent pool: Sol→Luna or Sonnet→Opus on a shared pool is not relief.
    Between equal-fit alternatives prefer observed headroom over unknown.
-4. Pass exact `provider/model` as `model`, plus `thinking`; briefly explain any
+4. Pass exact `provider/model` as `model`, plus `thinking`. The prompt guard checks
+   effective model/effort pins from resolvable role files, then call parameters,
+   against registration/auth configuration and SDK-supported effort. Slash forms
+   must be exact registered IDs (including case); only no-slash fuzzy names,
+   omitted models and resumes bypass route checks. Unresolved package role pins
+   and inherited-model effort require manual verification. Report unsupported effort and
+   choose an eligible route, preserving explicit user choices; never silently
+   substitute `max`. Role pins and live entitlement still need the check above.
+   Briefly explain any
    non-default choice. If suitable routes are blocked or a full applicable
    window rules them out (subject to the credit-rollover exception below), leave
    work pending, report the gap and preserve running workers. Unknown quota alone does not establish broken inference.
@@ -123,7 +135,7 @@ task fit; Effect expertise stays with the role. API price is not subscription de
 | Deep or cross-layer review | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
 | Exceptional/adversarial review with costly hidden failure, interacting invariants or verified misses | `anthropic/claude-opus-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
 | Architecture where judgment is the bottleneck | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
-| Visual/UI work | `opencode-go/kimi-k3` `high` → `github-copilot/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium`. Verify image input and effort support before dispatch. K3 is a local trial, not a proven winner; inspect screenshots, mobile layout, keyboard navigation and accessibility before acceptance. |
+| Visual/UI work | `github-copilot/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium`. Go Kimi K3 `high` is held: the installed catalog marks it unsupported; do not substitute `max`. Verify image input and effort support; inspect screenshots, mobile layout, keyboard navigation and accessibility before acceptance. |
 | Short extraction, summaries or classification | `opencode-go/claude-haiku-5-5` `low` for single-step or `medium` for multi-step → `github-copilot/gpt-6-luna` `low` or `high` respectively → `anthropic/claude-haiku-5-5` at the same effort → `openai/gpt-6-luna` at the same effort. |
 
 Zen (`opencode/`) is disabled while the user declines to refill its wallet: omit it
@@ -146,6 +158,10 @@ in 7 of 19 reviews at `max_turns` 16–20. Escalation within one pool is
 not quota relief; a switched effort requires a fresh worker, not a resume.
 Copilot Gemini is omitted here: its installed adapter ignores effort, so a
 requested `medium`/`high` is not a controlled alternative to OpenCode Gemini.
+
+Terra is qualification-only, not a route or startup default. Before any separately
+approved trial, read [Terra qualification](~/dotfiles/docs/pi-subagents-model-routing.md#terra-qualification-2026-10-27)
+for registration, account, tool/effort and accepted-task evidence gates.
 
 ### Quota states
 
@@ -253,7 +269,13 @@ return when done, workers run or work is blocked, naming required user input.
 
 Use `TaskCreate`/`TaskList`/`TaskGet`/`TaskUpdate` for evidence; leave `agentType`
 unset and dispatch native `Agent` by default. Record IDs, attempts and errors;
-Complete only with required evidence. Preserve failed/stopped tasks pending or blocked. Record
+Complete only with required evidence. After inspecting the actual diff and checks,
+call `task_outcome` with the worker task ID, `accepted`, `reworked` or `rejected`,
+the dispatched model/effort (use `unknown` when unavailable), and a check-artifact
+path. Record rework before retry and a later verdict after verification. Receipts
+are coordinator claims, not actual-runtime proof; terminal `done` is not acceptance.
+If the tool is not loaded, report missing structured evidence rather than invent it.
+Preserve failed/stopped tasks pending or blocked. Record
 expanded grants verbatim in a pinned task and reread after compaction; act on
 already-authorized work without another permission question. One session per
 issue/epic. Interactive runs hand off at 150,000 context tokens, five compactions

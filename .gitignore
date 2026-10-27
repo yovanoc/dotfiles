@@ -20,6 +20,7 @@ home/private_dot_pi/**
 !home/private_dot_pi/private_agent/private_extensions/rtk.ts
 !home/private_dot_pi/private_agent/private_extensions/compaction-handoff.ts
 !home/private_dot_pi/private_agent/private_extensions/agent-prompt-guard.ts
+!home/private_dot_pi/private_agent/private_extensions/task-outcome-receipt.ts
 !home/private_dot_pi/private_agent/private_extensions/anthropic-api.ts
 !home/private_dot_pi/private_agent/private_models.json
 !home/private_dot_pi/private_agent/private_extensions/quota-status/index.ts
