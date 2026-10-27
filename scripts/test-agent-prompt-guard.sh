@@ -119,32 +119,5 @@ assert.match(pinned({ model: "p/fresh-unknown", thinking: "bogus" }, "pin") ?? "
 assert.equal(pinned({ model: "p/kimi", thinking: "medium" }, "ro"), undefined)
 assert.match(pinned({ model: "p/kimi", thinking: "high" }, "ro") ?? "", /does not support/) // no pin: input validated
 assert.equal(pinned({ model: "p/kimi", thinking: "high", resume: "abc" }, "pin"), undefined)
-// Credential-blind integration: managed Terra supplements the real native provider.
-const { ModelConfig } = await import(join(runtime, "dist/core/model-config.js"))
-const { composeModelProvider } = await import(join(runtime, "dist/core/provider-composer.js"))
-const { openaiProvider } = await import(join(runtime, "node_modules/@earendil-works/pi-ai/dist/providers/openai.js"))
-const managed = await ModelConfig.load(join(process.cwd(), "home/private_dot_pi/private_agent/private_models.json"))
-assert.equal(managed.getError(), undefined)
-const native = openaiProvider()
-const composed = composeModelProvider("openai", native, managed)
-assert.ok(composed.auth.oauth, "native ChatGPT OAuth must remain available")
-const all = composed.getModels()
-for (const original of native.getModels()) assert.ok(all.some((m: any) => m.id === original.id))
-const terra = all.find((m: any) => m.id === "gpt-6.1-terra")!
-assert.ok(terra)
-assert.equal(terra.api, "openai-responses")
-assert.equal(terra.baseUrl, native.baseUrl)
-assert.deepEqual(terra.input, ["text", "image"])
-assert.equal(terra.contextWindow, 1050000)
-assert.equal(terra.maxTokens, 128000)
-assert.deepEqual(terra.cost, { input: 1, output: 5, cacheRead: 0.05, cacheWrite: 1.25,
-  tiers: [{ inputTokensAbove: 272000, input: 2, output: 7.5, cacheRead: 0.1, cacheWrite: 2.5 }] })
-assert.deepEqual(terra.thinkingLevelMap, { off: "none", minimal: null, low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" })
-const localRegistry = { find: (p: string, id: string) => all.find((m: any) => m.provider === p && m.id === id), getAvailable: () => all }
-for (const thinking of ["off", "low", "medium", "high", "xhigh", "max"]) {
-  assert.equal(agentRouteReason({ model: "openai/gpt-6.1-terra", thinking }, { modelRegistry: localRegistry }), undefined)
-}
-assert.match(agentRouteReason({ model: "openai/gpt-6.1-terra", thinking: "minimal" }, { modelRegistry: localRegistry }) ?? "", /does not support/)
-console.log("Native Terra registration and effort preflight passed (no credentials or inference)")
 console.log("Agent prompt guard checks passed")
 TS

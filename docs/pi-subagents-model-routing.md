@@ -20,8 +20,8 @@ resume omits both to retain the worker's established runtime. The root startup
 default is `openai/gpt-6.1-sol` medium, while Pi's active runtime
 model controls the root session. The catalog statically
 registers native `openai/gpt-6.1-sol`, `openai/gpt-6-luna`, and
-`openai/gpt-6-astra`; managed `models.json` supplements this with
-`openai/gpt-6.1-terra` over Responses without changing native authentication.
+`openai/gpt-6-astra`; Pi’s refreshed catalog supplies
+`openai/gpt-6.1-terra` over Responses without custom registration.
 Sol high and Luna max have identity thinking mappings.
 Catalog registration and mappings do not prove account entitlement, live
 runtime behavior, effort equivalence, or quota debit. Managed inference uses
@@ -88,24 +88,22 @@ outcomes. Cheap extraction/mechanical routes and hard/security/cross-layer route
 stay separate. Role tool permissions still apply; model computer-use capability
 does not install a browser or desktop tool.
 
-The bundled Pi 1.4.0 catalog inspected on 2026-10-27 lacks `gpt-6.1-terra`.
-Managed `models.json` therefore adds it under native `openai`, rather than using
-`modelOverrides` (which ignores absent IDs). It specifies `openai-responses`,
-text/image input, a 1,050,000-token context and 128,000-token maximum output.
-The published maximum **input** is 922,000 tokens; the installed Pi model schema
-cannot encode that separate ceiling. Keep task inputs below it; the context
-window is not permission to send 1,050,000 input tokens. Pi effort `off` maps to
-`none`, `minimal` is unsupported, and `low`/`medium`/`high`/`xhigh`/`max` map
-identically. No speculative compatibility flags or hard image-count limits are
-added. `enabledModels` includes Terra for selection/cycling; Sol medium remains
-startup. A future native catalog entry with the same ID is replaced by this
-managed definition, so recheck it on SDK/catalog upgrades.
+Use Pi’s refreshed model catalog rather than a custom `models.json` definition:
+
+```bash
+pi update --models
+pi --list-models 6.1
+```
+
+`enabledModels` includes Terra for selection/cycling; Sol medium remains startup.
+Use the native catalog’s current context limits, pricing and effort support;
+published API maximums can differ from the selected route’s limits. Refresh the
+catalog before treating a missing bundled entry as a missing supported model.
 
 Standard API input/cached-input/cache-write/output rates per million tokens are
 $1/$0.05/$1.25/$5. The cache-write estimate is for 30-minute retention, not the
 higher 12-hour rate. Above 272k input tokens, full-request input/cache rates double
-and output rates increase 1.5×. Those rates are encoded as a request-wide tier.
-These are API-equivalent estimates, **not ChatGPT credit-debit rates** or measured
+and output rates increase 1.5×. These are API-equivalent estimates, **not ChatGPT credit-debit rates** or measured
 savings. Compare accepted outputs, rework, review/repair time and actual account
 usage rather than promising savings from API price ratios.
 
@@ -118,14 +116,12 @@ python3 scripts/test-pi-routing.py
 ./scripts/test-agent-prompt-guard.sh
 ```
 
-The guard check loads the managed registration through the installed SDK schema
-and native provider composer, preserves the OAuth method, and checks Terra’s
-supported efforts without resolving credentials. This proves local registration,
-not account entitlement. After applying source, restart Pi, open `/model` and
-confirm `openai/gpt-6.1-terra` and `medium` are selectable through the existing
-OpenAI ChatGPT login. No API key, alternate provider or new funding is required
-or authorized. Do not print credentials. A missing model or actual auth/usage
-refusal is an affected-route blocker to reconcile, not permission to try an API key.
+The offline checks enforce routing policy and absence of managed OpenAI overrides;
+they do not prove live model availability. After refreshing the catalog, restart
+Pi, open `/model` and confirm `openai/gpt-6.1-terra` and `medium` are selectable
+through the existing OpenAI ChatGPT login. No API key, alternate provider or new
+funding is required or authorized. A missing model or actual auth/usage refusal
+is an affected-route blocker to reconcile, not permission to try an API key.
 
 Before relying on Terra, the coordinator should perform one bounded native check
 with a harmless read-only fixture tool and supplied-material answer at `medium`,

@@ -39,9 +39,8 @@ assert target("anthropic-api", "claude-sonnet-5-5", 400) is None
 terra_id = "openai/gpt-6.1-terra"
 assert terra_id in settings["enabledModels"]
 models = json.loads((agent / "private_models.json").read_text())
-# Native provider supplementation must not introduce separate auth or endpoint overrides.
-assert set(models["providers"]["openai"]) == {"models"}
-assert [m["id"] for m in models["providers"]["openai"]["models"]] == ["gpt-6.1-terra"]
+# Native OpenAI metadata and authentication belong to Pi, not managed overrides.
+assert "openai" not in models["providers"]
 policy = (agent / "private_docs/coordinator.md").read_text()
 assert "qualification-only" not in policy
 for task in ("Concise writing or revision from supplied material", "Scoped code fixes with clear inputs", "Defined visual/computer tasks"):
