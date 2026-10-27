@@ -126,7 +126,7 @@ eval "$(fnm env --use-on-cd)"
 _zsh_cached_eval zoxide "${commands[zoxide]}" -- zoxide init zsh
 _zsh_cached_eval fzf "${commands[fzf]}" -- fzf --zsh
 
-# PATH and tool installers. Sourced last so it can dedupe everything inherited above.
+# PATH, completions and tool installers. Sourced last to dedupe everything inherited above.
 source ~/.config/zsh/path.zsh
 
 alias omo=omo-agent-toolkit
