@@ -81,10 +81,11 @@ function cdgr() {
 }
 
 # Purge build artefacts recursively from the current directory down.
+# Go module caches contain read-only directories; make artefacts writable first.
 # Skip unrelated hidden trees such as ~/.rustup when run from $HOME.
 function rmall() {
     find . -mindepth 1 \( \
-        -type d \( -name node_modules -o -name .next -o -name dist -o -name .turbo -o -name target \) -prune -exec rm -rf '{}' + \
+        -type d \( -name node_modules -o -name .next -o -name dist -o -name .turbo -o -name target \) -prune -exec chmod -R -P u+w '{}' \; -exec rm -rf '{}' + \
         -o \
         -type d -name '.*' -prune \
         -o \
