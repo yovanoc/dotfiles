@@ -291,7 +291,8 @@ jq -e '
   and .scan_reconciliation == {candidates:9,scanned:9,session_files_with_window_activity:5,session_files_without_window_activity:1,headerless_nonempty:2,headerless_empty:1,unreadable:0,classified_main_fork_worker:5,candidates_match_scanned:true,partition_balanced:true,classification_balanced:true,error_categories_match_errors:true}
 ' "$tmp_root/ev.json" >/dev/null || { jq '.task_evidence,.retrospective.task_outcomes,.retrospective.checkpoint_evidence,.scan_reconciliation,.retrospective.stop_reason_errors' "$tmp_root/ev.json"; exit 1; }
 "$SCRIPT" --sessions-dir "$ev" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z > "$tmp_root/ev.txt"
-if grep -E "SECRET|$T1|${T1:0:8}|call-|/tmp/|/p/" "$tmp_root/ev.json" "$tmp_root/ev.txt"; then
+# Diagnostic session paths may live under /tmp; fixture payload paths contain SECRET.
+if grep -E "SECRET|$T1|${T1:0:8}|call-|/p/" "$tmp_root/ev.json" "$tmp_root/ev.txt"; then
   echo 'evidence output leaked fixture content' >&2
   exit 1
 fi
