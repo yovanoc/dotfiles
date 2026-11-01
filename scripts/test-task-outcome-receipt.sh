@@ -14,7 +14,7 @@ const jiti = createJiti(join(process.cwd(), "scripts/test-task-outcome-receipt.s
   moduleCache: false, fsCache: false,
   alias: { "@earendil-works/pi-coding-agent": join(runtime, "dist/index.js"), typebox: join(runtime, "node_modules/typebox/build/index.mjs") },
 })
-const { default: extension, validateReceipt } = await jiti.import(join(process.cwd(), "home/private_dot_pi/private_agent/private_extensions/task-outcome-receipt.ts"))
+const { default: extension, validateReceipt, missingReceipts } = await jiti.import(join(process.cwd(), "home/private_dot_pi/private_agent/private_extensions/task-outcome-receipt.ts"))
 
 const good = { taskId: "task-12:a", outcome: "accepted", model: "anthropic/claude-sonnet-4.5", effort: "medium", checkArtifact: "scripts/test-x.sh" }
 assert.deepEqual(validateReceipt(good), good)
@@ -25,14 +25,80 @@ for (const bad of [
 ]) assert.throws(() => validateReceipt({ ...good, ...bad }), Error, JSON.stringify(bad))
 
 let tool: any
-const entries: unknown[] = []
-extension({ registerTool: (t: unknown) => { tool = t }, appendEntry: (type: string, data: unknown) => entries.push([type, data]) } as never)
-const ctx = (prompt: string) => ({ getSystemPrompt: () => prompt })
+const handlers: Record<string, (event: any, ctx: any) => void> = {}
+const entries: any[] = []
+extension({ registerTool: (t: unknown) => { tool = t }, on: (n: string, cb: any) => { handlers[n] = cb }, appendEntry: (type: string, data: unknown) => entries.push([type, data]) } as never)
+const statuses: (string | undefined)[] = [], notes: string[] = []
+const ctx = (prompt: string) => ({
+  getSystemPrompt: () => prompt,
+  sessionManager: { getBranch: () => entries.map(([customType, data]) => ({ type: "custom", customType, data })) },
+  ui: { setStatus: (_k: string, t?: string) => statuses.push(t), notify: (m: string) => notes.push(m) },
+})
+const coord = ctx("coordinator")
 await assert.rejects(() => tool.execute("1", good, undefined, undefined, ctx('x <active_agent name="implementer"/>')), /Workers cannot/)
 assert.equal(entries.length, 0)
-await assert.rejects(() => tool.execute("1", { ...good, effort: "ultra" }, undefined, undefined, ctx("coordinator")), /effort/)
+await assert.rejects(() => tool.execute("1", { ...good, effort: "ultra" }, undefined, undefined, coord), /effort/)
 assert.equal(entries.length, 0)
-await tool.execute("1", good, undefined, undefined, ctx("coordinator"))
-assert.deepEqual(entries, [["task-outcome-receipt", good]])
+
+// Missing-receipt advisory: keyed on structured worker IDs (subagents:record), never TaskUpdate list IDs.
+const workerRec = (id: string, status: string) => entries.push(["subagents:record", { id, status, result: "SECRET raw text" }])
+const fire = (name: string, c = coord) => handlers[name]({}, c)
+const missing = () => missingReceipts(ctx("").sessionManager.getBranch())
+// TaskUpdate completion with a distinct list ID is ignored entirely: no handler, no entry, no advisory.
+assert.equal(handlers.tool_result, undefined)
+fire("turn_end")
+assert.equal(notes.length, 0)
+assert.equal(statuses.at(-1), undefined)
+// Running/queued workers never appear; only terminal records do.
+workerRec("agent-run", "running"); workerRec("agent-q", "queued")
+fire("turn_end")
+assert.deepEqual(missing(), [])
+assert.equal(notes.length, 0)
+// Completed worker with list task "3" still unrelated: advisory names the worker ID.
+workerRec("w-a1", "completed")
+fire("turn_end")
+assert.deepEqual(missing(), ["w-a1"])
+assert.equal(notes.length, 1)
+assert.match(notes[0], /w-a1/)
+assert.match(statuses.at(-1) ?? "", /w-a1/)
+assert.doesNotMatch(notes[0] + (statuses.at(-1) ?? ""), /SECRET/)
+fire("turn_end"); fire("agent_end") // dedup
+assert.equal(notes.length, 1)
+workerRec("w-a1", "completed") // resumed worker finishing again: same ID, still one advisory
+fire("turn_end")
+assert.deepEqual(missing(), ["w-a1"])
+assert.equal(notes.length, 1)
+workerRec("w-err", "error"); workerRec("w-stop", "stopped"); workerRec("w-abort", "aborted"); workerRec("w-steer", "steered")
+fire("agent_end")
+assert.deepEqual(missing(), ["w-a1", "w-err", "w-stop", "w-abort", "w-steer"])
+assert.equal(notes.length, 5)
+assert.match(statuses.at(-1) ?? "", /\+0|w-a1/)
+// Worker sessions never advise.
+workerRec("w-x", "completed")
+fire("turn_end", ctx('x <active_agent name="w"/>'))
+assert.equal(notes.length, 5)
+// Unrelated receipt does not clear others; matching worker-ID receipt does.
+await tool.execute("1", { ...good, taskId: "3" }, undefined, undefined, coord) // list ID, not a worker
+assert.deepEqual(missing(), ["w-a1", "w-err", "w-stop", "w-abort", "w-steer", "w-x"])
+await tool.execute("1", { ...good, taskId: "w-a1" }, undefined, undefined, coord)
+assert.deepEqual(missing(), ["w-err", "w-stop", "w-abort", "w-steer", "w-x"])
+assert.doesNotMatch(statuses.at(-1) ?? "", /w-a1/)
+// Rebuild from persisted branch: status restored, no repeated notices.
+const before = notes.length
+fire("session_start")
+assert.match(statuses.at(-1) ?? "", /w-err/)
+fire("session_tree"); fire("turn_end")
+assert.equal(notes.length, before)
+// Over-long or invalid worker IDs are ignored.
+workerRec("bad id", "completed"); workerRec(123 as never, "completed")
+assert.deepEqual(missing(), ["w-err", "w-stop", "w-abort", "w-steer", "w-x"])
+for (const id of ["w-err", "w-stop", "w-abort", "w-steer", "w-x"]) await tool.execute("1", { ...good, taskId: id }, undefined, undefined, coord)
+assert.equal(statuses.at(-1), undefined)
+await tool.execute("1", { ...good, taskId: "never-terminal" }, undefined, undefined, coord)
+assert.deepEqual(entries.at(-1), ["task-outcome-receipt", { ...good, taskId: "never-terminal" }])
+// Branch switch: another branch without these records has nothing missing.
+entries.length = 0
+fire("session_tree")
+assert.equal(statuses.at(-1), undefined)
 console.log("Task outcome receipt checks passed")
 TS

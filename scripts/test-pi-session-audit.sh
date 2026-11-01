@@ -279,17 +279,98 @@ jq -e '
   and .retrospective.task_outcomes.tasks_with_receipt == 2
   and .retrospective.task_outcomes.latest_outcomes == {accepted:1,rejected:1}
   and .retrospective.task_outcomes.rework_history_tasks == 1 and .retrospective.task_outcomes.rework_events == 1
-  and .retrospective.task_outcomes.coverage == {terminal_tasks_observed:6,dispatches_observed:5,receipted_tasks_with_terminal_evidence:2,receipted_tasks_without_terminal_evidence:0}
+  and (.retrospective.task_outcomes.coverage | del(.terminal_tasks_with_receipt, .terminal_tasks_without_receipt)) == {terminal_tasks_observed:6,dispatches_observed:5,receipted_tasks_with_terminal_evidence:2,receipted_tasks_without_terminal_evidence:0}
   and .retrospective.task_outcomes.by_model_effort == {"anthropic/m1":{
       high:{tasks:1,latest_outcomes:{accepted:1},rework_history_tasks:1,receipts:2,check_artifact_present:1},
       low:{tasks:1,latest_outcomes:{rejected:1},rework_history_tasks:0,receipts:1,check_artifact_present:1}}}
   and .retrospective.accepted_outcomes == {available:true,source:"coordinator_reported_task_outcome_receipt",accepted_latest:1,denominator_tasks_with_receipt:2}
   and .retrospective.unattended_checkpoint.nonworker_coordinators.by_status == {done:3}
-  and .retrospective.checkpoint_evidence.unattended == {successful_by_status:{continue:1},successful:1,error_results:1,invalid_results:2,continuations:1}
+  and (.retrospective.checkpoint_evidence.unattended | del(.continuation_linkage)) == {successful_by_status:{continue:1},successful:1,error_results:1,invalid_results:2,continuations:1}
   and .retrospective.checkpoint_evidence.handoff_checkpoint == {attempts:2,successful:1,error_results:0,invalid_results:1,written_receipts:1,approved_receipts:1}
   and .retrospective.stop_reason_errors.auth_categories == {overloaded:1,rate_limit:1,network:1,context_overflow:1,unclassified:1}
-  and .scan_reconciliation == {candidates:9,scanned:9,session_files_with_window_activity:5,session_files_without_window_activity:1,headerless_nonempty:2,headerless_empty:1,unreadable:0,classified_main_fork_worker:5,candidates_match_scanned:true,partition_balanced:true,classification_balanced:true,error_categories_match_errors:true}
+  and (.scan_reconciliation | del(.partition_residual, .candidate_partition)) == {candidates:9,scanned:9,session_files_with_window_activity:5,session_files_without_window_activity:1,headerless_nonempty:2,headerless_empty:1,unreadable:0,classified_main_fork_worker:5,candidates_match_scanned:true,partition_balanced:true,classification_balanced:true,error_categories_match_errors:true}
 ' "$tmp_root/ev.json" >/dev/null || { jq '.task_evidence,.retrospective.task_outcomes,.retrospective.checkpoint_evidence,.scan_reconciliation,.retrospective.stop_reason_errors' "$tmp_root/ev.json"; exit 1; }
+# Candidate partition explains every scanned file; unusual parsed results are categories, not leftovers.
+jq -e '
+  .scan_reconciliation.partition_residual == 0
+  and .scan_reconciliation.candidate_partition == {
+    session_with_window_activity:5,session_without_window_activity:1,headerless_with_parsed_events:1,
+    headerless_all_lines_malformed:1,headerless_empty:1,unreadable:0,unexpected_summary_shape:0,
+    informational_subsets:{session_header_only:1},explained_total:9,fully_explained:true}
+  and .retrospective.task_outcomes.coverage.terminal_tasks_with_receipt == 2
+  and .retrospective.task_outcomes.coverage.terminal_tasks_without_receipt == 4
+  and .task_evidence.raw_termination.terminal_tasks == {done:4,completed:1,steered:1}
+  and .task_evidence.raw_termination.terminal_tasks_by_normalized_status == {done:{done:4,completed:1},turn_limit:{steered:1}}
+  and .task_evidence.raw_termination_records_unique_tasks == {completed:1,steered:1}
+  and .retrospective.checkpoint_evidence.unattended.continuation_linkage
+      == (.retrospective.checkpoint_evidence.unattended.continuation_linkage
+          | .linked_continuations = 1 | .linked_by_temporal_order = 1 | .linked_by_exact_parent_id = 0
+          | .unlinked_continuation_entries = 0 | .continue_checkpoint_successes = 1 | .continue_successes_without_linked_continuation = 0)
+  and .retrospective.checkpoint_evidence.unattended.continuation_linkage.accepted_usefulness.available == false
+  and .observability.direct_codemode_tool_calls == 0
+' "$tmp_root/ev.json" >/dev/null || { jq '.scan_reconciliation,.retrospective.checkpoint_evidence.unattended,.task_evidence.raw_termination' "$tmp_root/ev.json"; exit 1; }
+# Regression: a summary that is neither session, headerless nor unreadable used to leave partition_balanced silently false.
+printf '%s\n' '{"path":"b","has_header":false,"nonblank":0,"malformed_lines":0}' '{"path":"c"}' '{"_candidates":2}' |
+  jq -s --arg mode aggregate --arg time '' --arg path '' --argjson cutoff 0 --argjson until null --arg window_end_local '' --arg window_start_local '' -f "$(dirname "$SCRIPT")/pi-session-audit.jq" |
+  jq -e '.scan_reconciliation.partition_balanced == false and .scan_reconciliation.partition_residual == 1
+    and .scan_reconciliation.candidate_partition.unexpected_summary_shape == 1
+    and .scan_reconciliation.candidate_partition.fully_explained == true' >/dev/null
+
+# Raw termination labels distinguish aborted/steered/wrapped-up from explicit cap labels; normalized counts stay comparable.
+tr_root="$tmp_root/termination"
+mkdir -p "$tr_root"
+{
+  jq -nc '{type:"session",timestamp:"2024-05-02T12:00:00Z"}'
+  i=0
+  for st in "Done" "Wrapped up (limit)" "Aborted" "Turn limit reached" "Max turns exceeded" "Steered" "Stopped" "Error: SECRET_ERR" "weird SECRET_STATUS"; do
+    i=$((i + 1))
+    jq -nc --arg st "$st" --arg id "term000$i" '{type:"custom_message",customType:"subagent-notification",id:$id,timestamp:"2024-05-02T12:10:00Z",content:("<task-id>"+$id+"-xxxx</task-id><status>"+$st+"</status><result>TERM_SECRET</result>")}'
+  done
+  jq -nc '{type:"custom",customType:"subagents:record",timestamp:"2024-05-02T12:10:01Z",data:{id:"recd0001-xxxx",status:"aborted"}}'
+  jq -nc '{type:"custom",customType:"subagents:record",timestamp:"2024-05-02T12:10:01Z",data:{id:"recd0002-xxxx",status:"steered"}}'
+} > "$tr_root/c.jsonl"
+"$SCRIPT" --sessions-dir "$tr_root" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z --json > "$tmp_root/term.json"
+jq -e '
+  .terminal_notification_statuses_unique == {done:1,turn_limit:4,stopped:1,error:1}
+  and .task_evidence.raw_termination_notifications_unique == {done:1,wrapped_up:1,aborted:1,turn_limit_cap:1,max_turns_cap:1,steered:1,stopped:1,error:1,other:1}
+  and .task_evidence.raw_termination_records_unique_tasks == {aborted:1,steered:1}
+  and .task_evidence.raw_termination.terminal_tasks_by_normalized_status.turn_limit
+      == {wrapped_up:1,aborted:2,turn_limit_cap:1,max_turns_cap:1,steered:1}
+' "$tmp_root/term.json" >/dev/null || { jq '.terminal_notification_statuses_unique,.task_evidence' "$tmp_root/term.json"; exit 1; }
+if grep -E 'SECRET|term000' "$tmp_root/term.json"; then echo 'termination output leaked fixture content' >&2; exit 1; fi
+
+# Continuation linkage is same-file, ordered and consumed once; it never implies acceptance.
+ln_root="$tmp_root/linkage"
+mkdir -p "$ln_root"
+{
+  jq -nc '{type:"session",timestamp:"2024-05-02T12:00:00Z"}'
+  lk() { jq -nc --arg id "$1" --arg ts "$2" --arg st "$3" --arg eid "$4" '{type:"message",id:$eid,timestamp:$ts,message:{role:"toolResult",toolCallId:$id,toolName:"unattended_checkpoint",isError:false,details:{status:$st,path:"/p/x.md",cwd:"/c"}}}'; }
+  lc() { jq -nc --arg ts "$1" --arg parent "$2" '{type:"custom_message",customType:"unattended-continuation",timestamp:$ts,parentId:$parent,content:"LINK_SECRET"}'; }
+  call() { jq -nc --arg id "$1" '{type:"message",timestamp:"2024-05-02T12:01:00Z",message:{role:"assistant",content:[{type:"toolCall",id:$id,name:"unattended_checkpoint",arguments:{status:"continue"}}]}}'; }
+  call a; lk a 2024-05-02T12:02:00Z continue ent-a
+  lc 2024-05-02T12:03:00Z other        # temporal link
+  lc 2024-05-02T12:04:00Z other        # already consumed: notice
+  call b; lk b 2024-05-02T12:05:00Z continue ent-b
+  lc 2024-05-02T12:06:00Z ent-b        # exact parent link
+  call c; lk c 2024-05-02T12:07:00Z blocked ent-c
+  lc 2024-05-02T12:08:00Z ent-c        # no pending continue: notice
+  call d; lk d 2024-05-02T12:09:00Z continue ent-d   # never continued
+  lc 2024-05-02T12:08:30Z ent-d                    # timestamp inversion must stay unlinked
+  call e; lk e 2024-05-02T12:10:00Z done ent-e       # clears pending d
+  lc 2024-05-02T12:11:00Z ent-d
+} > "$ln_root/a.jsonl"
+{ jq -nc '{type:"session",timestamp:"2024-05-02T12:00:00Z"}'
+  jq -nc '{type:"custom_message",customType:"unattended-continuation",timestamp:"2024-05-02T12:30:00Z",content:"LINK_SECRET"}'
+} > "$ln_root/b.jsonl"
+"$SCRIPT" --sessions-dir "$ln_root" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z --json > "$tmp_root/link.json"
+jq -e '.retrospective.checkpoint_evidence.unattended | .continuations == 7
+  and .continuation_linkage.linked_continuations == 2 and .continuation_linkage.linked_by_exact_parent_id == 1
+  and .continuation_linkage.linked_by_temporal_order == 1 and .continuation_linkage.unlinked_continuation_entries == 5
+  and .continuation_linkage.continue_checkpoint_successes == 3
+  and .continuation_linkage.continue_successes_without_linked_continuation == 1
+  and .continuation_linkage.accepted_usefulness.available == false' "$tmp_root/link.json" >/dev/null || { jq '.retrospective.checkpoint_evidence.unattended' "$tmp_root/link.json"; exit 1; }
+if grep -E 'SECRET|ent-' "$tmp_root/link.json"; then echo 'linkage output leaked fixture content' >&2; exit 1; fi
+
 "$SCRIPT" --sessions-dir "$ev" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z > "$tmp_root/ev.txt"
 # Diagnostic session paths may live under /tmp; fixture payload paths contain SECRET.
 if grep -E "SECRET|$T1|${T1:0:8}|call-|/p/" "$tmp_root/ev.json" "$tmp_root/ev.txt"; then

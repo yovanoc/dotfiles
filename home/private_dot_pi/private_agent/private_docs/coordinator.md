@@ -1,14 +1,28 @@
 # Root coordinator policy
 
-Root owns coordination and evidence; its active Pi model governs the session
-(managed startup: Sol `medium`). Apply shared safety/authorization in `../AGENTS.md`.
-Handle authorized, scoped, trivial, well-understood local work when ownership is clear;
-delegate exploratory, long-running, material multi-file or independent parallel work.
+Root owns scoping, dispatch, cross-lane decisions, evidence acceptance and compact
+final synthesis; its active Pi model governs the session (managed startup: Sol
+`medium`). Apply shared safety/authorization in `../AGENTS.md`. Use minimal
+orientation and spot checks to coordinate; delegate substantial implementation,
+research, debugging and independent verification rather than repeating worker checks.
+Split independent ready work into bounded parallel packets without inventing work
+or duplicating whole tasks for comparison.
 
 ## Dispatch
 
+- Keep a compact task graph ledger for every authorized remaining packet: outcome,
+  dependency IDs, exact ownership, state (`ready`, `running`, `blocked`, `done`),
+  worker ID and concrete blocker when blocked. A dependency unblocks only after
+  its required evidence is accepted; running workers are not ready-task coverage.
+- At start and each worker completion, recompute ready work and fill available safe
+  slots with disjoint ready packets before lengthy acceptance or bookkeeping. One
+  completion suffices to refill independent work; do not wait for unrelated peers.
+  Respect the effective `maxConcurrent` and shared cap, quota, authorization and
+  ownership; preserve running workers and never invent work to fill slots. Capacity
+  is not readiness: the manager drains only already-submitted spawns, not the
+  coordinator's unsubmitted ready backlog.
 - Use native `Agent`, `run_in_background: true`, `inherit_context: false`; return
-  control without blocking, polling or duplicating a worker's lane.
+  control while workers run without blocking, polling or duplicating a worker's lane.
 - Discovery → `Explore`; planning → read-only `Plan`; implementation →
   `implementer`/`effect-senior`; review → `reviewer`; visuals → `ui-ux`.
   Use `effect-senior` only for packets that edit Effect TypeScript; send
@@ -44,10 +58,9 @@ may use the model's default effort instead of the parent's live effort.
 ### Coordinator model
 
 Routine dispatching, status and bookkeeping use `openai/gpt-6.1-sol` `medium`.
-The Sonnet startup pilot was not evaluable: most requests stayed on user-selected
-Sol sessions to use frequent OpenAI resets. This is deliberate pool use, not a
-routing failure. New unpinned starts use Sol; existing sessions and explicit
-choices retain their runtime. Confirm actual provider/model and effort at startup.
+New unpinned starts use Sol; existing sessions and explicit choices retain their
+runtime. Confirm actual provider/model and effort at startup. Root effort is not
+a worker default: choose each worker's model and effort for its packet.
 Delegate bounded work to Haiku, Sonnet, Luna or task-fit Terra rather than
 inheriting Sol for every worker. Compare accepted outcomes, rework and actual runtime cost, not done counts.
 Choose Opus/Astra deliberately for difficult implementation, deep or high-risk review
@@ -94,7 +107,7 @@ Before each fresh dispatch write `CLASS: narrow | substantive | difficult` for
 the packet and pick the route from the table by that class. Choose a lighter
 route for bounded work even when the coordinator is Sol or Opus. Streaming a large
 archive, joining session evidence or open-ended web research is substantive:
-split extraction from synthesis and give the latter Sonnet or Sol.
+split extraction from synthesis and give the latter a suitable substantive route.
 
 ### Task priorities
 
@@ -111,14 +124,19 @@ failure cost—not file count:
   or data-loss invariants. Choose implementation, review or architecture by
   activity; open-ended discovery uses the research/tracing row.
 
-Lighter-first: Haiku/Luna take bounded read-only mapping, extraction/summaries and
-narrow checkable leaves; Sonnet `medium` takes everyday implementation, debugging,
-bounded planning and ordinary review; Terra `medium` takes the task-fit rows below;
-Sol takes difficult implementation, while
-Opus stays available for deep review and architecture. Prefer Copilot Luna over
+Lighter-first: Haiku `low` takes simple extraction and `medium` bounded mapping
+or mechanical edits; Luna `low` takes well-scoped edits or extraction and `high`/
+`xhigh` constrained multi-step work. Terra `medium` takes its task-fit rows;
+Sonnet `medium` takes substantive work and synthesis, with `high` for harder
+bounded packets. Opus stays available for deep review and architecture. Prefer Copilot Luna over
 native OpenAI Luna for equal-fit bounded tasks when Copilot has headroom. Real
 verification before acceptance stays mandatory for every route.
 Split large repetitive work; a small risky patch can still need deep review.
+Sol is an exception for genuinely difficult coupling, a prior verified lighter-route
+miss, explicit user choice or no suitable eligible alternative, not a routine
+fallback because root uses Sol. Every fresh explicit Sol worker dispatch carries
+`MODEL RATIONALE:` naming the applicable condition and the condition ending the
+expensive phase; return to a suitable lighter route when that condition is met.
 Use each route's listed thinking by default: effort labels are not comparable
 across models (Luna `high` is not a capability rank above Sol `medium`). Raise
 within-model effort for difficulty or a diagnosed reasoning gap, not quota;
@@ -265,8 +283,11 @@ managed JSON order and does not allocate quota; cooldowns are not allowance.
 
 ## Completion, recovery and budgets
 
-Launch the next ready packets first on completion, then retrieve each finished
-worker once with `get_subagent_result(wait: false)` and update the ledger once.
+On each completion, refill independent ready packets first as in Dispatch, then
+retrieve each finished worker once with `get_subagent_result(wait: false)` and
+update the ledger once. Accept required evidence before unblocking dependents;
+recompute readiness and refill again after acceptance. If unfinished backlog has
+no ready packets, name its actual blockers instead of declaring it done.
 Batch ready result retrievals, task reads, already-verified updates and the next
 dispatch batch's single quota query in one `codemode` call. Run independent reads
 together; chain updates after their required reads and inspect each failure

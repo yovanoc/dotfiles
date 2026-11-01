@@ -16,7 +16,40 @@ export function validateReceipt(args: TaskOutcomeReceipt): TaskOutcomeReceipt {
   return { taskId: args.taskId, outcome: args.outcome, model: args.model, effort: args.effort, checkArtifact: args.checkArtifact }
 }
 
+// Terminal workers without a receipt on the active branch: advisory only, never a block and never an automatic receipt.
+// Worker IDs come from the structured, durable `subagents:record` entries pi-subagents appends once per terminal worker
+// (the same ID space task_outcome and the audit use); TaskUpdate list IDs are a different ID space and are never used.
+const TERMINAL = ["completed", "steered", "aborted", "stopped", "error"]
+export function missingReceipts(entries: readonly { type: string, customType?: string, data?: unknown }[]): string[] {
+  const terminal = new Set<string>(), receipted = new Set<string>()
+  for (const entry of entries) {
+    if (entry.type !== "custom") continue
+    const data = entry.data as { id?: unknown, taskId?: unknown, status?: unknown } | undefined
+    if (entry.customType === "subagents:record" && typeof data?.id === "string" && label.test(data.id) && TERMINAL.includes(data.status as string)) terminal.add(data.id)
+    else if (entry.customType === "task-outcome-receipt" && typeof data?.taskId === "string") receipted.add(data.taskId)
+  }
+  return [...terminal].filter((id) => !receipted.has(id))
+}
+
 export default function (pi: ExtensionAPI) {
+  const status = (ctx: ExtensionContext, missing: string[]) =>
+    ctx.ui.setStatus("task-outcome", missing.length ? `Workers done without outcome receipt: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? ` +${missing.length - 5}` : ""}` : undefined)
+  // IDs already announced this runtime; a rebuild reseeds it so resumed sessions show status without repeating notices.
+  let announced = new Set<string>()
+  const refresh = (reseed: boolean) => (_event: unknown, ctx: ExtensionContext) => {
+    if (isWorker(ctx)) return
+    const missing = missingReceipts(ctx.sessionManager.getBranch())
+    status(ctx, missing)
+    if (reseed) announced = new Set(missing)
+    else for (const id of missing.filter((m) => !announced.has(m))) {
+      announced.add(id)
+      ctx.ui.notify(`Worker ${id} is terminal without a task_outcome receipt. Verify, then record the outcome.`, "warning")
+    }
+  }
+  pi.on("session_start", refresh(true))
+  pi.on("session_tree", refresh(true))
+  pi.on("turn_end", refresh(false))
+  pi.on("agent_end", refresh(false))
   pi.registerTool({
     name: "task_outcome",
     label: "Task outcome",
@@ -32,6 +65,7 @@ export default function (pi: ExtensionAPI) {
       if (isWorker(ctx)) throw new Error("Workers cannot record coordinator task outcomes.")
       const receipt = validateReceipt(args)
       pi.appendEntry("task-outcome-receipt", receipt)
+      status(ctx, missingReceipts(ctx.sessionManager.getBranch()).filter((id) => id !== receipt.taskId))
       return { content: [{ type: "text", text: `Recorded ${receipt.outcome} for ${receipt.taskId}.` }], details: receipt }
     },
   })

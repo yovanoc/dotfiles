@@ -193,3 +193,66 @@ Audit scripts remain repository-only and run from this task branch until merged.
   classified-error coverage; zero unexplained scan candidates; unsupported
   dispatches; verified continuation rate; Terra trial results if separately run.
 - Commit: this entry is committed with `Pi-Workflow: outcome-evidence-route-preflight`.
+- Measured (interim, `--since 2026-10-27T09:24:57+01:00`, unbounded
+  non-atomic scan): 3,823 candidates; 3,718 session files (142 coordinator,
+  3,576 worker), 104 headerless, 0 unreadable, 21 malformed/skipped lines;
+  partition gap 1 remains unresolved. Worker 72,004 requests, $1,560.92,
+  $0.02168/request (−22.80% vs prior); coordinator 39,786, $2,795.67,
+  $0.07027/request (+96.89%). Costs are Pi-local estimates, not billing.
+  Coordinator Astra 6,490 requests (16.31%), $1,564.99 (55.98% of cost):
+  explicit user choices, not routing failures. Worker mix: Sol 62.01%, Sonnet
+  21.92%, Opus 5.00%, Haiku 5.37%, Luna 3.56%, Terra 2.08%, Astra 46
+  requests; Haiku+Luna 8.92% vs 10.05% prior.
+  Notifications 3,066: done 2,568, turn_limit 496, error 1, stopped 1;
+  normalized turn_limit does not prove turn-budget exhaustion. Of 3,297
+  terminal tasks, 1,054 (31.97%) have receipts; 1,358 valid receipts cover
+  1,158 tasks, latest verdicts accepted 901, reworked 251, rejected 6;
+  104 receipted tasks have no terminal. Task-linked accepted cost is unavailable.
+  Unattended attempts 195, successes 188; 539 continuation entries are not
+  linked to those successes. Retrieval misses 40/2,107.
+  Evidence: `/tmp/pi-retro-current-HosCwb.json` (temporary, not an archive).
+  The prior scan ended about 1h56m before this applied boundary; this scan may
+  include the retrospective itself. Workload, model and user-choice differences
+  also confound comparisons; no causal effect is established.
+
+## DISK-APPLIED, NOT YET ACTIVATED — receipt-coverage-audit-integrity
+
+Disk-applied 2026-11-01T10:55:08Z (11:55:08+0100) via targeted chezmoi apply of
+three files only (`coordinator.md`, `agent-prompt-guard.ts`,
+`task-outcome-receipt.ts`); targeted status/verify clean and source→target cmp
+matched. Loaded-extension activation requires a later Pi reload/restart and the
+root reading the new coordinator doc; none is claimed, and no behavioral
+improvement is observed. Setup scripts (including unrelated install-packages
+drift) were not applied. Proposed: delegation-first root; bounded, task-fit lighter workers;
+explicit fresh Sol rationale; improved audit diagnostics and receipt visibility;
+and offline routing/quota CI checks. Startup, runtime and model defaults remain
+unchanged; no API spend or unattended grant is authorized. Source changes
+`d5bea18` / `a9b8b8e` include Terra changes with undocumented application timing;
+they establish no runtime boundary. The credit-anchor apply time above remains
+unknown.
+
+- Receipt warning repair uses durable `subagents:record` worker IDs, not
+  TaskUpdate IDs, for top-level terminal workers only; nested/workflow workers
+  do not warn. It depends on the runtime record schema. Independent review
+  verified the producer and receipt suite (`/tmp/pi-retro-repair-review.md`,
+  temporary). The repair author reported LSP with no errors and style
+  warnings/hints; final independent review ran tsc, which was not clean: one
+  TS2307 on an unchanged import (`@earendil-works/pi-ai/models`). LSP was
+  unavailable; no clean compile or universal static coverage is claimed.
+- Audit is PARTIAL: the partition diagnostic and inversion fixture were checked,
+  but no real scan validated it and the real partition gap 1 remains unresolved.
+- Queue diagnosis (`/tmp/pi-queue-diagnosis.md`, temporary) is source/config-only:
+  persisted cap 50, no project overrides; the plugin drains submitted spawns and
+  notifies on completion with brief coalescing, not a wait-all barrier. A
+  coordinator's unsubmitted backlog is not auto-dispatched. Live cap, historical
+  readiness and model wait-all causation are unknown; efficacy is unproven.
+  Reviewed source now requires an explicit ready/running/blocked/done graph,
+  refill on each completion without waiting for unrelated peers, and another
+  readiness pass after accepting dependency evidence. This policy is not
+  activated or behaviorally proven.
+- CI adds offline routing/quota checks and pins Node 24 for TypeScript stripping;
+  local quota checks ran on Node 26 only, not Node 24.
+- Final offline review (`/tmp/pi-retro-final-review.md`, temporary): routing,
+  audit, quota, prompt-guard, receipt and bash-timeout suites passed, as did shell
+  syntax checks. Source-only chezmoi preview showed expected unapplied drift;
+  verify exited 1. No apply or setup script execution occurred.

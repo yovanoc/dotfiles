@@ -82,6 +82,17 @@ export function agentRouteReason(input: { model?: unknown, thinking?: unknown, r
   if (!levels.includes(thinking as never)) return `Agent preflight rejected: ${model} does not support thinking "${thinking}" (supported: ${levels.join(", ")}). No substitute level is applied; choose a supported level or another model.`
 }
 
+// Fresh explicit Sol routes must justify themselves; root runtime Sol is not a reason. The effective pin (role over call) is the same
+// one agentRouteReason validates. Omitted models and resumes are untouched, and rationale text is never judged for truth.
+export function solRationaleReason(input: { model?: unknown, prompt?: unknown, resume?: unknown }, role?: Role): string | undefined {
+  if (input.resume !== undefined && input.resume !== "") return
+  const model = role?.enabled ? role.model ?? input.model : input.model
+  if (typeof model !== "string" || !/(^|[/:-])sol$/i.test(model.trim())) return
+  const line = typeof input.prompt === "string" ? input.prompt.match(/^MODEL RATIONALE:[ \t]*(.*)$/m)?.[1]?.trim() : undefined
+  if (line && line.length >= 20 && line.split(/\s+/).length >= 4) return
+  return "Agent preflight rejected: a fresh Sol worker needs a `MODEL RATIONALE:` line (4+ words) naming why a lighter route is unsuitable: difficult interacting invariants, a verified lighter-route miss, explicit user choice, or no suitable eligible alternative. Root running Sol is not a reason; otherwise choose a lighter route."
+}
+
 export default function (pi: ExtensionAPI) {
   pi.on("tool_call", (event, ctx) => {
     if (event.toolName !== "Agent") return
@@ -90,7 +101,7 @@ export default function (pi: ExtensionAPI) {
     if (glued) return { block: true, reason: glued }
     const resumed = input.resume !== undefined && input.resume !== ""
     const role = resumed ? undefined : resolveRole(input.subagent_type, ctx.cwd)
-    const reason = agentRouteReason(input, ctx, role) ?? requiredToolsReason(input, role)
+    const reason = agentRouteReason(input, ctx, role) ?? solRationaleReason(input, role) ?? requiredToolsReason(input, role)
     if (reason) return { block: true, reason }
   })
 }

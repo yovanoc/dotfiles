@@ -50,6 +50,10 @@ jobs:
       - name: Install zsh
         run: sudo apt-get update -qq && sudo apt-get install -y -qq jq zsh
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       # A zsh syntax error would otherwise surface only at the next login.
       - name: Check
         run: |
@@ -62,3 +66,5 @@ jobs:
             zsh -n "$file"
           done
           bash scripts/test-pi-session-audit.sh
+          python3 scripts/test-pi-routing.py
+          node scripts/test-pi-quota-status.mjs

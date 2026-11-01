@@ -42,11 +42,11 @@ requested, and honor any user-selected model/effort before a default route.
 Ordinary delegation uses native `Agent` calls. The coordinator owns ordered
 task priorities, soft quota states, scope checks and reset handling; this is
 prompt policy, not an automatic routing engine. Do not duplicate that table here.
-In short: Haiku/Luna first for bounded mapping, extraction and checkable leaves;
-Copilot Luna is preferred over native Luna for equal-fit bounded work with headroom;
-Sonnet `medium` for everyday work outside Terra’s task-fit cases below; Sol for
-difficult implementation; Opus for deep review and architecture. User-selected Sol coordinators deliberately use frequent
-OpenAI resets; they are not policy failures. Quota pacing is reset-aware, while
+Root scopes, dispatches, accepts evidence and synthesizes; independent ready work
+and substantial verification go to bounded workers. Root model and effort do not
+default worker choices. Haiku/Luna handle bounded leaves, Terra its task-fit work,
+Sonnet substantive work, and Opus deep judgment. Fresh explicit Sol worker calls
+require `MODEL RATIONALE:` under the coordinator's exception policy. Quota pacing is reset-aware, while
 `anthropic-api/` is budget-checked relief only (no daily credit-burning formula). Handoff checkpoints are per-session
 files whose exact path the notice names; legacy `tasks/handoff.md` is not authority.
 

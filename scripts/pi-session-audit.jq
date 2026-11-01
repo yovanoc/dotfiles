@@ -60,6 +60,30 @@ def record_status:
   elif . == "error" then "error"
   else null end;
 
+# Fixed enum of the raw source label; normalized comparison counts keep using terminal_status/record_status.
+def raw_termination:
+  if type != "string" then null else
+    (ascii_downcase | gsub("^\\s+|\\s+$"; "")) as $s
+    | if $s == "done" then "done"
+      elif ($s | startswith("completed")) then "completed"
+      elif ($s | startswith("finished")) then "finished"
+      elif ($s | startswith("wrapped up")) then "wrapped_up"
+      elif ($s | startswith("aborted")) then "aborted"
+      elif ($s | startswith("steered")) then "steered"
+      elif ($s | startswith("turn limit")) then "turn_limit_cap"
+      elif ($s | startswith("max turns")) then "max_turns_cap"
+      elif ($s | startswith("stopped")) then "stopped"
+      elif ($s | startswith("cancelled")) or ($s | startswith("canceled")) then "cancelled"
+      elif ($s | startswith("error")) then "error"
+      elif ($s | startswith("failed")) then "failed"
+      else "other" end
+  end;
+
+def notification_raw_termination:
+  if type != "string" then null else
+    (try capture("<status>(?<value>[^<]{0,512})</status>"; "i").value catch null) | raw_termination
+  end;
+
 def receipt_of:
   if type != "object" then null
   elif (.taskId | type) == "string" and (.taskId | test("^[A-Za-z0-9_./:@+-]{1,128}$"))
@@ -134,6 +158,7 @@ def handle_block($block; $in_window):
       .checkpoints |= bump(if $args.status == "continue" or $args.status == "blocked" or $args.status == "done" then $args.status else "other" end)
     elif $in_window and $name == "handoff_checkpoint" then .ckpt.handoff.attempts += 1
     elif $in_window and $name == "Agent" then dispatch($args)
+    elif $in_window and $name == "codemode" then .codemode_calls += 1
     elif $in_window and ($name == "bash" or $name == "Bash") then
       .bash.calls += 1
       | if ($args | has("timeout")) and $args.timeout != null then .bash.timeout_argument_present += 1 else . end
@@ -172,7 +197,15 @@ def process_event($event):
       and ($event.data | type) == "object" and ($event.data.sessionId | type) == "string" and ($event.data.checkpointPath | type) == "string" then
       .handoffs.custom |= bump($event.customType)
     else . end
-  | if $in_window and $event.type == "custom_message" and $event.customType == "unattended-continuation" then .continuations += 1 else . end
+  | if $in_window and $event.type == "custom_message" and $event.customType == "unattended-continuation" then
+      .continuations += 1
+      # Conservative link: same file, the nearest preceding unconsumed successful `continue` checkpoint result, no event-time inversion.
+      | if .pending_continue != null and $timestamp != null and $timestamp >= .pending_continue.ts then
+          (if ($event.parentId | type) == "string" and $event.parentId == .pending_continue.entry then "exact_parent" else "temporal" end) as $kind
+          | .link.linked |= bump($kind)
+          | .pending_continue = null
+        else .link.unlinked += 1 end
+    else . end
   | if $in_window and $event.type == "custom" and $event.customType == "task-outcome-receipt" then
       ($event.data | receipt_of) as $r
       | if $r == null then .receipts_invalid += 1
@@ -187,6 +220,7 @@ def process_event($event):
       and ($event.data | type) == "object" and ($event.data.id | valid_task_id)
       and (($event.data.status | record_status) != null) then
       .tasks[$event.data.id].r = ($event.data.status | record_status)
+      | .tasks[$event.data.id].rr = ($event.data.status | raw_termination)
     else . end
   | if $event.type == "model_change" then
       (($event.provider | safe_label) + "/" + ($event.modelId | safe_label)) as $selection
@@ -198,16 +232,19 @@ def process_event($event):
     else . end
   | if $in_window and $event.customType == "subagent-notification" then
       ($event.content | terminal_status) as $status
+      | ($event.content | notification_raw_termination) as $raw
+      | (if ($event.content | type) == "string" then
+           (try ($event.content | capture("<task-id>(?<value>[^<]{0,128})</task-id>"; "i").value) catch $event.id)
+         else $event.id end) as $identity
+      | (if ($identity | type) == "string" or ($identity | type) == "number" or ($identity | type) == "boolean" then $identity else .line_number end) as $identity
+      | (if $raw != null then .raw_notifications |= (. + [([$path, $identity, $raw] | tojson)] | unique) else . end)
       | if $status == null then . else
-          (if ($event.content | type) == "string" then
-             (try ($event.content | capture("<task-id>(?<value>[^<]{0,128})</task-id>"; "i").value) catch $event.id)
-           else $event.id end) as $identity
-          | (if ($identity | type) == "string" or ($identity | type) == "number" or ($identity | type) == "boolean" then $identity else .line_number end) as $identity
-          | .notifications |= (. + [([$path, $identity, $status] | tojson)] | unique)
+          .notifications |= (. + [([$path, $identity, $status] | tojson)] | unique)
           | ($event.content | xml_field("task-id")) as $task_id
           | ($event.content | xml_field("tool-use-id")) as $tool_id
           | if ($task_id | valid_task_id) then
               .tasks[$task_id].n = $status
+              | .tasks[$task_id].nr = $raw
               | if ($tool_id | type) == "string" and ($tool_id | test("^[A-Za-z0-9_.:|=-]{1,128}$")) then .tasks[$task_id].tool = $tool_id else . end
             else . end
         end
@@ -248,7 +285,13 @@ def process_event($event):
       | (if ($m.toolCallId | type) == "string" then .ckpt_calls[$m.toolCallId] else null end) as $call
       | if $m.isError == true then .ckpt[$bucket].error_results += 1
         elif $m.isError == false and $call == $m.toolName and ($m.details | checkpoint_details_ok($unattended)) then
-          (if $unattended then .ckpt.unattended.successful |= bump($m.details.status) else .ckpt.handoff.successful += 1 end)
+          (if $unattended then
+             .ckpt.unattended.successful |= bump($m.details.status)
+             | if $m.details.status == "continue" and $timestamp != null then
+                 .link.continue_successes += 1
+                 | .pending_continue = {ts: $timestamp, entry: (if ($event.id | type) == "string" then $event.id else null end)}
+               else .pending_continue = null end
+           else .ckpt.handoff.successful += 1 end)
         else .ckpt[$bucket].invalid_results += 1 end
     elif $in_window and $event.message.role == "toolResult" and $event.message.toolName == "get_subagent_result" then
       .retrieval.results += 1
@@ -275,7 +318,8 @@ def scan_file:
       dispatch: {max_turns: {}, model: {}, thinking: {}, background: {}, resume: {}},
       nonblank: 0, worker_prefix: null, all_models: {}, agent_calls: {}, ckpt_calls: {}, tasks: {}, receipts: {}, receipts_invalid: 0, continuations: 0,
       ckpt: {unattended: {successful: {}, error_results: 0, invalid_results: 0}, handoff: {attempts: 0, successful: 0, error_results: 0, invalid_results: 0}},
-      notifications: [], models: {}, calls: {}, retrieval: {attempts: 0, results: 0, misses: 0, targets: []}
+      notifications: [], raw_notifications: [], models: {}, calls: {}, codemode_calls: 0,
+      pending_continue: null, link: {linked: {}, unlinked: 0, continue_successes: 0}, retrieval: {attempts: 0, results: 0, misses: 0, targets: []}
     };
     .line_number += 1
     | if ($line | test("^\\s*$")) then .
@@ -306,7 +350,9 @@ def scan_file:
              then {parent: $summary.parent_session, prefix: $summary.worker_prefix, models: ($summary.all_models | keys)} else null end),
       bash: $summary.bash,
       dispatch: $summary.dispatch,
-      notifications: $summary.notifications,
+      notifications: $summary.notifications, raw_notifications: $summary.raw_notifications,
+      codemode_calls: $summary.codemode_calls, link: $summary.link,
+      nonblank_events_header_only: ($summary.has_header and $summary.nonblank == 1),
       models: $summary.models,
       retrieval: $summary.retrieval
     }
@@ -349,6 +395,7 @@ def task_rows($files):
       | {
           path: $f.path, id: $id,
           status: ($t.r // $t.n),
+          raw: (if $t.r != null then $t.rr else $t.nr end),
           source: (if $t.r != null and $t.n != null then "both" elif $t.r != null then "record_only" else "notification_only" end),
           join: (if $first8[$id[0:8]] > 1 or ($m | length) > 1 then "ambiguous"
                  elif ($m | length) == 0 then "no_worker"
@@ -366,6 +413,11 @@ def task_evidence($rows):
       terminal_tasks: ($rows | length),
       status_sources: ($rows | tally(.source)),
       status: ($rows | tally(.status)),
+      raw_termination: {
+        note: "Fixed-enum raw source labels beside the unchanged normalized status; turn_limit normalized = wrapped_up|aborted|steered(records)|turn_limit_cap|max_turns_cap.",
+        terminal_tasks: ($rows | tally(.raw)),
+        terminal_tasks_by_normalized_status: (reduce $rows[] as $r ({}; .[$r.status][$r.raw] = ((.[$r.status][$r.raw] // 0) + 1)))
+      },
       request_join: {matched_agent_call: ($requested | length), unmatched: (($rows | length) - ($requested | length))},
       requested_model: ($requested | tally(.req.model)),
       requested_effort: ($requested | tally(.req.effort)),
@@ -381,7 +433,7 @@ def task_outcomes($files; $rows; $dispatches):
   | ($rows | map({key: (.path + "\u0000" + .id), value: true}) | from_entries) as $terminal
   | ($tasks | map(select($terminal[.path + "\u0000" + .id] == true)) | length) as $with_terminal
   | if ($tasks | length) == 0 then
-      {available: false, receipts_invalid: $invalid, reason: "No valid task-outcome-receipt entries; absence is unavailable, not zero quality."}
+      {available: false, receipts_invalid: $invalid, coverage: {terminal_tasks_observed: ($rows | length), terminal_tasks_with_receipt: 0, terminal_tasks_without_receipt: ($rows | length)}, reason: "No valid task-outcome-receipt entries; absence is unavailable, not zero quality."}
     else
       {
         available: true,
@@ -398,7 +450,9 @@ def task_outcomes($files; $rows; $dispatches):
           terminal_tasks_observed: ($rows | length),
           dispatches_observed: $dispatches,
           receipted_tasks_with_terminal_evidence: $with_terminal,
-          receipted_tasks_without_terminal_evidence: (($tasks | length) - $with_terminal)
+          receipted_tasks_without_terminal_evidence: (($tasks | length) - $with_terminal),
+          terminal_tasks_with_receipt: $with_terminal,
+          terminal_tasks_without_receipt: (($rows | length) - $with_terminal)
         },
         by_model_effort: (
           reduce ($tasks | group_by([.latest.model, .latest.effort])[]) as $g ({};
@@ -486,7 +540,21 @@ def aggregate:
             successful: ([$files[].ckpt.unattended.successful[]] | add // 0),
             error_results: ([$files[].ckpt.unattended.error_results] | add // 0),
             invalid_results: ([$files[].ckpt.unattended.invalid_results] | add // 0),
-            continuations: ([$files[].continuations] | add // 0)
+            continuations: ([$files[].continuations] | add // 0),
+            continuation_linkage: (
+              ([$files[].link.linked.exact_parent // 0] | add // 0) as $exact
+              | ([$files[].link.linked.temporal // 0] | add // 0) as $temporal
+              | ([$files[].link.continue_successes // 0] | add // 0) as $continues
+              | {
+                  rule: "Same session file; nearest preceding unconsumed successful continue-status checkpoint result with non-inverted event time; consumed once; any other successful checkpoint status clears it. Counts are never matched across files or inferred from totals.",
+                  linked_continuations: ($exact + $temporal),
+                  linked_by_exact_parent_id: $exact,
+                  linked_by_temporal_order: $temporal,
+                  unlinked_continuation_entries: ([$files[].link.unlinked // 0] | add // 0),
+                  continue_checkpoint_successes: $continues,
+                  continue_successes_without_linked_continuation: ($continues - $exact - $temporal),
+                  accepted_usefulness: {available: false, reason: "A continuation entry carries no task id or receipt; linkage shows a continuation followed a checkpoint, not that it was accepted or useful."}
+                })
           },
           handoff_checkpoint: {
             attempts: ([$files[].ckpt.handoff.attempts] | add // 0),
@@ -505,7 +573,15 @@ def aggregate:
             {available: true, source: $outcomes.source, tasks_with_rework_history: $outcomes.rework_history_tasks, rework_events: $outcomes.rework_events, denominator_tasks_with_receipt: $outcomes.tasks_with_receipt}
           else {available: false} end)
       },
-      task_evidence: task_evidence($task_rows),
+      task_evidence: (task_evidence($task_rows) + {
+        raw_termination_notifications_unique: ([$files[].raw_notifications[]?] | unique | map(fromjson | .[2]) | tally(.)),
+        raw_termination_records_unique_tasks: ([$files[].tasks[]? | select(.r != null) | .rr] | tally(.))
+      }),
+      observability: {
+        direct_codemode_tool_calls: ([$files[].codemode_calls // 0] | add // 0),
+        direct_structured_unattended_checkpoint_attempts: ([$files[].checkpoints[]] | add // 0),
+        note: "Direct structured records only; nested codemode content and tool arguments are never parsed, so nested checkpoint/agent calls are not inferable from these counts."
+      },
       scan_reconciliation: (
         ([$files[] | select(.classification != null)] | length) as $classified
         | {
@@ -520,6 +596,23 @@ def aggregate:
             candidates_match_scanned: ($candidates == ($scanned | length)),
             partition_balanced: (($scanned | length) == (($files | length) + ([$scanned[] | select(.has_header == false)] | length) + $unreadable)),
             classification_balanced: ($classified == $active),
+            partition_residual: (($scanned | length) - (($files | length) + ([$scanned[] | select(.has_header == false)] | length) + $unreadable)),
+            candidate_partition: (
+              ([$scanned[] | select(._unreadable != true and (.has_header | type) != "boolean")] | length) as $odd
+              | ([$scanned[] | select(.has_header == false and .nonblank > 0 and .nonblank > .malformed_lines)] | length) as $h_events
+              | ([$scanned[] | select(.has_header == false and .nonblank > 0 and .nonblank == .malformed_lines)] | length) as $h_bad
+              | {
+                  session_with_window_activity: $active,
+                  session_without_window_activity: (($files | length) - $active),
+                  headerless_with_parsed_events: $h_events,
+                  headerless_all_lines_malformed: $h_bad,
+                  headerless_empty: $empty,
+                  unreadable: $unreadable,
+                  unexpected_summary_shape: $odd,
+                  informational_subsets: {session_header_only: ([$files[] | select(.nonblank_events_header_only == true)] | length)},
+                  explained_total: ($files | length) + $h_events + $h_bad + $empty + $unreadable + $odd,
+                  fully_explained: ((($files | length) + $h_events + $h_bad + $empty + $unreadable + $odd) == ($scanned | length))
+                }),
             error_categories_match_errors: (([$files[].errors[]] | add // 0) == ([$files[].auth_categories[]] | add // 0))
           }
       ),
@@ -533,6 +626,8 @@ def aggregate:
         "Model selection classification uses preceding logged model_change/assistant metadata; missing history can make the first observed selection initial.",
         "Task outcomes come only from valid coordinator-written task-outcome-receipt entries (latest verdict per task per coordinator file; rework counted from history); they are not actual-runtime proof, and no receipts means unavailable, not zero quality. Check artifacts are only counted, never read.",
         "task_evidence joins notification/subagents:record task IDs to worker session_info Type#first8(taskId) only for a unique prefix within the same parent session; actual model requires exactly one assistant provider/model in the worker file, otherwise it is mixed/unmatched. Requested model/effort come from the direct Agent tool call matching the notification tool-use-id in the same file; runtime effort is unknown and reported (receipt) model is separate.",
+        "Raw termination labels are a fixed enum of the notification <status> text or subagents:record status (task_evidence.raw_termination*); the normalized status counts are unchanged, so wrapped_up/aborted/steered/explicit turn-cap labels all still collapse into normalized turn_limit there. Steered notifications appear only in raw notification counts. Raw labels are never a cause proof.",
+        "Continuation linkage is conservative same-file ordering (or exact parent id when present) between a successful continue checkpoint result and the next unattended-continuation entry; unlinked entries are notices or unprovable. Linkage is not acceptance or usefulness: no task id exists on continuation entries. Cost per accepted task and applied continuation/effort provenance need a new event producer and are unavailable. Terminal tasks without a valid same-file outcome receipt are counted in task_outcomes.coverage.",
         "Checkpoint attempts are unchanged; checkpoint_evidence counts successes only for toolResults joined by call id with isError false and managed details {path,cwd[,status]}; file contents and paths are never read or output. Terminal notification statuses stay notification-only; terminal evidence adds subagents:record entries deduplicated by task ID. Notifications without a task ID are not joinable."
       ],
       main_sessions: $main,

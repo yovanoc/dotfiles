@@ -15,7 +15,7 @@ const jiti = createJiti(join(process.cwd(), "scripts/test-agent-prompt-guard.sh"
   moduleCache: false, fsCache: false,
   alias: { "@earendil-works/pi-coding-agent": join(runtime, "dist/index.js"), "@earendil-works/pi-ai/models": join(runtime, "node_modules/@earendil-works/pi-ai/dist/models.js") },
 })
-const { default: guard, gluedPromptReason, agentRouteReason, requiredToolsReason, resolveRole } = await jiti.import(join(process.cwd(), "home/private_dot_pi/private_agent/private_extensions/agent-prompt-guard.ts"))
+const { default: guard, gluedPromptReason, agentRouteReason, requiredToolsReason, resolveRole, solRationaleReason } = await jiti.import(join(process.cwd(), "home/private_dot_pi/private_agent/private_extensions/agent-prompt-guard.ts"))
 
 const glued = "OUTCOME:Quota-optimizeexistingEffect4.0.2cleanupengineinyoutube-triagewithoutdata-lossguardregression,wirepureminimum-movehelper.OWNEDFILESEXCLUSIVE:src/cleanup.tsandtest/cleanup-engine.test.tsONLY.Optionalnewtest/cleanup-quota.test.tsforboundedofflineactualproduction-statemockperformance/regression;donoteditotherfiles."
 const plain = "OUTCOME: Quota-optimize the existing Effect cleanup engine in /Users/me/youtube-triage without any data-loss guard regression. OWNED FILES: src/cleanup.ts and test/cleanup-engine.test.ts only. CHECKS: bun test test/cleanup-engine.test.ts passes.\n".repeat(2)
@@ -119,5 +119,25 @@ assert.match(pinned({ model: "p/fresh-unknown", thinking: "bogus" }, "pin") ?? "
 assert.equal(pinned({ model: "p/kimi", thinking: "medium" }, "ro"), undefined)
 assert.match(pinned({ model: "p/kimi", thinking: "high" }, "ro") ?? "", /does not support/) // no pin: input validated
 assert.equal(pinned({ model: "p/kimi", thinking: "high", resume: "abc" }, "pin"), undefined)
+
+// Sol rationale: fresh explicit Sol needs a meaningful line; resumes, omitted and non-Sol models do not.
+const sol = "openai/gpt-6.1-sol"
+const why = "MODEL RATIONALE: no suitable eligible alternative handles these interacting invariants.\n"
+assert.match(solRationaleReason({ model: sol, prompt: plain }) ?? "", /MODEL RATIONALE/)
+assert.match(solRationaleReason({ model: sol, prompt: "MODEL RATIONALE: because\n" + plain }) ?? "", /MODEL RATIONALE/)
+assert.match(solRationaleReason({ model: sol, prompt: "MODEL RATIONALE:\n" + plain }) ?? "", /MODEL RATIONALE/)
+assert.equal(solRationaleReason({ model: sol, prompt: why + plain }), undefined)
+assert.equal(solRationaleReason({ model: sol, prompt: plain, resume: "abc" }), undefined)
+assert.equal(solRationaleReason({ prompt: plain }), undefined) // omitted: root runtime is no reason either way
+assert.equal(solRationaleReason({ model: "anthropic/claude-sonnet-4.5", prompt: plain }), undefined)
+assert.equal(solRationaleReason({ model: "p/console", prompt: plain }), undefined)
+assert.match(solRationaleReason({ model: "p/plain", prompt: plain }, { enabled: true, model: sol }) ?? "", /MODEL RATIONALE/) // role pin wins
+assert.equal(solRationaleReason({ model: sol, prompt: plain }, { enabled: true, model: "p/plain" }), undefined)
+const solModels = [...models, { provider: "openai", id: "gpt-6.1-sol", reasoning: true }]
+const solRegistry = { find: (p: string, id: string) => solModels.find((m) => m.provider === p && m.id === id), getAvailable: () => solModels }
+const solCall = (input: object) => { let h: Handler; guard({ on: (_n: string, cb: Handler) => { h = cb } } as never); return h!({ toolName: "Agent", input: { prompt: plain, ...input } }, { cwd: "/x", modelRegistry: solRegistry })?.block }
+assert.equal(solCall({ model: sol }), true)
+assert.equal(solCall({ model: sol, prompt: why + plain }), undefined)
+assert.equal(solCall({ model: sol, resume: "abc" }), undefined)
 console.log("Agent prompt guard checks passed")
 TS

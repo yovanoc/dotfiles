@@ -42,6 +42,19 @@ models = json.loads((agent / "private_models.json").read_text())
 # Native OpenAI metadata and authentication belong to Pi, not managed overrides.
 assert "openai" not in models["providers"]
 policy = (agent / "private_docs/coordinator.md").read_text()
+root_policy = policy.split("## Dispatch", 1)[0]
+assert "delegate substantial implementation" in root_policy
+assert "independent verification" in root_policy and "bounded parallel packets" in root_policy
+dispatch = " ".join(policy.split("## Dispatch", 1)[1].split("## Model choice", 1)[0].split())
+assert all(term in dispatch for term in ("task graph ledger", "dependency IDs", "exact ownership", "`ready`", "`running`", "`blocked`", "`done`", "worker ID", "concrete blocker"))
+assert "each worker completion" in dispatch and "completion suffices to refill independent work" in dispatch
+assert "required evidence is accepted" in dispatch and "not ready-task coverage" in dispatch
+completion = " ".join(policy.split("## Completion, recovery and budgets", 1)[1].split("## Conditional reference", 1)[0].split())
+assert "recompute readiness and refill again after acceptance" in completion
+assert "name its actual blockers instead of declaring it done" in completion
+sol_policy = policy.split("Sol is an exception", 1)[1].split("Use each route's", 1)[0]
+assert "fresh explicit Sol worker dispatch" in sol_policy and "MODEL RATIONALE:" in sol_policy
+assert "prior verified lighter-route" in sol_policy and "no suitable eligible alternative" in sol_policy
 assert "qualification-only" not in policy
 for task in ("Concise writing or revision from supplied material", "Scoped code fixes with clear inputs", "Defined visual/computer tasks"):
     row = next(line for line in policy.splitlines() if line.startswith("| " + task))
