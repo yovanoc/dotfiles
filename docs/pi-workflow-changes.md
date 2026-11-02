@@ -256,3 +256,21 @@ unknown.
   audit, quota, prompt-guard, receipt and bash-timeout suites passed, as did shell
   syntax checks. Source-only chezmoi preview showed expected unapplied drift;
   verify exited 1. No apply or setup script execution occurred.
+
+## DISK-APPLIED, NOT YET ACTIVATED — receipt-advisory-noise
+
+Extension disk-applied 2026-11-02T19:57:54+0100; the initial targeted apply
+stopped on a settings formatting conflict after writing the extension. At
+2026-11-02T19:59:30+0100, identical live settings JSON was reconciled by
+importing its exact bytes to source: only Pi 1.5 changelog metadata differs
+semantically from the previous source. Both targets passed scoped verify and
+byte comparison. No reload or runtime activation is proven.
+
+The UI replaces per-worker warning popups with a persistent active-branch
+missing-receipt count in the footer. No IDs are shown, no model context
+enforcement or blocking is added, and completion never autoaccepts work.
+Of the four screenshot workers, two were accepted later and two had no receipt
+at observation; the screenshot alone does not prove a receipt failure.
+Offline receipt, prompt-guard and routing checks are recorded in
+`/tmp/pi-receipt-noise-prepublish.md`; independent review accepted the change
+(`/tmp/pi-receipt-noise-review.md`).

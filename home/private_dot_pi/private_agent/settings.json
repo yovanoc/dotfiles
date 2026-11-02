@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.4.0",
+  "lastChangelogVersion": "1.5.0",
   "packages": [
     "npm:@tintinweb/pi-subagents",
     "npm:@gotgenes/pi-permission-system",
@@ -122,5 +122,14 @@
   "images": {
     "autoResize": false
   },
-  "deviceId": "693181f0-899e-43bd-b7f7-3bc77a3d9a9e"
+  "deviceId": "693181f0-899e-43bd-b7f7-3bc77a3d9a9e",
+  "extensionChangelogVersions": {
+    "{\"source\":\"npm:@tintinweb/pi-subagents\",\"scope\":\"user\"}": "0.22.1",
+    "{\"source\":\"npm:@gotgenes/pi-permission-system\",\"scope\":\"user\"}": "42.0.0",
+    "{\"source\":\"npm:@tintinweb/pi-tasks\",\"scope\":\"user\"}": "0.9.1",
+    "{\"source\":\"npm:pi-lens\",\"scope\":\"user\"}": "4.4.8",
+    "{\"source\":\"npm:@gotgenes/pi-anthropic-auth\",\"scope\":\"user\"}": "3.4.4",
+    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.46.0",
+    "{\"source\":\"npm:pi-model-fallback\",\"scope\":\"user\"}": "0.5.11"
+  }
 }

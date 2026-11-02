@@ -33,23 +33,15 @@ export function missingReceipts(entries: readonly { type: string, customType?: s
 
 export default function (pi: ExtensionAPI) {
   const status = (ctx: ExtensionContext, missing: string[]) =>
-    ctx.ui.setStatus("task-outcome", missing.length ? `Workers done without outcome receipt: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? ` +${missing.length - 5}` : ""}` : undefined)
-  // IDs already announced this runtime; a rebuild reseeds it so resumed sessions show status without repeating notices.
-  let announced = new Set<string>()
-  const refresh = (reseed: boolean) => (_event: unknown, ctx: ExtensionContext) => {
+    ctx.ui.setStatus("task-outcome", missing.length ? `${missing.length} workers without outcome receipt` : undefined)
+  const refresh = (_event: unknown, ctx: ExtensionContext) => {
     if (isWorker(ctx)) return
-    const missing = missingReceipts(ctx.sessionManager.getBranch())
-    status(ctx, missing)
-    if (reseed) announced = new Set(missing)
-    else for (const id of missing.filter((m) => !announced.has(m))) {
-      announced.add(id)
-      ctx.ui.notify(`Worker ${id} is terminal without a task_outcome receipt. Verify, then record the outcome.`, "warning")
-    }
+    status(ctx, missingReceipts(ctx.sessionManager.getBranch()))
   }
-  pi.on("session_start", refresh(true))
-  pi.on("session_tree", refresh(true))
-  pi.on("turn_end", refresh(false))
-  pi.on("agent_end", refresh(false))
+  pi.on("session_start", refresh)
+  pi.on("session_tree", refresh)
+  pi.on("turn_end", refresh)
+  pi.on("agent_end", refresh)
   pi.registerTool({
     name: "task_outcome",
     label: "Task outcome",

@@ -44,6 +44,12 @@ assert.equal(entries.length, 0)
 const workerRec = (id: string, status: string) => entries.push(["subagents:record", { id, status, result: "SECRET raw text" }])
 const fire = (name: string, c = coord) => handlers[name]({}, c)
 const missing = () => missingReceipts(ctx("").sessionManager.getBranch())
+// Four distinct completions must remain visible without producing four popups.
+for (const id of ["w-1", "w-2", "w-3", "w-4"]) { workerRec(id, "completed"); fire("turn_end") }
+assert.deepEqual(missing(), ["w-1", "w-2", "w-3", "w-4"])
+assert.equal(notes.length, 0, "four terminal workers must produce no notifications")
+assert.match(statuses.at(-1) ?? "", /^4 .*receipt/i)
+entries.length = 0; statuses.length = 0; notes.length = 0
 // TaskUpdate completion with a distinct list ID is ignored entirely: no handler, no entry, no advisory.
 assert.equal(handlers.tool_result, undefined)
 fire("turn_end")
@@ -54,41 +60,40 @@ workerRec("agent-run", "running"); workerRec("agent-q", "queued")
 fire("turn_end")
 assert.deepEqual(missing(), [])
 assert.equal(notes.length, 0)
-// Completed worker with list task "3" still unrelated: advisory names the worker ID.
+// Completed worker with list task "3" still unrelated: the worker ID is tracked.
 workerRec("w-a1", "completed")
 fire("turn_end")
 assert.deepEqual(missing(), ["w-a1"])
-assert.equal(notes.length, 1)
-assert.match(notes[0], /w-a1/)
-assert.match(statuses.at(-1) ?? "", /w-a1/)
-assert.doesNotMatch(notes[0] + (statuses.at(-1) ?? ""), /SECRET/)
-fire("turn_end"); fire("agent_end") // dedup
-assert.equal(notes.length, 1)
-workerRec("w-a1", "completed") // resumed worker finishing again: same ID, still one advisory
+assert.equal(notes.length, 0)
+assert.match(statuses.at(-1) ?? "", /^1 .*receipt/i)
+fire("turn_end"); fire("agent_end")
+assert.equal(notes.length, 0)
+workerRec("w-a1", "completed") // resumed worker finishing again: same ID, still one missing receipt
 fire("turn_end")
 assert.deepEqual(missing(), ["w-a1"])
-assert.equal(notes.length, 1)
+assert.equal(notes.length, 0)
 workerRec("w-err", "error"); workerRec("w-stop", "stopped"); workerRec("w-abort", "aborted"); workerRec("w-steer", "steered")
 fire("agent_end")
 assert.deepEqual(missing(), ["w-a1", "w-err", "w-stop", "w-abort", "w-steer"])
-assert.equal(notes.length, 5)
-assert.match(statuses.at(-1) ?? "", /\+0|w-a1/)
+assert.equal(notes.length, 0)
+assert.match(statuses.at(-1) ?? "", /^5 .*receipt/i)
 // Worker sessions never advise.
 workerRec("w-x", "completed")
+const statusCount = statuses.length
 fire("turn_end", ctx('x <active_agent name="w"/>'))
-assert.equal(notes.length, 5)
+assert.equal(statuses.length, statusCount)
+assert.equal(notes.length, 0)
 // Unrelated receipt does not clear others; matching worker-ID receipt does.
 await tool.execute("1", { ...good, taskId: "3" }, undefined, undefined, coord) // list ID, not a worker
 assert.deepEqual(missing(), ["w-a1", "w-err", "w-stop", "w-abort", "w-steer", "w-x"])
 await tool.execute("1", { ...good, taskId: "w-a1" }, undefined, undefined, coord)
 assert.deepEqual(missing(), ["w-err", "w-stop", "w-abort", "w-steer", "w-x"])
-assert.doesNotMatch(statuses.at(-1) ?? "", /w-a1/)
+assert.match(statuses.at(-1) ?? "", /^5 .*receipt/i)
 // Rebuild from persisted branch: status restored, no repeated notices.
-const before = notes.length
 fire("session_start")
-assert.match(statuses.at(-1) ?? "", /w-err/)
+assert.match(statuses.at(-1) ?? "", /^5 .*receipt/i)
 fire("session_tree"); fire("turn_end")
-assert.equal(notes.length, before)
+assert.equal(notes.length, 0)
 // Over-long or invalid worker IDs are ignored.
 workerRec("bad id", "completed"); workerRec(123 as never, "completed")
 assert.deepEqual(missing(), ["w-err", "w-stop", "w-abort", "w-steer", "w-x"])
@@ -100,5 +105,7 @@ assert.deepEqual(entries.at(-1), ["task-outcome-receipt", { ...good, taskId: "ne
 entries.length = 0
 fire("session_tree")
 assert.equal(statuses.at(-1), undefined)
+assert.equal(notes.length, 0)
+assert.doesNotMatch(statuses.join(" ") + notes.join(" "), /SECRET/)
 console.log("Task outcome receipt checks passed")
 TS
