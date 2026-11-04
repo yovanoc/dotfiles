@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs"
 import { basename, join } from "node:path"
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent"
 import { getAgentDir, parseFrontmatter } from "@earendil-works/pi-coding-agent"
+// pi-lens-ignore: 2307
 import { getSupportedThinkingLevels } from "@earendil-works/pi-ai/models"
 
 // Glued packets ("Localreversibleedits", "task1220") read badly and hurt small models most.
@@ -18,7 +19,7 @@ const str = (value: unknown) => typeof value === "string" ? value : undefined
 // Mirrors pi-subagents parseCsvField: arrays and scalars stringify, "none"/empty mean nothing.
 const csv = (value: unknown) => { const text = String(value).trim(); return text === "none" ? [] : text.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean) }
 
-export type Role = { model?: string, thinking?: string, tools?: unknown, disallowed?: unknown, enabled: boolean }
+export type Role = { model?: string, thinking?: string, tools?: unknown, disallowed?: unknown, enabled: boolean, maxTurns?: number, inheritContext?: boolean, runInBackground?: boolean }
 export type ListAgents = (dir: string) => { file: string, text: string }[]
 const listAgents: ListAgents = (dir) => {
   try { return readdirSync(dir).filter((f) => f.endsWith(".md")).map((file) => ({ file, text: readFileSync(join(dir, file), "utf8") })) } catch { return [] }
@@ -37,7 +38,12 @@ export function resolveRole(type: unknown, cwd: string, list: ListAgents = listA
       const declared = str(fm.name)?.trim()
       if (declared?.includes(":")) continue
       if ((declared || basename(file, ".md")) !== type) continue
-      role = { model: str(fm.model), thinking: str(fm.thinking), tools: fm.tools, disallowed: fm.disallowed_tools, enabled: fm.enabled !== false }
+      role = {
+        model: str(fm.model), thinking: str(fm.thinking), tools: fm.tools, disallowed: fm.disallowed_tools, enabled: fm.enabled !== false,
+        maxTurns: typeof fm.max_turns === "number" && Number.isInteger(fm.max_turns) && fm.max_turns >= 0 ? fm.max_turns : undefined,
+        inheritContext: fm.inherit_context != null ? fm.inherit_context === true : undefined,
+        runInBackground: fm.run_in_background != null ? fm.run_in_background === true : undefined,
+      }
     }
   }
   return role

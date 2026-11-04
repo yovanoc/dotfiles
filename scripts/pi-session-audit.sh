@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Summarize direct Pi tool calls only; nested calls inside codemode are uncounted.
+# Summarize direct calls and recognized typed nested-call metadata separately.
 set -o pipefail
 
 usage() {
@@ -108,6 +108,7 @@ fi
 window_minutes=$(( ($(date +%s) - ${cutoff%.*}) / 60 + 1 ))
 ((window_minutes >= 1)) || window_minutes=1
 
+scan_started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ) || error 'could not read scan start time'
 report=$(
   find "$sessions_dir" -type f -name '*.jsonl' -mmin "-$window_minutes" -print0 | {
     candidates=0
@@ -128,6 +129,8 @@ report=$(
 )
 status=$?
 ((status == 0)) || exit "$status"
+scan_ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ) || error 'could not read scan end time'
+report=$(printf '%s\n' "$report" | "$JQ" --arg start "$scan_started_at" --arg end "$scan_ended_at" '.scan_timing = {started_at_utc: $start, ended_at_utc: $end}') || exit $?
 
 if [[ $json_output == true ]]; then
   printf '%s\n' "$report" | "$JQ" -S .
@@ -149,6 +152,12 @@ else
       (["workers", "nonworker_coordinators"][] as $g | $r.model_metrics[$g] | to_entries | sort_by(.key)[]
         | "Model \($g) \(.key): requests=\(.value.requests), input=\(.value.input), output=\(.value.output), cache_read=\(.value.cache_read), cache_write=\(.value.cache_write), cost=\(.value.cost_total)"),
       "Task evidence: \($r.task_evidence | tojson)",
+      "Dispatch lifecycle: \($r.dispatch_lifecycle | tojson)",
+      "Quota cache: \($r.quota_cache | tojson)",
+      "Coordinator activity: \($r.coordinator_activity | tojson)",
+      "Future evidence: \($r.future_evidence | tojson)",
+      "Observability: \($r.observability | tojson)",
+      "Scan timing (UTC): \($r.scan_timing.started_at_utc) to \($r.scan_timing.ended_at_utc)",
       "Scan reconciliation: \($r.scan_reconciliation | tojson)",
       "Scanned \($r.scan.files) files; malformed lines \($r.scan.malformed_lines); unreadable files \($r.scan.unreadable_files)",
       "Retrospective metadata: \($r.retrospective | tojson)",

@@ -20,6 +20,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+import type { CacheOptions } from "./cache.ts";
 import { createHash } from "node:crypto";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { UsageBucket } from "@narumitw/pi-usage/src/types.ts";
@@ -224,6 +225,7 @@ export async function observeAnthropic(
   ctx: ExtensionContext,
   signal?: AbortSignal,
   timeoutMs = 15000,
+  options?: CacheOptions<Observation>,
 ): Promise<Observation> {
   const controller = new AbortController();
   let stopped: "timeout" | "cancelled" | undefined;
@@ -247,13 +249,14 @@ export async function observeAnthropic(
       if (stopped) return unavailable(PROVIDER, stopped);
       if (!auth) return unavailable(PROVIDER, "auth-unavailable");
       phase = "query-failed";
-      const payload = await fetchAnthropicUsage(auth, controller.signal);
+      const cached = options?.cache.read(auth.fingerprint, options.refresh);
+      const observation = cached ?? normalizeAnthropicUsagePayload(await fetchAnthropicUsage(auth, controller.signal), Date.now());
       if (stopped) return unavailable(PROVIDER, stopped);
       phase = "auth-failed";
       const current = await resolveAnthropicAuth(ctx);
       if (stopped) return unavailable(PROVIDER, stopped);
       if (!current || current.fingerprint !== auth.fingerprint) return unavailable(PROVIDER, "identity-changed");
-      return normalizeAnthropicUsagePayload(payload, Date.now());
+      return cached ?? (options ? options.cache.write(auth.fingerprint, observation) : observation);
     } catch (error) {
       if (error instanceof AuthRejected) return unavailable(PROVIDER, "auth-expired");
       if (stopped) return unavailable(PROVIDER, stopped);
@@ -261,7 +264,10 @@ export async function observeAnthropic(
     }
   };
   try {
-    return await Promise.race([interruption, work()]);
+    const observed = await Promise.race([interruption, work()]);
+    const result = options ? options.cache.publish(observed, { ...unavailable(PROVIDER, "no-quota-data"), source: observed.source }) : observed;
+    if (result.status !== "fresh") options?.cache.clear();
+    return result;
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);

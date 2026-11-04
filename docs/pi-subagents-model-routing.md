@@ -3,7 +3,7 @@
 This guide describes managed policy for Pi SDK (preflight checked at 1.4.0 on 2026-10-27) and managed `pi-subagents`;
 it does not claim runtime configuration was applied. The operational
 model/effort routes, quota contract, and retry policy live only in the [root
-coordinator](../home/private_dot_pi/private_agent/private_docs/coordinator.md).
+routing reference](../home/private_dot_pi/private_agent/private_docs/coordinator-routing.md).
 Benchmark evidence and transfer caveats are in the [routing research](model-routing-research.md).
 The [fallback guide](model-fallback.md) describes reactive switching; the
 [managed fallback JSON](../home/private_dot_pi/private_agent/private_model-fallback/config.json)
@@ -42,10 +42,11 @@ requested, and honor any user-selected model/effort before a default route.
 Ordinary delegation uses native `Agent` calls. The coordinator owns ordered
 task priorities, soft quota states, scope checks and reset handling; this is
 prompt policy, not an automatic routing engine. Do not duplicate that table here.
-Root scopes, dispatches, accepts evidence and synthesizes; independent ready work
-and substantial verification go to bounded workers. Root model and effort do not
+Root handles bookkeeping, dispatch, acceptance of independent verification and concise
+status; workers prepare packets and perform all substantive work. Root model and effort do not
 default worker choices. Haiku/Luna handle bounded leaves, Terra its task-fit work,
-Sonnet substantive work, and Opus deep judgment. Fresh explicit Sol worker calls
+Sonnet substantive work, and Opus deep judgment. Sonnet `medium` is recommended
+for well-specified agentic work; its API default is `high`. Fresh explicit Sol worker calls
 require `MODEL RATIONALE:` under the coordinator's exception policy. Quota pacing is reset-aware, while
 `anthropic-api/` is budget-checked relief only (no daily credit-burning formula). Handoff checkpoints are per-session
 files whose exact path the notice names; legacy `tasks/handoff.md` is not authority.
@@ -68,7 +69,8 @@ interactions; verify those before accepting a result. Registration alone does
 not establish live behavior.
 
 OpenCode Go documents Kimi K3 as zero-retention/no-training.
-Gemini 4 Argon Contributor may train Google models and is not zero-retention:
+Gemini 4 Argon Contributor is absent from the bundled Go catalog and remains
+unqualified; do not substitute another ID. It may train Google models and is not zero-retention:
 use it only with explicit selection for non-confidential input, never automatic
 fallback. Zen is excluded until the user chooses to fund it.
 Sources: [Go privacy](https://opencode.ai/docs/en/go/#privacy),
@@ -82,7 +84,7 @@ accepted UI results, rework and turn limits next period.
 The user authorized task-fit `openai/gpt-6.1-terra` use through the existing native
 ChatGPT login. This is selective worker routing, not a startup or automatic
 fallback change. The coordinator is the single authority for ordered routes:
-Terra starts at `medium` for concise supplied-material writing, scoped code fixes
+Terra defaults to `medium` and starts at `medium` for concise supplied-material writing, scoped code fixes
 with regression checks and defined visual/computer tasks with verifiable saved
 outcomes. Cheap extraction/mechanical routes and hard/security/cross-layer routes
 stay separate. Role tool permissions still apply; model computer-use capability
@@ -123,7 +125,7 @@ through the existing OpenAI ChatGPT login. No API key, alternate provider or new
 funding is required or authorized. A missing model or actual auth/usage refusal
 is an affected-route blocker to reconcile, not permission to try an API key.
 
-Before relying on Terra, the coordinator should perform one bounded native check
+Before relying on Terra, dispatch one bounded native check
 with a harmless read-only fixture tool and supplied-material answer at `medium`,
 recording the actual provider/model/effort, successful terminal completion, tool
 result and checked answer. Registration and an available picker alone do not
@@ -164,7 +166,7 @@ Sources: [model selection](https://developers.openai.com/api/docs/guides/model-s
 
 The managed `quota_status` tool's provider coverage, source identity and
 limitations are documented in [quota access](pi-quota-usage.md); root calls it
-before dispatch batches when available. Treat missing, unavailable, unknown or
+before dispatch decisions when available; never wait to form a batch. Treat missing, unavailable, unknown or
 old observations as unknown, or use an explicit fresh user snapshot. UI `/usage`
 output and footers alone are not model-visible evidence. A native OpenAI app
 cap and a whole-plan limit are distinct; `subscription_sharing_usage_limit_exceeded`
@@ -204,3 +206,18 @@ Let running workers finish before restarting. These targets activate the
 already-managed native defaults/fallbacks, unpinned policy and preflight/receipt
 extensions; role permissions and concurrency remain unchanged. Neither command is run automatically by
 this guide.
+
+## Measurement and evidence
+
+These are source-level producer → audit pointers, not claims of live activation:
+
+| Measure | Producer | Audit / limitation |
+| --- | --- | --- |
+| Coordinator response duration and tool calls | assistant message duration and toolCall content | `scripts/pi-session-audit.jq`: `coordinator_activity.response_duration_ms` and `tool_calls_per_assistant_message`; no proven turn boundary or context window. |
+| Policy version observations | `task-outcome-activation` v1 hashes | `future_evidence.policy_receipts`; observed file bytes do not prove policy consumption or historical activation. |
+| Quota cache | `quota-status-metrics` v1, original `capturedAt` and cache provenance | `future_evidence.quota_cache` is unavailable until the audit consumer integrates it; null hit is unknown, not a fresh fetch. |
+| Outcomes | `task-outcome-receipt` | `retrospective.task_outcomes` contains coordinator claims, not runtime effort or reviewer independence. |
+| Dispatch lifecycle and accepted-task cost | Source `fast-task-dispatch` attempt events; outcome receipts | Availability and joins depend on audit support and activation. Ready/submitted/started timings do not establish causal replacement or an always-full pool; aggregate occupancy is unverified. |
+
+Offline fixture checks are in `scripts/test-pi-session-audit.sh`; audit sources and
+producer extensions are the durable contract. No live latency improvement is claimed.

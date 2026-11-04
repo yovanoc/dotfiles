@@ -1,3 +1,4 @@
+import type { CacheOptions, CacheProvenance } from "./cache.ts";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { CodexbarRunner } from "./api.ts";
@@ -8,6 +9,7 @@ const MAX_OUTPUT_BYTES = 64 * 1024;
 type Failure = "dependency-unavailable" | "query-failed" | "timeout" | "cancelled";
 export type CreditsObservation = {
   source: "codexbar-codex-web" | null;
+  cache?: CacheProvenance;
   capturedAt: number | null;
   status: "fresh" | "unavailable";
   reason: "ok" | Failure;
@@ -47,6 +49,7 @@ export async function observeCodexbarCredits(
   timeoutMs = 15000,
   clock: () => number = Date.now,
   runner: CodexbarRunner = run,
+  options?: CacheOptions<CreditsObservation>,
 ): Promise<CreditsObservation> {
   const timeout = AbortSignal.timeout(Math.max(1, timeoutMs));
   const active = signal ? AbortSignal.any([signal, timeout]) : timeout;
@@ -59,6 +62,8 @@ export async function observeCodexbarCredits(
   try {
     const work = async () => {
       active.throwIfAborted();
+      const cached = options?.cache.read("codexbar-web", options.refresh);
+      if (cached) return cached;
       // Explicit web source avoids CodexBar's automatic CLI/inference-agent fallback.
       const result = await runner("codexbar", ["usage", "--provider", "codex", "--source", "web", "--web-timeout", "8", "--json"], {
         encoding: "utf8", maxBuffer: MAX_OUTPUT_BYTES, signal: active,
@@ -66,10 +71,12 @@ export async function observeCodexbarCredits(
       active.throwIfAborted();
       const output = typeof result.stdout === "string" ? result.stdout : result.stdout.toString("utf8");
       if (Buffer.byteLength(output, "utf8") > MAX_OUTPUT_BYTES) throw new Error("Credits output exceeded the size limit");
-      return parseCodexbarCredits(output, clock());
+      const observation = parseCodexbarCredits(output, clock());
+      return options ? options.cache.write("codexbar-web", observation) : observation;
     };
     return await Promise.race([work(), interrupted]);
   } catch (error) {
+    options?.cache.read("", true);
     return unavailable(signal?.aborted ? "cancelled" : timeout.aborted ? "timeout" : record(error)?.code === "ENOENT" ? "dependency-unavailable" : "query-failed");
   } finally {
     active.removeEventListener("abort", rejectAbort);

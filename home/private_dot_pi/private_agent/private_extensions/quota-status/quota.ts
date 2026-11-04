@@ -1,3 +1,4 @@
+import type { CacheOptions, CacheProvenance } from "./cache.ts";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ResolvedUsageAuth, UsageBucket, UsageProviderAdapter, UsageReport, UsageRequestGuard } from "@narumitw/pi-usage/src/types.ts";
 
@@ -25,6 +26,7 @@ export type Window = {
 export type Observation = {
   provider: Provider;
   source: "openai-chatgpt-auth" | "openai-chatgpt-companion-experimental" | "anthropic-oauth-usage" | "codexbar-console-web" | "github-copilot-user" | "opencode-zen-usage" | null;
+  cache?: CacheProvenance;
   capturedAt: number | null;
   status: "fresh" | "unknown" | "unavailable";
   reason: Reason;
@@ -132,7 +134,7 @@ export function sanitizeBuckets(provider: Provider, capturedAtValue: unknown, bu
   return { ...unavailable(provider, fresh ? "ok" : "no-quota-data"), capturedAt, status: fresh ? "fresh" : "unknown", windows };
 }
 
-export async function observe(provider: Provider, helpers: Helpers, ctx: ExtensionContext, signal?: AbortSignal, timeoutMs = 15000, deadlineAt = Date.now() + timeoutMs): Promise<Observation> {
+export async function observe(provider: Provider, helpers: Helpers, ctx: ExtensionContext, signal?: AbortSignal, timeoutMs = 15000, deadlineAt = Date.now() + timeoutMs, options?: CacheOptions<Observation>): Promise<Observation> {
   if (provider === "opencode") return unavailable(provider, "unsupported");
   const controller = new AbortController();
   let phase: Reason = "auth-failed";
@@ -187,7 +189,8 @@ export async function observe(provider: Provider, helpers: Helpers, ctx: Extensi
         interrupt("timeout");
         return unavailable(provider, "timeout");
       }
-      const report = await helpers.queryProviderUsage(adapter, auth, controller.signal, remaining, provider === "openai" ? guard : undefined);
+      const cached = auth.fingerprint ? options?.cache.read(auth.fingerprint, options.refresh) : undefined;
+      const observation = cached ?? sanitize(provider, await helpers.queryProviderUsage(adapter, auth, controller.signal, remaining, provider === "openai" ? guard : undefined));
       ensureActive();
       phase = "auth-failed";
       if (provider === "openai") await guard();
@@ -197,7 +200,7 @@ export async function observe(provider: Provider, helpers: Helpers, ctx: Extensi
         if (!current || !auth.fingerprint || current.fingerprint !== auth.fingerprint) return unavailable(provider, "identity-changed");
       }
       ensureActive();
-      return sanitize(provider, report);
+      return cached ?? (auth.fingerprint && options ? options.cache.write(auth.fingerprint, observation) : observation);
     } catch (error) {
       if (stopped) return unavailable(provider, stopped);
       if (identityChanged) return unavailable(provider, "identity-changed");
@@ -210,7 +213,10 @@ export async function observe(provider: Provider, helpers: Helpers, ctx: Extensi
     }
   };
   try {
-    return await Promise.race([interruption, work()]);
+    const observed = await Promise.race([interruption, work()]);
+    const result = options ? options.cache.publish(observed, { ...unavailable(provider, "no-quota-data"), source: observed.source }) : observed;
+    if (result.status !== "fresh") options?.cache.clear();
+    return result;
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);

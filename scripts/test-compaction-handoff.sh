@@ -131,7 +131,7 @@ for (const event of ["session_start", "turn_end", "session_compact"]) {
   h.set(4, 150_000)
   h.fire(event)
   const first = h.recorded()
-  assert.deepEqual(Object.keys(first), ["sessionId", "checkpointPath", "checkpointCwd"])
+  assert.deepEqual(Object.keys(first), ["schemaVersion", "sessionId", "checkpointPath", "checkpointCwd"])
   assert.equal(first.sessionId, "root")
   assert.equal(first.checkpointCwd, repo)
   assert.equal(dirname(first.checkpointPath), join(sessions, "handoffs/root"))
@@ -139,7 +139,7 @@ for (const event of ["session_start", "turn_end", "session_compact"]) {
   assert.equal(await mode(dirname(first.checkpointPath)), 0o700)
   assert.equal(await mode(join(sessions, "handoffs")), 0o700)
   assert.deepEqual(h.sent, [{
-    message: { customType: "compaction-handoff", content: handoffNotice(4, repo, first.checkpointPath, 150_000), display: true },
+    message: { customType: "compaction-handoff", content: handoffNotice(4, repo, first.checkpointPath, 150_000), display: true, details: { schemaVersion: 1, phase: "notice", mode: "interactive", continuationLink: "unavailable" } },
     options: { deliverAs: "steer" },
   }])
   assert.ok(h.sent[0].message.content.includes(`Work in ${q(repo)}. Read the exact checkpoint ${q(first.checkpointPath)}.`))
@@ -207,6 +207,69 @@ for (const event of ["session_start", "turn_end", "session_compact"]) {
   assert.notEqual(h.recorded().checkpointPath, parentPath)
   assert.deepEqual(h.toolCall("bash", { command: "fork gate" }).block, true)
   h.setSession("root")
+}
+
+// Exact IDs come from successful writes, never content, path, ordering or an aborted proposal.
+{
+  const h = harness("provenance")
+  h.ctx.hasUI = false
+  await h.command("10")
+  const metrics = () => h.branch().filter(e => ["checkpoint-provenance", "continuation-provenance"].includes(e.customType ?? "")).map(e => e.data)
+  const consumed = () => metrics().filter(e => e.phase === "consumed")
+  const observe = (proposal: any) => h.handlers.get("context_with_system")!({ messages: [{ role: "custom", customType: "unattended-continuation", details: proposal, content: "PRIVATE PROMPT" }] }, h.ctx)
+  const a = await h.save("PRIVATE CHECKPOINT A /private/checkpoint.md")
+  const b = await h.save("PRIVATE CHECKPOINT B")
+  assert.notEqual(a.details.checkpointId, b.details.checkpointId)
+  const proposal = h.boundary().entries.at(-1).details
+  assert.equal(proposal.schemaVersion, 1)
+  assert.equal(proposal.phase, "proposal")
+  assert.equal(proposal.checkpointId, b.details.checkpointId, "latest actual write is the parent, not the earlier save")
+  assert.equal(consumed().length, 0, "a boundary proposal alone is not consumption")
+  h.fire("turn_start")
+  observe(proposal)
+  h.boundary("turn_end")
+  assert.deepEqual(consumed(), [{ schemaVersion: 1, phase: "consumed", continuationId: proposal.continuationId, parentCheckpointId: b.details.checkpointId, observation: "context-with-system/completed-turn" }])
+  h.boundary("turn_end")
+  assert.equal(consumed().length, 1, "later turns do not consume the same proposal again")
+  for (const outcome of ["error", "aborted"]) {
+    await h.save(`PRIVATE ${outcome}`)
+    const next = h.boundary().entries.at(-1).details
+    h.fire("turn_start")
+    observe(next)
+    h.boundary("turn_end", outcome)
+    assert.equal(consumed().length, 1)
+  }
+  await h.save("PRIVATE suppressed boundary")
+  const suppressed = h.boundary().entries.at(-1).details
+  h.handlers.get("agent_settled")!({ aborted: true }, h.ctx)
+  h.fire("turn_start")
+  observe(suppressed)
+  h.boundary("turn_end")
+  assert.equal(consumed().length, 1, "aborted pre-settle proposal cannot become a later parent")
+  // A later handler dropping the proposal from model context gives no consumption receipt.
+  await h.save("PRIVATE dropped context")
+  h.boundary()
+  h.fire("turn_start")
+  h.handlers.get("context_with_system")!({ messages: [] }, h.ctx)
+  h.boundary("turn_end")
+  assert.equal(consumed().length, 1)
+  for (const revoke of ["off", "expired"]) {
+    await h.save(`PRIVATE ${revoke}`)
+    const next = h.boundary().entries.at(-1).details
+    h.fire("turn_start")
+    observe(next)
+    if (revoke === "off") await h.command("off")
+    const now = Date.now
+    try {
+      if (revoke === "expired") Date.now = () => now() + 11 * 60_000
+      assert.equal(h.boundary("turn_end"), undefined)
+      await assert.rejects(h.save("PRIVATE rejected"), /not active/)
+    } finally { Date.now = now }
+    assert.equal(consumed().length, 1)
+    await h.command("10")
+  }
+  const serialized = JSON.stringify(metrics())
+  for (const secret of ["PRIVATE", "/private/", repo, sessions, "markdown", "checkpointPath", "checkpointCwd", "prompt", "payload"]) assert.equal(serialized.includes(secret), false, `metrics exclude ${secret}`)
 }
 
 // Approval belongs to the exact session, allocation and branch where real input arrived.
@@ -310,7 +373,8 @@ const markdown = "# Final interactive handoff\nBacklog: resume from here"
 assert.equal(internal.toolCall("handoff_checkpoint", { markdown }, "successful-checkpoint"), undefined)
 const saved = await internalTool.execute("successful-checkpoint", { markdown }, undefined, undefined, internal.ctx)
 internal.toolResult("handoff_checkpoint", { markdown }, false, "successful-checkpoint")
-assert.deepEqual(saved.details, { path: internalPath, cwd: repo })
+assert.deepEqual(saved.details, { path: internalPath, cwd: repo, schemaVersion: 1, phase: "write-success", mode: "interactive", checkpointId: saved.details.checkpointId, continuationLink: "unavailable" })
+assert.match(saved.details.checkpointId, /^[0-9a-f-]{36}$/)
 assert.equal(await readFile(internalPath, "utf8"), markdown)
 assert.equal(await mode(internalPath), 0o600)
 assert.equal(await mode(internalDir), 0o700)
@@ -369,7 +433,8 @@ assert.deepEqual(parentWorker.toolCall("bash", { command: "fork threshold" }).bl
   assert.equal(h.boundary(), undefined)
   const firstResult = await checkpoint()
   const first = firstResult.details.path
-  assert.deepEqual(firstResult.details, { status: "continue", path: first, cwd: repo })
+  assert.deepEqual(firstResult.details, { status: "continue", path: first, cwd: repo, schemaVersion: 1, phase: "write-success", mode: "unattended", checkpointId: firstResult.details.checkpointId, continuationLink: "supported" })
+  assert.equal(h.receipt().checkpointId, firstResult.details.checkpointId)
   assert.equal(firstResult.content[0].text, `Checkpoint saved to ${q(first)} for original coordinator cwd ${q(repo)}; status continue.`)
   assert.equal(dirname(first), rootDir)
   assert.equal(await readFile(first, "utf8"), `${markdown}\nProgress 1`)
@@ -535,6 +600,7 @@ assert.deepEqual(parentWorker.toolCall("bash", { command: "fork threshold" }).bl
   const modelRuntime = await sdk.ModelRuntime.create({ authPath: join(directory, "auth.json"), modelsPath: null, modelsStorePath: join(directory, "models"), refreshOnCreate: false, allowModelNetwork: false })
   let requests = 0
   const observed: string[] = []
+  let abortBoundary = false
   const mockStream = (model: any, context: any) => {
     requests++
     assert.ok(requests <= 6, "unbounded continuation")
@@ -554,7 +620,7 @@ assert.deepEqual(parentWorker.toolCall("bash", { command: "fork threshold" }).bl
   const settings = sdk.SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: false } })
   const loader = new sdk.DefaultResourceLoader({ cwd: repo, agentDir: directory, settingsManager: settings,
     noExtensions: true, noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true,
-    extensionFactories: [handoff, (pi: any) => { for (const name of ["agent_before_settle", "agent_settled"]) pi.on(name, () => { observed.push(name) }) }] })
+    extensionFactories: [handoff, (pi: any) => { for (const name of ["agent_before_settle", "agent_settled"]) pi.on(name, (_event: any, ctx: any) => { observed.push(name); if (abortBoundary && name === "agent_before_settle") ctx.abort() }) }] })
   await loader.reload()
   const sdkSessions = join(directory, "sdk sessions")
   const manager = sdk.SessionManager.create(repo, sdkSessions)
@@ -570,6 +636,14 @@ assert.deepEqual(parentWorker.toolCall("bash", { command: "fork threshold" }).bl
     assert.equal(observed.filter(name => name === "agent_settled").length, 1)
     const continuations = manager.getBranch().filter((entry: any) => entry.type === "custom_message" && entry.customType === "unattended-continuation")
     assert.equal(continuations.length, 2)
+    const provenance = manager.getBranch().filter((entry: any) => entry.type === "custom" && entry.customType === "continuation-provenance")
+    const writes = manager.getBranch().filter((entry: any) => entry.type === "custom" && entry.customType === "checkpoint-provenance" && entry.data.phase === "write-success")
+    assert.equal(provenance.length, 2, "real completed turns consume exactly two proposals")
+    assert.equal(writes.length, 3)
+    for (const [i, entry] of provenance.entries()) {
+      assert.equal(entry.data.parentCheckpointId, writes[i].data.checkpointId)
+      assert.equal(entry.data.continuationId, continuations[i].details.continuationId)
+    }
     assert.equal(manager.getBranch().filter((entry: any) => entry.type === "message" && entry.message.role === "user").length, 1)
     // Reopen the persisted session file: the active branch restores the exact last checkpoint and original cwd.
     const reopened = sdk.SessionManager.open(manager.getSessionFile(), sdkSessions)
@@ -584,6 +658,26 @@ assert.deepEqual(parentWorker.toolCall("bash", { command: "fork threshold" }).bl
     for (const [i, entry] of continuations.entries()) assert.ok((entry as any).content.startsWith(`Checkpoint saved to ${q(paths[i])} for original coordinator cwd ${q(repo)}.`))
     console.log("Installed Pi lifecycle proof passed: 6 mock requests, 2 checkpoint continuations, 1 user prompt, 1 settlement, persisted reopen, no network/inference")
   } finally { session.dispose() }
+  // A later boundary hook can abort after our proposal; Pi persists it but must not call it consumed.
+  abortBoundary = true
+  requests = 0
+  await loader.reload() // Each session needs its own extension runtime/bindings.
+  const abortedManager = sdk.SessionManager.create(repo, sdkSessions)
+  const { session: abortedSession } = await sdk.createAgentSession({ cwd: repo, agentDir: directory, resourceLoader: loader, sessionManager: abortedManager,
+    settingsManager: settings, modelRuntime, model: modelRuntime.getModel("checkpoint-test", "mock"), tools: ["unattended_checkpoint"] })
+  try {
+    const errors: any[] = []
+    await abortedSession.bindExtensions({ onError: (error: any) => errors.push(error) })
+    await abortedSession.prompt("/unattended 10")
+    await abortedSession.prompt("Authorized offline fixture work")
+    assert.equal(requests, 2, "aborted pre-settlement boundary never requests a continuation")
+    const branch = abortedManager.getBranch()
+    assert.equal(branch.filter((e: any) => e.customType === "checkpoint-provenance" && e.data.phase === "write-success").length, 1)
+    assert.equal(branch.filter((e: any) => e.customType === "unattended-continuation" && e.details.phase === "proposal").length, 1)
+    assert.equal(branch.filter((e: any) => e.customType === "continuation-provenance").length, 0)
+    assert.deepEqual(errors, [])
+    console.log("Installed Pi aborted-boundary proof passed: successful write and persisted proposal, no consumed link")
+  } finally { abortedSession.dispose(); abortBoundary = false }
   // Real runner events, including rejected/aborted preparation and consumed steering/follow-up input.
   let fixtureId = 0
   async function interactiveFixture(compactions: number, run: (fixture: any) => Promise<void>, hooks: any = {}) {

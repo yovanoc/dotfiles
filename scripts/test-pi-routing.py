@@ -42,23 +42,33 @@ models = json.loads((agent / "private_models.json").read_text())
 # Native OpenAI metadata and authentication belong to Pi, not managed overrides.
 assert "openai" not in models["providers"]
 policy = (agent / "private_docs/coordinator.md").read_text()
+routing = (agent / "private_docs/coordinator-routing.md").read_text()
 root_policy = policy.split("## Dispatch", 1)[0]
-assert "delegate substantial implementation" in root_policy
+assert "Workers prepare packets" in root_policy
+assert "delegates" in root_policy and "substantive verification" in root_policy
 assert "independent verification" in root_policy and "bounded parallel packets" in root_policy
-dispatch = " ".join(policy.split("## Dispatch", 1)[1].split("## Model choice", 1)[0].split())
+assert "coordinator-routing.md" in policy
+dispatch = " ".join(policy.split("## Dispatch", 1)[1].split("## Routing reference", 1)[0].split())
 assert all(term in dispatch for term in ("task graph ledger", "dependency IDs", "exact ownership", "`ready`", "`running`", "`blocked`", "`done`", "worker ID", "concrete blocker"))
-assert "each worker completion" in dispatch and "completion suffices to refill independent work" in dispatch
+assert "each worker completion" in dispatch and "completion suffices to refill one eligible slot" in dispatch
+assert "four completions accumulate" in dispatch and "up to four eligible slots" in dispatch and "never wait for four" in dispatch
 assert "required evidence is accepted" in dispatch and "not ready-task coverage" in dispatch
+assert all(x in dispatch for x in ("fast_task_ready({task_ids})", "fast_task_dispatch({task_ids, capacity: {source: \"coordinator-ledger\", active}})", "metadata.fastTask", "schemaVersion: 1", "ownedPaths", "dependencies", "grants", "prewritten packet", "loaded and approved", "not measured native occupancy"))
+assert "shared caps" in dispatch and "pins and ownership" in dispatch
 completion = " ".join(policy.split("## Completion, recovery and budgets", 1)[1].split("## Conditional reference", 1)[0].split())
 assert "recompute readiness and refill again after acceptance" in completion
 assert "name its actual blockers instead of declaring it done" in completion
-sol_policy = policy.split("Sol is an exception", 1)[1].split("Use each route's", 1)[0]
+sol_policy = routing.split("Sol is an exception", 1)[1].split("Use each route's", 1)[0]
 assert "fresh explicit Sol worker dispatch" in sol_policy and "MODEL RATIONALE:" in sol_policy
 assert "prior verified lighter-route" in sol_policy and "no suitable eligible alternative" in sol_policy
-assert "qualification-only" not in policy
+assert "qualification-only" not in routing
 for task in ("Concise writing or revision from supplied material", "Scoped code fixes with clear inputs", "Defined visual/computer tasks"):
-    row = next(line for line in policy.splitlines() if line.startswith("| " + task))
+    row = next(line for line in routing.splitlines() if line.startswith("| " + task))
     assert "`openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`" in row
-assert "verified acceptance miss" in policy
-assert "API estimates are not ChatGPT credit-debit rates" in policy
+assert "verified acceptance miss" in routing
+assert "API estimates are not ChatGPT credit-debit rates" in routing
+assert "Reserve" in routing and "Full" in routing
+assert '"refresh":true' in routing and "60 seconds" in routing and "original `capturedAt`" in routing
+assert "failed refresh" in routing and "each ready batch; reuse it only within that batch" not in routing
+assert "absent from the bundled Go catalog" in routing
 print("Pi routing invariants passed")

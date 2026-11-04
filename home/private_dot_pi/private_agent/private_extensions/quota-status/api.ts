@@ -1,3 +1,4 @@
+import type { CacheOptions } from "./cache.ts";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { unavailable, type Observation } from "./quota.ts";
@@ -145,6 +146,7 @@ export async function observeAnthropicApi(
   timeoutMs = 15000,
   clock: () => number = Date.now,
   runner: CodexbarRunner = run,
+  options?: CacheOptions<Observation>,
 ): Promise<Observation> {
   const timeout = AbortSignal.timeout(Math.max(1, timeoutMs));
   const active = signal ? AbortSignal.any([signal, timeout]) : timeout;
@@ -163,15 +165,19 @@ export async function observeAnthropicApi(
   try {
     const work = async () => {
       active.throwIfAborted();
+      const cached = options?.cache.read("codexbar-web", options.refresh);
+      if (cached) return cached;
       const result = await runner(COMMAND, [...ARGS], { encoding: "utf8", maxBuffer: MAX_OUTPUT_BYTES, signal: active });
       active.throwIfAborted();
       const output = typeof result.stdout === "string" ? result.stdout : result.stdout.toString("utf8");
       if (Buffer.byteLength(output, "utf8") > MAX_OUTPUT_BYTES) throw new Error("Usage output exceeded the size limit");
-      return parseCodexbarUsage(output, clock());
+      const observation = parseCodexbarUsage(output, clock());
+      return options ? options.cache.write("codexbar-web", observation) : observation;
     };
     const [live, localRefusal] = await Promise.race([Promise.all([work(), refusal]), interrupted]);
     observation = localRefusal ? { ...live, piLocalRefusal: localRefusal } : live;
   } catch (error) {
+    options?.cache.read("", true);
     const reason = signal?.aborted ? "cancelled" : timeout.aborted ? "timeout" : isMissingExecutable(error) ? "dependency-unavailable" : "query-failed";
     observation = unavailable("anthropic-api", reason);
     if (localRefusal) observation = { ...observation, piLocalRefusal: localRefusal };

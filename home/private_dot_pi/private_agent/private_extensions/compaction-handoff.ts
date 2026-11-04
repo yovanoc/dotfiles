@@ -6,6 +6,11 @@ import { mkdirSync, renameSync } from "node:fs"
 import { mkdir, open, rm } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 
+type CheckpointMetadata = { schemaVersion: 1, phase: "write-success", mode: "unattended" | "interactive", checkpointId: string, continuationLink: "supported" | "unavailable" }
+type ContinuationProposal = { schemaVersion: 1, phase: "proposal", continuationId: string, checkpointId?: string }
+type ContinuationConsumption = { schemaVersion: 1, phase: "consumed", continuationId: string, parentCheckpointId?: string, observation: "context-with-system/completed-turn" }
+type HandoffNoticeMetadata = { schemaVersion: 1, phase: "notice", mode: "interactive", continuationLink: "unavailable" }
+
 export const HANDOFF_COMPACTIONS = 5
 export const HANDOFF_TOKENS = 150_000
 
@@ -29,7 +34,10 @@ export default function (pi: ExtensionAPI) {
   let notified = false
   const stateType = "unattended-handoff"
   const checkpointWrites = new Map<string, string>()
-  type State = { sessionId: string, deadline: number, ready: boolean, status?: "continue" | "blocked" | "done", checkpoint?: string, checkpointPath?: string, checkpointCwd?: string, compactions: number, highTokens: boolean }
+  let proposed: { sessionId: string, details: ContinuationProposal } | undefined
+  let observed: typeof proposed
+  const written = (mode: CheckpointMetadata["mode"]): CheckpointMetadata => ({ schemaVersion: 1, phase: "write-success", mode, checkpointId: randomUUID(), continuationLink: mode === "interactive" ? "unavailable" : "supported" })
+  type State = { schemaVersion?: 1, checkpointId?: string, sessionId: string, deadline: number, ready: boolean, status?: "continue" | "blocked" | "done", checkpoint?: string, checkpointPath?: string, checkpointCwd?: string, compactions: number, highTokens: boolean }
   const isWorker = (ctx: ExtensionContext) => /<active_agent\s+name=/.test(ctx.getSystemPrompt()) // Forked coordinators also have parentSession; only the worker marker distinguishes them.
   const handoff = (ctx: ExtensionContext) => {
     const sessionId = ctx.sessionManager.getSessionId()
@@ -64,7 +72,7 @@ At each meaningful packet/final-response boundary, call unattended_checkpoint wi
       ctx.ui.notify("Usage: /unattended <positive minutes> | off. Supply the authorized backlog and grants in your prompt.", "warning")
       return
     }
-    const saved: State = { sessionId: ctx.sessionManager.getSessionId(), deadline: value === "off" ? 0 : Date.now() + Number(value) * 60_000, ready: false, ...counts(ctx) }
+    const saved: State = { schemaVersion: 1, sessionId: ctx.sessionManager.getSessionId(), deadline: value === "off" ? 0 : Date.now() + Number(value) * 60_000, ready: false, ...counts(ctx) }
     pi.appendEntry(stateType, saved)
     ctx.ui.notify(value === "off" ? "Unattended mode off." : `Unattended until ${new Date(saved.deadline).toISOString()}; supply backlog and grants in your prompt.`, "info")
   }
@@ -82,6 +90,7 @@ At each meaningful packet/final-response boundary, call unattended_checkpoint wi
       const cwd = resolve(ctx.cwd)
       const dir = handoffDir(ctx)
       const path = join(dir, `${randomUUID()}.md`)
+      let metadata: CheckpointMetadata
       await mkdir(dir, { recursive: true, mode: 0o700 })
       // Stable session-scoped key: the directory now exists, so its realpath never changes between saves.
       const leaf = ctx.sessionManager.getLeafId() // Captured before queueing: a navigation while waiting must fail this save.
@@ -98,12 +107,14 @@ At each meaningful packet/final-response boundary, call unattended_checkpoint wi
           if (!valid()) throw new Error("Unattended session, branch, deadline or abort state changed during checkpoint.")
           // Synchronous publish + receipt: nothing can navigate in between. file.sync is not power-loss durability.
           renameSync(staging, path)
+          metadata = written("unattended")
+          pi.appendEntry("checkpoint-provenance", metadata)
           const checkpoint = createHash("sha256").update(args.markdown).digest("hex")
           // Content hash, not filename: identical checkpoints never re-arm continuation.
-          pi.appendEntry(stateType, { ...saved, status: args.status, ready: args.status === "continue" && checkpoint !== saved!.checkpoint, checkpoint, checkpointPath: path, checkpointCwd: cwd, ...counts(ctx) })
+          pi.appendEntry(stateType, { ...saved, schemaVersion: 1, checkpointId: metadata.checkpointId, status: args.status, ready: args.status === "continue" && checkpoint !== saved!.checkpoint, checkpoint, checkpointPath: path, checkpointCwd: cwd, ...counts(ctx) })
         } finally { await rm(staging, { force: true }) }
       })
-      return { content: [{ type: "text", text: `Checkpoint saved to ${q(path)} for original coordinator cwd ${q(cwd)}; status ${args.status}.` }], details: { status: args.status, path, cwd } }
+      return { content: [{ type: "text", text: `Checkpoint saved to ${q(path)} for original coordinator cwd ${q(cwd)}; status ${args.status}.` }], details: { status: args.status, path, cwd, ...metadata! } }
     },
   })
   pi.registerTool({
@@ -122,6 +133,7 @@ At each meaningful packet/final-response boundary, call unattended_checkpoint wi
         throw new Error("No pending interactive handoff checkpoint is available.")
       }
       const leaf = ctx.sessionManager.getLeafId()
+      let metadata: CheckpointMetadata
       await mkdir(dir, { recursive: true, mode: 0o700 })
       await withFileMutationQueue(dir, async () => {
         const valid = () => !isWorker(ctx) && ctx.hasUI && ctx.sessionManager.getSessionId() === sessionId
@@ -136,14 +148,16 @@ At each meaningful packet/final-response boundary, call unattended_checkpoint wi
           created = true
           try { await file.writeFile(args.markdown, "utf8"); await file.sync() } finally { await file.close() }
           if (!valid()) throw new Error("Interactive handoff changed during checkpoint.")
-          pi.appendEntry("compaction-handoff-written", { sessionId, checkpointPath: path })
+          metadata = written("interactive")
+          pi.appendEntry("compaction-handoff-written", { schemaVersion: 1, sessionId, checkpointPath: path, checkpointId: metadata.checkpointId })
+          pi.appendEntry("checkpoint-provenance", metadata)
           published = true
         } finally {
           if (created && !published) await rm(path, { force: true })
         }
       })
       const cwd = pending.checkpointCwd
-      return { content: [{ type: "text", text: `Checkpoint saved to ${q(path)} for original coordinator cwd ${q(cwd)}.` }], details: { path, cwd } }
+      return { content: [{ type: "text", text: `Checkpoint saved to ${q(path)} for original coordinator cwd ${q(cwd)}.` }], details: { path, cwd, ...metadata! } }
     },
   })
   // Input retains provenance for idle prompts and queued steering/follow-ups; a user role alone also includes extension messages.
@@ -158,8 +172,16 @@ At each meaningful packet/final-response boundary, call unattended_checkpoint wi
     const saved = state(ctx)
     if (active(saved)) return { message: { customType: "unattended-instructions", content: instructions(ctx, saved!), display: false } }
   })
+  // Only the immediate proposed continuation can be observed; a persisted proposal is not consumption.
+  pi.on("context_with_system", (event, ctx) => {
+    observed = proposed?.sessionId === ctx.sessionManager.getSessionId() && event.messages.some((message) =>
+      message.role === "custom" && message.customType === "unattended-continuation"
+      && (message.details as ContinuationProposal | undefined)?.continuationId === proposed?.details.continuationId) ? proposed : undefined
+  })
+  pi.on("agent_settled", () => { proposed = undefined; observed = undefined })
   // Cooperative deadline: don't start another coordinator model turn; never cancel worker sessions.
   pi.on("turn_start", (_event, ctx) => {
+    observed = undefined
     const saved = state(ctx)
     if (saved && saved.deadline > 0 && !active(saved)) ctx.abort()
   })
@@ -195,7 +217,9 @@ At each meaningful packet/final-response boundary, call unattended_checkpoint wi
     const pending = handoff(ctx)
     if (pending?.checkpointPath === path && !event.isError && event.toolName === "write" && typeof event.input.path === "string" && resolve(ctx.cwd, event.input.path) === path
       && !hasHandoffReceipt(ctx, "compaction-handoff-written", path)) {
-      pi.appendEntry("compaction-handoff-written", { sessionId: pending.sessionId, checkpointPath: path })
+      const metadata = written("interactive")
+      pi.appendEntry("compaction-handoff-written", { schemaVersion: 1, sessionId: pending.sessionId, checkpointPath: path, checkpointId: metadata.checkpointId })
+      pi.appendEntry("checkpoint-provenance", metadata)
     }
   })
   const boundary = (event: AgentBeforeSettleEvent | TurnEndEvent, ctx: ExtensionContext) => {
@@ -205,10 +229,12 @@ At each meaningful packet/final-response boundary, call unattended_checkpoint wi
     const due = current.compactions >= Math.max(HANDOFF_COMPACTIONS, saved!.compactions + HANDOFF_COMPACTIONS) || (current.highTokens && !saved!.highTokens)
     const resume = event.type === "agent_before_settle" && saved!.ready
     if (!due && !resume) return
+    const details: ContinuationProposal = { schemaVersion: 1, phase: "proposal", continuationId: randomUUID(), ...(resume && saved!.checkpointId ? { checkpointId: saved!.checkpointId } : {}) }
+    proposed = { sessionId: ctx.sessionManager.getSessionId(), details }
     // Commit message and guard together. A final assistant message alone cannot continue in Pi.
     return { entries: [...event.entries,
       { type: "custom" as const, customType: stateType, data: { ...saved, ...current, ready: false } },
-      { type: "custom_message" as const, customType: "unattended-continuation", display: true,
+      { type: "custom_message" as const, customType: "unattended-continuation", display: true, details,
         content: resume ? `${saved!.checkpointPath ? `Checkpoint saved to ${q(saved!.checkpointPath)} for original coordinator cwd ${q(saved!.checkpointCwd ?? resolve(ctx.cwd))}.` : "Checkpoint saved."} Continue the original authorized backlog within existing grants until ${new Date(saved!.deadline).toISOString()}. Preserve workers; stop on completion, safety/budget/approval blockers or deadline. Make progress before another checkpoint.` : instructions(ctx, saved!) },
     ], continue: true }
   }
@@ -230,10 +256,12 @@ At each meaningful packet/final-response boundary, call unattended_checkpoint wi
     notified = true
     // The model writes the file; the extension owns its private directory and records the location on this branch only.
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
-    pi.appendEntry("compaction-handoff", { sessionId: ctx.sessionManager.getSessionId(), checkpointPath: path, checkpointCwd: cwd })
+    pi.appendEntry("compaction-handoff", { schemaVersion: 1, sessionId: ctx.sessionManager.getSessionId(), checkpointPath: path, checkpointCwd: cwd })
+    const metadata: HandoffNoticeMetadata = { schemaVersion: 1, phase: "notice", mode: "interactive", continuationLink: "unavailable" }
+    pi.appendEntry("checkpoint-provenance", metadata)
     ctx.ui.notify(notice.split("\n")[0], "warning")
     // "steer" reaches the model before its next response; "nextTurn" waited for the next user prompt (hours).
-    pi.sendMessage({ customType: "compaction-handoff", content: notice, display: true }, { deliverAs: "steer" })
+    pi.sendMessage({ customType: "compaction-handoff", content: notice, display: true, details: metadata }, { deliverAs: "steer" })
   }
 
   const restore = (ctx: ExtensionContext) => {
@@ -252,6 +280,16 @@ At each meaningful packet/final-response boundary, call unattended_checkpoint wi
     restore(ctx)
   })
   pi.on("session_tree", (_event, ctx) => restore(ctx))
-  pi.on("turn_end", (event, ctx) => { checkHandoff(ctx); return boundary(event, ctx) })
+  pi.on("turn_end", (event, ctx) => {
+    if (observed?.sessionId === ctx.sessionManager.getSessionId() && active(state(ctx)) && event.outcome === "completed" && !ctx.signal?.aborted) {
+      const details: ContinuationConsumption = { schemaVersion: 1, phase: "consumed", continuationId: observed.details.continuationId,
+        ...(observed.details.checkpointId ? { parentCheckpointId: observed.details.checkpointId } : {}), observation: "context-with-system/completed-turn" }
+      pi.appendEntry("continuation-provenance", details)
+    }
+    proposed = undefined
+    observed = undefined
+    checkHandoff(ctx)
+    return boundary(event, ctx)
+  })
   pi.on("session_compact", (_event, ctx) => checkHandoff(ctx))
 }

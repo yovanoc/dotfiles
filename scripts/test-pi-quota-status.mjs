@@ -547,8 +547,19 @@ console.log("PASS: credential-free quota fixtures and local Claude auth/query/no
 
 // Opt-in host integration uses an isolated agent directory, a symlink to the installed helper, fake auth, and mocked HTTP only.
 if (process.argv[2] === "--runtime") {
-  const host = resolve(process.argv[3]);
-  const hostVersion = JSON.parse(await readFile(join(host, "package.json"), "utf8")).version;
+  const runtime = process.argv[3] ?? process.env.PI_RUNTIME;
+  if (!runtime) throw new Error("Set PI_RUNTIME or pass the Pi package root after --runtime");
+  const host = resolve(runtime);
+  let hostManifest;
+  try {
+    hostManifest = JSON.parse(await readFile(join(host, "package.json"), "utf8"));
+    if (hostManifest.name !== "@earendil-works/pi-coding-agent") throw new Error("wrong package");
+    await access(join(host, "dist/config.js"));
+    await access(join(host, "dist/core/extensions/loader.js"));
+  } catch {
+    throw new Error(`Invalid Pi package root: ${host}; set PI_RUNTIME or pass a valid root after --runtime`);
+  }
+  const hostVersion = hostManifest.version;
   const hostConfig = await import(pathToFileURL(join(host, "dist/config.js")));
   const installedAgentDir = hostConfig.getAgentDir();
   const addonRoot = join(installedAgentDir, "npm", "node_modules", "@narumitw", "pi-usage");
@@ -579,6 +590,18 @@ if (process.argv[2] === "--runtime") {
     const quotaExtension = loaded.extensions.find((extension) => extension.tools.has("quota_status"));
     assert.equal(quotaExtension.tools.size, 1);
     assert.equal(quotaExtension.commands.size, 0, "the usage addon's default factory must not be invoked");
+    const metrics = [];
+    loaded.runtime.appendEntry = (type, data) => {
+      assert.equal(type, "quota-status-metrics");
+      assert.deepEqual(Object.keys(data).sort(), ["decisionSnapshotAt", "fetchDurationMs", "observations", "refreshReason", "version"]);
+      assert.equal(data.version, 1);
+      assert(["default", "explicit"].includes(data.refreshReason));
+      assert(data.fetchDurationMs >= 0);
+      assert.equal(data.observations.length, 7);
+      for (const observation of data.observations) assert.deepEqual(Object.keys(observation).sort(), ["ageMs", "cacheHit", "capturedAt", "provider"]);
+      safe(data);
+      metrics.push(data);
+    };
     const tool = quotaExtension.tools.get("quota_status").definition;
     const emptyContext = { modelRegistry: {
       getAvailable: () => [], getAll: () => [], getProvider: () => undefined,
@@ -629,7 +652,7 @@ printf '%s\\n' '${JSON.stringify(observedSectionPayload)}'
       return new Response(JSON.stringify({ limits: [{ kind: "session", percent: 0, resets_at: "2027-01-15T08:05:00Z" }] }), { status: 200 });
     };
     globalThis.fetch = claudeMock;
-    const missingClaude = await tool.execute("fixture", {}, undefined, undefined, anthropicContext());
+    const missingClaude = await tool.execute("fixture", { refresh: true }, undefined, undefined, anthropicContext());
     assert.deepEqual(missingClaude.structuredContent.providers.map((provider) => provider.reason), ["dependency-unavailable", "ok", "dependency-unavailable", "dependency-unavailable", "dependency-unavailable", "unsupported"]);
     assert.equal(missingClaude.structuredContent.providers[1].windows[0].usedPercent, 0);
     safe(missingClaude.details);
@@ -825,7 +848,7 @@ printf '%s\\n' '${JSON.stringify(observedSectionPayload)}'
 
     providerRequests = [];
     globalThis.fetch = providerMock({}, { usage: {} });
-    const noQuota = await tool.execute("fixture", {}, undefined, undefined, copilotGoContext());
+    const noQuota = await tool.execute("fixture", { refresh: true }, undefined, undefined, copilotGoContext());
     assert.deepEqual([3, 4].map((index) => [noQuota.structuredContent.providers[index].status, noQuota.structuredContent.providers[index].reason]), [["unknown", "no-quota-data"], ["unknown", "no-quota-data"]], "0.66.0 helper error messages still map to no-quota-data");
     secretFree(noQuota);
 
@@ -857,6 +880,7 @@ printf '%s\\n' '${JSON.stringify(observedSectionPayload)}'
     assert(Check(tool.outputSchema, mismatchedCompanionRuntime.structuredContent));
     for (const result of [copilotGo, noQuota, rotated, proxied]) assert(Check(tool.outputSchema, result.structuredContent));
     assert(Check(tool.parameters, {}));
+    assert(Check(tool.parameters, { refresh: true }));
     assert(!Check(tool.parameters, { forceRefresh: true }));
 
     const probe = join(agentDir, "extensions", "quota-status", "probe.ts");
@@ -948,6 +972,93 @@ export default function(pi) {
     safe(nativeResult.details);
     safe(runtimeSnapshot);
     safe(variants);
+
+    // Full-tool regressions: no source rewriting, fake clock and fake helper only.
+    const realNow = Date.now;
+    const cacheFixtureAgentDir = process.env.PI_CODING_AGENT_DIR;
+    try {
+      await installFake({ name: "@narumitw/pi-usage", version: "0.66.0" });
+      const cacheFixtureRoot = join(process.env.PI_CODING_AGENT_DIR, "npm", "node_modules", "@narumitw", "pi-usage");
+      const cacheFixtureManifest = join(cacheFixtureRoot, "package.json");
+      await writeFile(join(cacheFixtureRoot, "dist", "index.ts"), `
+export const adapterForProvider = (id) => ({ id });
+export const resolveUsageAuth = async (_ctx, adapter) => ({ fingerprint: "cache-fixture-" + adapter.id });
+export const queryProviderUsage = async (adapter) => globalThis.quotaCacheFixtureQuery(adapter.id);
+`);
+      let fakeNow = 1800000000000;
+      Date.now = () => fakeNow;
+      const cacheLoaded = await load();
+      assert.deepEqual(cacheLoaded.errors, []);
+      cacheLoaded.runtime.appendEntry = loaded.runtime.appendEntry;
+      const cacheTool = cacheLoaded.extensions.find((extension) => extension.tools.has("quota_status")).tools.get("quota_status").definition;
+      let phase = "seed";
+      let anthroAuthReads = 0;
+      let notifyValidated;
+      let validated;
+      const publicationContext = anthropicContext({ getProviderAuth: async () => {
+        if (phase === "delay" && ++anthroAuthReads === 2) notifyValidated();
+        return { source: "OAuth", auth: { apiKey: "fixture-token" } };
+      } });
+      let copilotQueries = 0;
+      globalThis.quotaCacheFixtureQuery = async (provider) => {
+        if (provider === "opencode-go") {
+          if (phase === "delay") {
+            await validated;
+            // Drain Anthropic's async validation/publication before delaying aggregation.
+            await new Promise((resolve) => setImmediate(resolve));
+            fakeNow += 26;
+          }
+          throw new Error("offline unavailable Go");
+        }
+        if (provider === "github-copilot") {
+          copilotQueries++;
+          return { capturedAt: fakeNow, buckets: [{ label: "Premium requests", unit: "count", used: 8, limit: 10 }] };
+        }
+        return { providerId: "openai", source: "openai-chatgpt-auth", capturedAt: fakeNow, buckets: [] };
+      };
+      let anthropicQueries = 0;
+      globalThis.fetch = async () => {
+        anthropicQueries++;
+        return new Response(JSON.stringify({ five_hour: { utilization: 95, resets_at: (fakeNow + 100) / 1000 } }));
+      };
+      const seeded = await cacheTool.execute("cache-seed", { refresh: true }, undefined, undefined, publicationContext);
+      assert.equal(seeded.structuredContent.providers[1].status, "fresh");
+      fakeNow += 99;
+      phase = "delay";
+      validated = new Promise((resolve) => { notifyValidated = resolve; });
+      const delayed = await cacheTool.execute("aggregation-delay", {}, undefined, undefined, publicationContext);
+      const expiredAnthropic = delayed.structuredContent.providers[1];
+      assert.equal(anthropicQueries, 1, "Anthropic hit completes before delayed Go collection");
+      assert.equal(expiredAnthropic.status, "unknown", "final aggregation discards reset-crossed cached headroom");
+      assert.equal(expiredAnthropic.reason, "no-quota-data");
+      assert.deepEqual(expiredAnthropic.windows, []);
+      assert.equal(expiredAnthropic.capturedAt, seeded.structuredContent.providers[1].capturedAt);
+      assert.deepEqual(expiredAnthropic.cache, { hit: true, ageMs: 125, ttlMs: 60000 });
+      assert(Check(tool.outputSchema, delayed.structuredContent));
+      assert.equal(metrics.at(-1).observations[1].ageMs, 125);
+      assert.equal(metrics.at(-1).observations[1].cacheHit, true);
+      assert.equal(copilotQueries, 1);
+
+      phase = "restored";
+      await writeFile(cacheFixtureManifest, JSON.stringify({ name: "@narumitw/pi-usage", version: "wrong-version" }));
+      const missingRefresh = await cacheTool.execute("missing-helper-refresh", { refresh: true }, undefined, undefined, emptyContext);
+      assert.deepEqual(helperReasons(missingRefresh), ["dependency-unavailable", "dependency-unavailable", "dependency-unavailable"]);
+      await writeFile(cacheFixtureManifest, JSON.stringify({ name: "@narumitw/pi-usage", version: "0.66.0" }));
+      const restored = await cacheTool.execute("restored-helper", {}, undefined, undefined, emptyContext);
+      assert.equal(restored.structuredContent.providers[3].cache.hit, false);
+      assert.equal(copilotQueries, 2, "failed helper refresh invalidates old successful cache before helper restoration");
+
+      const stopped = new AbortController(); stopped.abort();
+      await cacheTool.execute("cancelled-helper", {}, stopped.signal, undefined, emptyContext);
+      const afterCancellation = await cacheTool.execute("restored-after-cancellation", {}, undefined, undefined, emptyContext);
+      assert.equal(afterCancellation.structuredContent.providers[3].cache.hit, false);
+      assert.equal(copilotQueries, 3, "pre-cancellation that skips helper collection also invalidates cache");
+      console.log("PASS: final aggregation reset crossing, original timestamps/provenance, helper-refresh failure and cancellation invalidation");
+    } finally {
+      Date.now = realNow;
+      delete globalThis.quotaCacheFixtureQuery;
+      process.env.PI_CODING_AGENT_DIR = cacheFixtureAgentDir;
+    }
     console.log(`PASS: Pi ${hostVersion} discovery/Jiti, installed @narumitw/pi-usage@0.66.0 helper imports/auth/query with fake auth and mocked HTTP; missing/wrong helper leaves local Claude independent`);
   } finally {
     globalThis.fetch = originalFetch;

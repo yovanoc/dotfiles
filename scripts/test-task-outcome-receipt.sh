@@ -24,6 +24,12 @@ for (const bad of [
   { effort: "ultra" }, { effort: "" }, { checkArtifact: "" }, { checkArtifact: "a".repeat(301) }, { checkArtifact: "it passed fine" }, { checkArtifact: "a\nb" },
 ]) assert.throws(() => validateReceipt({ ...good, ...bad }), Error, JSON.stringify(bad))
 
+const linked = { ...good, boardTaskId: "board-1", attemptId: "attempt-2", phase: "review", parentTaskId: "board-0", reviewerWorkerId: "worker-2", coordinatorReportedDurationMs: 42 }
+assert.deepEqual(validateReceipt({ ...linked, prompt: "SECRET prompt" }), linked)
+for (const bad of [{ boardTaskId: "x y" }, { attemptId: 3 }, { phase: "done" }, { parentTaskId: "" }, { reviewerWorkerId: "bad!" }, { coordinatorReportedDurationMs: -1 }, { coordinatorReportedDurationMs: 0.5 }, { coordinatorReportedDurationMs: Number.MAX_SAFE_INTEGER + 1 }]) {
+  assert.throws(() => validateReceipt({ ...good, ...bad }))
+}
+
 let tool: any
 const handlers: Record<string, (event: any, ctx: any) => void> = {}
 const entries: any[] = []
@@ -35,6 +41,28 @@ const ctx = (prompt: string) => ({
   ui: { setStatus: (_k: string, t?: string) => statuses.push(t), notify: (m: string) => notes.push(m) },
 })
 const coord = ctx("coordinator")
+for (const reason of ["startup", "reload"]) {
+  handlers.session_start({ reason }, coord)
+  const [type, evidence] = entries.at(-1)
+  assert.equal(type, "task-outcome-activation")
+  assert.equal(evidence.schemaVersion, 1)
+  assert.equal(evidence.extensionVersion, 1)
+  assert.match(evidence.extensionSha256, /^[a-f0-9]{64}$/)
+  assert.ok(evidence.coordinatorPolicySha256 === null || /^[a-f0-9]{64}$/.test(evidence.coordinatorPolicySha256))
+  assert.equal(evidence.source, reason)
+  assert.ok(!Number.isNaN(Date.parse(evidence.timestamp)))
+}
+handlers.session_start({ reason: "SECRET" }, coord)
+assert.equal(entries.at(-1)[1].source, "unknown")
+const count = entries.length
+handlers.session_start({ reason: "startup" }, ctx('<active_agent name="w"/>'))
+assert.equal(entries.length, count)
+assert.doesNotMatch(JSON.stringify(entries), /SECRET/)
+entries.length = 0
+await tool.execute("1", { ...linked, prompt: "SECRET" }, undefined, undefined, coord)
+assert.deepEqual(entries.at(-1), ["task-outcome-receipt", linked])
+assert.doesNotMatch(JSON.stringify(entries), /SECRET/)
+entries.length = 0
 await assert.rejects(() => tool.execute("1", good, undefined, undefined, ctx('x <active_agent name="implementer"/>')), /Workers cannot/)
 assert.equal(entries.length, 0)
 await assert.rejects(() => tool.execute("1", { ...good, effort: "ultra" }, undefined, undefined, coord), /effort/)

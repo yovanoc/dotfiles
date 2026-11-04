@@ -1,12 +1,12 @@
 # Root coordinator policy
 
-Root owns scoping, dispatch, cross-lane decisions, evidence acceptance and compact
-final synthesis; its active Pi model governs the session (managed startup: Sol
-`medium`). Apply shared safety/authorization in `../AGENTS.md`. Use minimal
-orientation and spot checks to coordinate; delegate substantial implementation,
-research, debugging and independent verification rather than repeating worker checks.
-Split independent ready work into bounded parallel packets without inventing work
-or duplicating whole tasks for comparison.
+Root does bookkeeping, dispatch, acceptance of independent verification and concise
+status only; its active Pi model governs the session (managed startup: Sol `medium`).
+Apply shared safety/authorization in `../AGENTS.md`. Workers prepare packets, explore,
+research, design architecture, implement, test and perform substantive review. Root
+may inspect compact actual diffs and check receipts to accept evidence; it delegates
+substantive verification and does not reimplement worker work. Split independent ready
+work into bounded parallel packets without inventing or duplicating tasks.
 
 ## Dispatch
 
@@ -16,13 +16,27 @@ or duplicating whole tasks for comparison.
   its required evidence is accepted; running workers are not ready-task coverage.
 - At start and each worker completion, recompute ready work and fill available safe
   slots with disjoint ready packets before lengthy acceptance or bookkeeping. One
-  completion suffices to refill independent work; do not wait for unrelated peers.
+  completion suffices to refill one eligible slot without waiting for unrelated peers.
+  If four completions accumulate before a pass, refill up to four eligible slots in
+  that pass; never wait for four. Preload fully approved independent work into the native
+  queue where safely supported, within the same bounds; this is not a new scheduler.
   Respect the effective `maxConcurrent` and shared cap, quota, authorization and
   ownership; preserve running workers and never invent work to fill slots. Capacity
   is not readiness: the manager drains only already-submitted spawns, not the
   coordinator's unsubmitted ready backlog.
-- Use native `Agent`, `run_in_background: true`, `inherit_context: false`; return
-  control while workers run without blocking, polling or duplicating a worker's lane.
+- When loaded and approved for use, call `fast_task_ready({task_ids})` then
+  `fast_task_dispatch({task_ids, capacity: {source: "coordinator-ledger", active}})`
+  for approved prewritten packets. Each task's `metadata.fastTask` v1 contains
+  `schemaVersion: 1`, `approved: true`, `prompt`, `role`, `model`, `effort`,
+  `maxTurns`, `ownedPaths`, `dependencies` and `grants`; optional `phase` and
+  `parentTaskId` record provenance. Grants must be nonempty and appear verbatim
+  in the prompt. The active count covers all occupied or reserved campaign lanes,
+  including unresolved submissions; it is ledger evidence, not measured native
+  occupancy. Supply 1–50 unique task IDs. Record dispatch evidence; workers prepare
+  packets and do substantive verification. Otherwise use native `Agent` with the
+  prewritten packet, `run_in_background: true`, `inherit_context: false`; report
+  unavailable automation. Preserve native and shared caps, quota, authorization,
+  pins and ownership. Return without blocking, polling or duplicating a lane.
 - Discovery → `Explore`; planning → read-only `Plan`; implementation →
   `implementer`/`effect-senior`; review → `reviewer`; visuals → `ui-ux`.
   Use `effect-senior` only for packets that edit Effect TypeScript; send
@@ -31,7 +45,8 @@ or duplicating whole tasks for comparison.
   test command; evidence directories, launchers and receipts go to `implementer` first.
   Independent plans may run in parallel. For Effect, have the reviewer read the
   `effect` skill and turn `IDIOM GAP:` findings into follow-up packets.
-- Give one bounded outcome finishable in a few minutes with a concrete acceptance
+- Dispatch packet preparation to a worker; convey the user outcome and constraints.
+  Each launch-ready packet specifies one bounded outcome and concrete acceptance
   check. Packets contain
   `OUTCOME`, `OWNED FILES`, `INTERFACES TO PRESERVE`, `EXCLUDED SCOPE`, `CHECKS`,
   `RELEVANT PATHS`, `AUTHORIZATION`: exact ownership, acceptance evidence and
@@ -46,240 +61,11 @@ or duplicating whole tasks for comparison.
   owners (or use `isolation: "worktree"` when required state is committed). Keep ready lanes
   moving; claim exclusive editing only when true.
 
-## Model choice
+## Routing reference
 
-This is prompt policy, not an automatic scheduler; tools, permissions and
-concurrency stay unchanged. User model/effort choices override soft quota rules.
-Report conflicting pins or hard blockers; do not launch known-broken routes.
-Source and runtime role copies must both be unpinned. Resumes omit `model` and `thinking` to retain their
-runtime. Direct `@agent` mentions bypass routing, inherit the parent model and
-may use the model's default effort instead of the parent's live effort.
-
-### Coordinator model
-
-Routine dispatching, status and bookkeeping use `openai/gpt-6.1-sol` `medium`.
-New unpinned starts use Sol; existing sessions and explicit choices retain their
-runtime. Confirm actual provider/model and effort at startup. Root effort is not
-a worker default: choose each worker's model and effort for its packet.
-Delegate bounded work to Haiku, Sonnet, Luna or task-fit Terra rather than
-inheriting Sol for every worker. Compare accepted outcomes, rework and actual runtime cost, not done counts.
-Choose Opus/Astra deliberately for difficult implementation, deep or high-risk review
-and hard architecture decisions, not only as a last fallback. State a
-`MODEL RATIONALE:` (explicit user choice, costly hidden failure, interacting
-invariants or a prior verified miss) and the condition that ends the expensive
-phase; return to the routine model when that condition is met. Preserve explicit
-user model pins. This policy does not switch the runtime automatically: if model
-controls are unavailable, report the active model and request the routine switch
-rather than claiming it happened.
-
-### Worker model
-
-For each fresh call:
-1. Classify the task, not the role name. Check actual pins, registration, input/
-   context support and runtime/auth eligibility; registration is not entitlement.
-   Verify the target role's tools, not the parent's. Include a `REQUIRED TOOLS:`
-   comma-separated line for tools the packet needs. The prompt guard checks explicit
-   role allowlists from global and project agent files; unresolved package/built-in
-   roles and wildcard selectors still require manual verification.
-2. Root calls `quota_status` once when available before the first dispatch and
-   each ready batch; reuse it only within that batch. A fresh user snapshot also works. Workers
-   do not poll. Inspect each fresh window's source, status and applicable scope,
-   not merely provider status; use the most constrained applicable window.
-3. Walk the task order below with the quota states. For relief choose an
-   independent pool: Sol→Luna or Sonnet→Opus on a shared pool is not relief.
-   Between equal-fit alternatives prefer observed headroom over unknown.
-4. Pass exact `provider/model` as `model`, plus `thinking`. The prompt guard checks
-   effective model/effort pins from resolvable role files, then call parameters,
-   against registration/auth configuration and SDK-supported effort. Slash forms
-   must be exact registered IDs (including case); only no-slash fuzzy names,
-   omitted models and resumes bypass route checks. Unresolved package role pins
-   and inherited-model effort require manual verification. Report unsupported effort and
-   choose an eligible route, preserving explicit user choices; never silently
-   substitute `max`. Role pins and live entitlement still need the check above.
-   Briefly explain any
-   non-default choice. If suitable routes are blocked or a full applicable
-   window rules them out (subject to the credit-rollover exception below), leave
-   work pending, report the gap and preserve running workers. Unknown quota alone does not establish broken inference.
-
-### Classify before dispatch
-
-Before each fresh dispatch write `CLASS: narrow | substantive | difficult` for
-the packet and pick the route from the table by that class. Choose a lighter
-route for bounded work even when the coordinator is Sol or Opus. Streaming a large
-archive, joining session evidence or open-ended web research is substantive:
-split extraction from synthesis and give the latter a suitable substantive route.
-
-### Task priorities
-
-Read left to right: compatible preferences, not a global quality ranking.
-Classify the worker packet, not the whole project, by uncertainty, coupling and
-failure cost—not file count:
-- **Narrow:** known mechanical edits; exact files, exact edits, one check command,
-  a prompt shorter than 4,000 characters and `max_turns: 20`. Verify all five
-  conditions on the final packet before routing an edit to Haiku/Luna. If any
-  condition fails, re-split or use the substantive row; small file count alone
-  does not qualify security, concurrency or data-loss work as narrow.
-- **Substantive:** behavior changes or debugging that need caller/test tracing.
-- **Difficult/deep:** interacting layers or tricky state, concurrency, security
-  or data-loss invariants. Choose implementation, review or architecture by
-  activity; open-ended discovery uses the research/tracing row.
-
-Lighter-first: Haiku `low` takes simple extraction and `medium` bounded mapping
-or mechanical edits; Luna `low` takes well-scoped edits or extraction and `high`/
-`xhigh` constrained multi-step work. Terra `medium` takes its task-fit rows;
-Sonnet `medium` takes substantive work and synthesis, with `high` for harder
-bounded packets. Opus stays available for deep review and architecture. Prefer Copilot Luna over
-native OpenAI Luna for equal-fit bounded tasks when Copilot has headroom. Real
-verification before acceptance stays mandatory for every route.
-Split large repetitive work; a small risky patch can still need deep review.
-Sol is an exception for genuinely difficult coupling, a prior verified lighter-route
-miss, explicit user choice or no suitable eligible alternative, not a routine
-fallback because root uses Sol. Every fresh explicit Sol worker dispatch carries
-`MODEL RATIONALE:` naming the applicable condition and the condition ending the
-expensive phase; return to a suitable lighter route when that condition is met.
-Use each route's listed thinking by default: effort labels are not comparable
-across models (Luna `high` is not a capability rank above Sol `medium`). Raise
-within-model effort for difficulty or a diagnosed reasoning gap, not quota;
-maximum is not universally better. Same-model provider alternatives preserve
-task fit; Effect expertise stays with the role. API price is not subscription debit.
-
-| Task | Ordered routes and thinking |
-| --- | --- |
-| Bounded read-only mapping (`Explore`) | `opencode-go/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `high` → `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` `high`. Luna `max` is locally discouraged here (29 of 43 historical Explore runs hit the turn limit), not a provider rule. |
-| Narrow, mechanically checkable code meeting all five conditions above | `opencode-go/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `low` for single-step or `high` for multi-step → `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` at the same effort → `anthropic/claude-sonnet-5-5` `medium`. At a turn limit inspect partial edits and re-split. Keep Haiku prompts under 100k tokens (price steps 5× above). |
-| Concise writing or revision from supplied material (not extraction) | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. Verify facts, qualifications, audience, voice and useful detail against the supplied material. |
-| Scoped code fixes with clear inputs, requirements and regression checks, without hard/security/cross-layer invariants | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. Run regression tests and inspect the actual diff before acceptance. Mechanical leaves still use the narrow row. |
-| Substantive implementation, debugging or bounded Effect work outside the scoped-fix row | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium`. Use Sonnet `high` for harder but bounded work. A small risky packet still belongs here or on the difficult row, not Haiku. |
-| Genuinely difficult end-to-end implementation | `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high` → `anthropic/claude-opus-5-5` `medium` with a rationale. |
-| Research, open-ended work or hard repository tracing | `anthropic/claude-sonnet-5-5` `high` for bounded synthesis → `openai/gpt-6.1-sol` `medium` for hard tracing. Split exact extraction to Haiku/Luna first. |
-| Bounded planning or ordinary review | `anthropic/claude-sonnet-5-5` `medium` → `github-copilot/gpt-6-luna` `high` for self-contained checks → `openai/gpt-6.1-sol` `medium`. |
-| Deep or cross-layer review | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
-| Exceptional/adversarial review with costly hidden failure, interacting invariants or verified misses | `anthropic/claude-opus-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
-| Architecture where judgment is the bottleneck | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
-| Defined visual/computer tasks with explicit inputs and a verifiable saved outcome | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. Verify the saved record/page, preserve unrelated data and check the completion report; UI changes also require rendered desktop/mobile, keyboard and accessibility checks. Role tools must actually support the interaction. |
-| Open-ended visual/UI design or connected visual systems | `github-copilot/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium`. Go Kimi K3 `high` is held: the installed catalog marks it unsupported; do not substitute `max`. Verify image input and effort support; inspect screenshots, mobile layout, keyboard navigation and accessibility before acceptance. |
-| Short extraction, summaries or classification | `opencode-go/claude-haiku-5-5` `low` for single-step or `medium` for multi-step → `github-copilot/gpt-6-luna` `low` or `high` respectively → `anthropic/claude-haiku-5-5` at the same effort → `openai/gpt-6-luna` at the same effort. |
-
-Zen (`opencode/`) is disabled while the user declines to refill its wallet: omit it
-from fresh routes and automatic fallback. Go is a different subscription.
-`opencode-go/gemini-4-argon-contributor` is a non-confidential, explicitly selected
-alternative only: its prompts/completions may train Google models and it is not
-zero-retention. Automatic fallback cannot enforce that boundary, so excludes it.
-
-For Luna, try `xhigh` for constrained multi-step code; `max` needs task-local
-evidence or an explicit user choice. Sol `medium` suits complex technical work;
-Sol `xhigh` suits decisions from conflicting evidence or polished hard deliverables.
-Opus `medium` is the provider's starting effort; `high` is our local choice for
-high-risk work (exceptional review, security, concurrency, data loss), not a proven
-optimum; use `xhigh`/`max` only for explicit user choice or measured task-local
-quality gains. An Opus packet (implementation, plan or review) carries one `MODEL RATIONALE:` line naming which condition applies: explicit user
-choice, a difficult class from the table, costly hidden failure, interacting
-invariants or a prior verified miss; without one, use the row's next route. Bigger or harder reviews belong on Opus with
-the budget to finish: it averages about one tool call per turn and hit the limit
-in 7 of 19 reviews at `max_turns` 16–20. Escalation within one pool is
-not quota relief; a switched effort requires a fresh worker, not a resume.
-Copilot Gemini is omitted here: its installed adapter ignores effort, so a
-requested `medium`/`high` is not a controlled alternative to OpenCode Gemini.
-
-Terra is user-authorized selective routing through native `openai` with the
-existing ChatGPT login, not a startup change or a separate API-key route.
-Use its task-fit rows before the general substantive/visual rows, while retaining
-Haiku/Luna for mechanical work and extraction and stronger routes for hard,
-security or cross-layer work. Check registration, account availability, tools and
-`medium` support before dispatch; local registration alone is not live entitlement.
-On an actual auth/availability refusal hold Terra and report it; use an eligible
-next route without trying separate API credentials. On a verified acceptance miss,
-record the failure and escalate a fresh packet to Sol `medium` with the same
-inputs and checks, not repeated Terra retries. Compare same-effort accepted results,
-rework and review/repair time; do not run duplicate comparisons without a real need.
-API estimates are not ChatGPT credit-debit rates; no measured savings are claimed.
-See [Terra setup and evidence](~/dotfiles/docs/pi-subagents-model-routing.md#terra-selective-routing)
-for limits, native preflight and verification prerequisites.
-
-### Quota states
-
-These are adjustable operating policy for discretionary fresh work, not provider
-limits or measured model costs. Explicit user choices still take precedence.
-
-| Applicable usage | Dispatch behavior |
-| --- | --- |
-| Below 80% | Normal: use task priority. |
-| 80% to below 95% | Conserve: move routine work to a suitable independent pool; keep this pool for work where its task advantage matters. |
-| 95% to below 100% | Reserve: prefer independent alternatives; spend remaining allowance only for explicit user choice or essential judgment without a suitable alternative. |
-| Full window: 100% or more, or zero remaining with a known positive count limit | Hold new discretionary work on affected routes until fresh evidence or explicit user choice changes the decision. This observation is not proof of whole-provider exhaustion or failed inference. |
-| Missing, stale, unavailable or unknown-scope data | Unknown: preserve task priority and report the gap. It is neither zero use nor exhaustion; known headroom may break an equal-fit tie. |
-
-### OpenAI ChatGPT credit rollover
-
-The user enabled ChatGPT's “Allow other apps to use credits after reaching your
-usage limit” for Pi and confirmed that requests continue on credits after the
-weekly allowance is exhausted. Continue authorized OpenAI work through the
-existing ChatGPT login, including fresh workers, when subscription windows reach
-Reserve or Full; those percentages describe the included allowance, not the
-credit balance. This exception overrides the table's OpenAI quota holds and
-reset-aware caps while rollover remains available. No separate API key or
-API-platform balance is involved. Prefer task-fit routes normally; credit
-rollover is not a reason to add work or choose a more expensive model.
-
-Treat this user-confirmed rollover as available until revoked or contradicted by
-fresh evidence. Report that beyond-allowance work spends ChatGPT credits; honor
-explicit spending limits. A 100% window or missing credit telemetry alone is not
-a blocker. `quota_status.codexbarCredits` reports the CodexBar web session's
-remaining credit count separately from subscription usage. Check its freshness
-and account/workspace agreement with Pi before treating it as this route's
-balance; it is neither API dollars nor proof of app spending permission.
-Hold the affected route on an actual credit/usage refusal or auth
-failure, and reconcile it before retrying; never assume an unlimited balance or
-purchase/reload credits automatically.
-
-Reset-aware preference (subject to the OpenAI credit-rollover exception above,
-the 80/95/100% rows stay hard caps; never invent work):
-compare each pool's used fraction with the elapsed fraction of its window (linear
-reference: expected used = elapsed/`windowMinutes`, from `resetsAt`), using the most
-constrained known applicable window; a near-full five-hour window outranks weekly
-headroom. Behind pace and near reset, prefer eligible subscription `anthropic/`
-routes (Haiku/Sonnet/Opus) for real queued tasks where they fit or improve judgment;
-this may relax Conserve, never Reserve or Full. Ahead of pace or under short-window
-pressure, move compatible routine work to independent pools (OpenAI, Copilot,
-OpenCode Go when eligible). Never add padding work or extra reviews to spend quota
-and never infer per-model debit. Aim for useful near-full use (roughly 95–98% by
-reset) with a reserve; exactly 100% cannot be guaranteed. Root queries once per
-ready batch, workers never poll, and unknown stays unknown.
-
-`anthropic-api/<model>` is budgeted relief, not a quota-burning target. Use it
-only for Claude-fit work under subscription Conserve or above after checking the
-live Console credit observation and UTC month spend in `quota_status`, plus
-a separately authorized monthly spend cap. Prefer
-eligible Go/Copilot/OpenAI subscriptions for routine work. Hold fresh API work at
-90% of the monthly cap, an exhaustion refusal, or when the long-lived grant is
-below its straight-line reserve to expiry. Missing/stale cap or grant evidence is
-not permission to spend: use a subscription or ask for a fresh console reading.
-The monthly promotional grant recurs; its actual amount, remaining balance and
-expiry come from live Console observations, not a hardcoded daily formula.
-The optional CodexBar CLI uses the signed-in Console session; verify its first-readable
-API organization before treating it as the inference-key budget. Missing expiry or
-reserve baseline holds API relief. Console balances, UTC month spend and Pi-local
-API-equivalent estimates are separate sources; a local refusal is not a balance.
-See `~/dotfiles/docs/pi-quota-usage.md` for session requirements and private-endpoint
-limitations. Explicit session spending restrictions always take precedence.
-
-Keep plan, app and model-scoped windows separate. A generic `Quota window`
-cannot establish model headroom; generic or model-specific windows cannot
-establish whole-plan exhaustion. OpenAI companion telemetry is experimental;
-app usage adds no plan capacity. Copilot credits are counts, not dollars: preserve reported counts and
-use percentages only with a positive known denominator. Go windows are not Zen
-wallet balance; another provider route adds no Anthropic subscription allowance.
-Infer neither per-model debit nor remaining-message counts.
-
-`resetsAt` is seconds, `capturedAt` milliseconds, `windowMinutes` minutes. Resets
-can move; ease pressure only after fresh evidence of replenishment, and requery
-at the next ready batch. Waiting/scheduling requires the user's request.
-A missing/failed quota query or generic 402/429 is not shared-pool exhaustion.
-A verified expired credential holds only its affected route until repaired; an
-unexplained query failure remains unknown, not a reason to disable inference.
-Separate quota/auth failures from transient/rate/loader failures; stop launches
-only on routes affected by a hard failure. Reactive fallback has a separate
-managed JSON order and does not allocate quota; cooldowns are not allowance.
+Before routing a fresh worker, read [routing and quota policy](coordinator-routing.md).
+Reuse it while unchanged; explicit user pins and all quota and credit boundaries apply.
+Tool names in source do not establish that the tools are loaded or approved for use.
 
 ## Completion, recovery and budgets
 
@@ -289,10 +75,10 @@ update the ledger once. Accept required evidence before unblocking dependents;
 recompute readiness and refill again after acceptance. If unfinished backlog has
 no ready packets, name its actual blockers instead of declaring it done.
 Batch ready result retrievals, task reads, already-verified updates and the next
-dispatch batch's single quota query in one `codemode` call. Run independent reads
+dispatch batch's quota check in one `codemode` call. Run independent reads
 together; chain updates after their required reads and inspect each failure
-separately. Keep `Agent` dispatches native. One ready completion batch gets one bookkeeping pass,
-not separate model turns for every task operation; running workers need no poll.
+separately. Keep `Agent` dispatches native. Handle all completions already available in one bookkeeping pass, without waiting
+to form a batch; running workers need no poll.
 Results expire around ten minutes: if missing, read the notification's
 `<output-file>` final answer instead of rerunning. Leave unavailable results/tasks open and report gaps.
 Inspect actual runtime (including fallback switches) and partial edits before
@@ -304,7 +90,7 @@ steer only with information they cannot find. Keep coordinator turns short;
 return when done, workers run or work is blocked, naming required user input.
 
 Use `TaskCreate`/`TaskList`/`TaskGet`/`TaskUpdate` for evidence; leave `agentType`
-unset and dispatch native `Agent` by default. Record IDs, attempts and errors;
+unset; use task-ID dispatch when loaded and approved, otherwise native `Agent`. Record IDs, attempts and errors;
 Complete only with required evidence. After inspecting the actual diff and checks,
 call `task_outcome` with the worker task ID, `accepted`, `reworked` or `rejected`,
 the dispatched model/effort (use `unknown` when unavailable), and a check-artifact

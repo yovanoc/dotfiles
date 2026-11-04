@@ -54,6 +54,27 @@ jobs:
         with:
           node-version: '24'
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+
+      - name: Install Pi test runtime
+        run: |
+          npm install --global \
+            @earendil-works/pi-coding-agent@1.5.0 \
+            @tintinweb/pi-tasks@0.9.1 \
+            @tintinweb/pi-subagents@0.23.1
+          PI_PACKAGE_ROOT="$(npm root --global)"
+          PI_RUNTIME="$PI_PACKAGE_ROOT/@earendil-works/pi-coding-agent"
+          test -f "$PI_RUNTIME/dist/index.js"
+          test -f "$PI_PACKAGE_ROOT/@tintinweb/pi-tasks/src/index.ts"
+          test -f \
+            "$PI_PACKAGE_ROOT/@tintinweb/pi-subagents/src/invocation-config.ts"
+          test -f "$PI_RUNTIME/node_modules/jiti/lib/jiti.mjs"
+          test -f "$PI_RUNTIME/node_modules/typebox/build/index.mjs"
+          echo "PI_RUNTIME=$PI_RUNTIME" >> "$GITHUB_ENV"
+          echo "PI_PACKAGE_ROOT=$PI_PACKAGE_ROOT" >> "$GITHUB_ENV"
+
       # A zsh syntax error would otherwise surface only at the next login.
       - name: Check
         run: |
@@ -66,5 +87,6 @@ jobs:
             zsh -n "$file"
           done
           bash scripts/test-pi-session-audit.sh
+          bash scripts/test-fast-task-dispatch.sh
           python3 scripts/test-pi-routing.py
-          node scripts/test-pi-quota-status.mjs
+          bash scripts/test-pi-quota-status.sh

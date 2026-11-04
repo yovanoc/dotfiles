@@ -215,6 +215,27 @@ Audit scripts remain repository-only and run from this task branch until merged.
   include the retrospective itself. Workload, model and user-choice differences
   also confound comparisons; no causal effect is established.
 
+- Measured (verified retrospective, `--since 2026-10-27T09:24:57+01:00`,
+  unbounded non-atomic scan, aggregate written 2026-11-04T18:40:10Z): 6,234
+  candidates, 6,129 session files, 104 non-session JSONL, 38 malformed/skipped
+  lines, zero unreadable. One unexpected summary shape leaves the partition
+  diagnostic false with residual 1. Workers: 114,937 requests, $2,092.68
+  local estimate ($0.01821/request); coordinators: 52,032, $3,394.94
+  ($0.06525/request). These estimates are not billing or model debit.
+  Terminal notifications: 3,997 done, 780 turn_limit, 5 error, 1 stopped;
+  a turn_limit label does not prove budget exhaustion. Of 5,663 observed terminal
+  tasks, 1,788 had receipts and 3,875 did not; 647 receipted tasks lacked
+  terminal evidence. 2,801 valid receipts cover 2,435 tasks: latest verdicts
+  1,901 accepted, 515 reworked, 19 rejected. Receipts are coordinator claims,
+  not runtime proof. Control-plane metadata: 1,623 assistant messages, 40.606
+  logged hours, 3,307 nested TaskGet, 3,318 TaskUpdate, 353 quota calls,
+  91 nested and 12 direct checkpoint attempts; attempts are not successes.
+  Evidence: `/tmp/pi-retro-numbers-verified-20261104.json` and
+  `/tmp/pi-audit-aggregate-20261104193624.json` (temporary). Mixed exposure
+  follows subsequent disk writes; no versioned load receipt, exact activation or
+  finite activation upper bound was established. Current file matches do not
+  prove historical roots read policy. Comparisons are confounded, not causal.
+
 ## DISK-APPLIED, NOT YET ACTIVATED — receipt-coverage-audit-integrity
 
 Disk-applied 2026-11-01T10:55:08Z (11:55:08+0100) via targeted chezmoi apply of
@@ -274,3 +295,90 @@ at observation; the screenshot alone does not prove a receipt failure.
 Offline receipt, prompt-guard and routing checks are recorded in
 `/tmp/pi-receipt-noise-prepublish.md`; independent review accepted the change
 (`/tmp/pi-receipt-noise-review.md`).
+
+## 2026-11-04T20:40:54.521288+00:00 — fast-dispatch coordination
+
+**DISK-APPLIED; loaded-version activation unobserved.**
+
+User authorization: “you can apply all of this, i follow your recommendations,
+i just want the coordinator to never do any work by itself and just do bookeeping
++ dispatch at maximum speed.” Applied policy: coordinator does bookkeeping,
+dispatch, independent-evidence acceptance and concise status; workers prepare
+packets and do substantive work. Conditional routing references reduce always-loaded
+policy. Preserve all existing caps, grants, routing, quota and acceptance safeguards.
+Quota source implements bounded snapshots; the adapter provides task-ID dispatch
+and lifecycle events. Rolling refill starts with one completion; process all
+accumulated eligible slots in one pass without waiting for peers, for arbitrary
+eligible N (four is only a test example). Lifecycle timings do not establish causal
+replacement or continuous occupancy. Measure future accepted outcomes, rework,
+control-plane overhead and activation with versioned receipts; no improvement is
+claimed from disk application.
+
+- Actual scoped disk apply: **2026-11-04T20:40:54.319848+00:00–2026-11-04T20:40:54.521288+00:00**,
+  exit 0; explicit source `/Users/yovanoc/dotfiles-worktrees/pi-fast-task-dispatch/home`,
+  destination `/Users/yovanoc`, scripts excluded, exactly the 12 reviewed runtime
+  targets in `/tmp/pi-fast-apply-plan.md`. Scoped postverify exited 0 and all 12
+  runtime SHA-256 values matched approved source hashes. SourceDir configuration,
+  excluded `coordinator-execution.md`, and primary checkout remained unchanged.
+- Private application/hash evidence: `/tmp/pi-fast-apply-checks.md`. Retained
+  0700 backup, owner fast-apply worker:
+  `/Users/yovanoc/.pi/agent/backups/pi-fast-apply-20261104-0maaxnq5`;
+  includes prior contents/modes, absent-target list and rollback instructions.
+- **Existing sessions NOT reloaded. Actual loaded-version/policy-consumption
+  evidence unavailable/not observed.** No control-plane intervention, live inference,
+  constant-occupancy proof, Linux CI or Node 24 verification is claimed.
+
+
+### Closing CURRENT snapshot — verified pre-DISK-APPLY mixed-exposure baseline
+
+- Audit start bound: `2026-10-27T09:24:57+01:00`; **no end bound**.
+  Actual scan: **2026-11-04T20:22:26Z–20:28:46Z** (380 seconds).
+  This is a non-atomic snapshot of a changing population, not a clean causal
+  pre-treatment control: implementation work and user-instructed coordinator
+  behavior already occurred during this exposure window. Earlier opening numbers
+  and historical activation unknowns above remain unchanged; this is a different
+  observed window, not evidence of improvement.
+- Scan: 6,377 candidates = 6,272 session files + 104 headerless/non-session
+  JSONL + 1 unexpected summary shape + 0 unreadable. Partition residual 0;
+  candidate, classification and error reconciliations pass. There are 42
+  malformed/skipped lines (one population, not two additive counts).
+- Request costs (sum of per-model role aggregates): workers **117,093 requests,
+  $2,121.47**, **$0.01812/request**; coordinators **52,922 requests,
+  $3,422.57**, **$0.06467/request**. Pi-local API-equivalent estimates only:
+  not billing, credits, subscription/model debit or causal savings.
+- Coordinator response duration: 52,918/52,922 valid assistant samples,
+  4 missing/invalid; p50 **18,353ms**, p90 **103,025ms**. Tool calls:
+  55,271/52,922 assistant messages (**1.0444/message**), p50/p90 **1/1**;
+  not calls per turn (turn boundaries unavailable). Compaction pre-token proxy:
+  829/829 valid events, p50 **257,179**, p90 **261,013** tokens;
+  model context-window capacity/utilization is unavailable.
+- Outcomes: 2,904 valid receipts, 0 invalid, cover 2,517 tasks; latest verdicts
+  **1,963 accepted / 535 reworked / 19 rejected**. Rework history: 727/2,517
+  tasks; 783 rework events. These are coordinator claims, not runtime proof.
+  Terminal-task receipt coverage: **1,826/5,804 (31.46%)**, leaving 3,978
+  without receipts; 691 receipted tasks lack terminal evidence. Notifications
+  separately total 4,856: done 4,057, turn_limit 793, error 5, stopped 1;
+  notifications are not accepted outcomes or proven turn-budget exhaustion.
+- Board/attempt IDs: **0 explicit board tasks / 0 attempts**; all 2,517 receipt
+  worker groups lack board/attempt dispatch IDs. Worker-session joins:
+  **1,796/2,517 (71.35%)** single-model; 457 missing, 52 ambiguous,
+  5 mixed/unknown-model, 207 reused-worker. Conservative accepted-board
+  observed cost is **unavailable (null)**: 0 eligible accepted boards and
+  0 cost samples, not zero cost. No whole-session cost/accepted-outcome ratio.
+- New dispatch lifecycle attempts, native timing samples, phase-duration claims
+  and versioned policy receipts: **0 observed**; actual model/effort provenance
+  from that lifecycle is unavailable. Missing observations do not prove zero
+  activity or activation. Refill causality, occupancy and first-token timing
+  remain unavailable. Quota custom cache/fetch samples: 0. Existing typed quota
+  results: **549 results / 3,843 rows**, producer statuses fresh 3,123,
+  unavailable 170, unknown 550; cache bounds/reuse unknown for all 3,843 rows.
+  Status is not independent provider freshness or account/budget authorization;
+  custom and typed populations cannot be causally paired.
+- Independent factual/arithmetic review accepted this mixed-exposure, non-atomic
+  closing baseline; all figures and prior history above are preserved. Private
+  aggregate `/tmp/pi-fast-closing-baseline.json` SHA-256:
+  `614370f9084d00bb8af07dd850ca5e28be305713ade081df84fd196185ce05c5`.
+  No apply or reload occurred during this capture. The later disk-application
+  boundary is **2026-11-04T20:40:54.521288+00:00**, recorded above, not backdated
+  to scan end. **Loaded-version/policy-consumption evidence unavailable/not
+  observed; existing sessions NOT reloaded.** Disk writes do not prove activation.
