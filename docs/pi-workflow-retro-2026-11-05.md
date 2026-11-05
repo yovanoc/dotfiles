@@ -17,7 +17,7 @@ Private aggregate `/tmp/pi-audit-BepG2B/aggregate.json`, arithmetic review `/tmp
 
 ## Approved next treatment
 
-The [ledger](pi-workflow-changes.md) records **APPROVED NOT YET APPLIED — control-plane-dispatch-recovery**: dispatch-oriented coordinator turns, fresh handoffs rather than stale resumes, and distinct audit metrics for notification latency, retrieval latency, resume misses and reasoning share. Reconciliation belongs in a worker packet. Do not infer activation or improvement from source changes. Next measurement should retain notification/task and checkpoint denominators, capture versioned activation evidence, and assess accepted/reworked outcomes as reported claims rather than runtime proof.
+The [ledger](pi-workflow-changes.md) records **APPLIED 2026-11-05 — control-plane-dispatch-recovery**: dispatch-oriented coordinator turns, fresh handoffs when live resumes are unavailable, and distinct audit metrics for notification latency, retrieval latency, resume misses and reasoning share. Reconciliation belongs in a worker packet. This is a disk-only apply; existing sessions were not reloaded, and activation or improvement is not established. Next measurement should retain notification/task and checkpoint denominators, capture versioned activation evidence, and assess accepted/reworked outcomes as reported claims rather than runtime proof.
 
 ## Quota and official references
 

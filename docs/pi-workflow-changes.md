@@ -414,8 +414,8 @@ claimed from disk application.
 
 Approved treatment: keep the root on bookkeeping and dispatch while notifications
 are pending, delegate reconciliation; retrieve completed workers promptly and
-use fresh handoff packets rather than resuming workers idle beyond the retention
-window. Measure notification-to-dispatch separately from retrieval-to-dispatch,
+use fresh handoff packets when the live worker record or session is unavailable;
+notification age alone does not preclude a live resume. Measure notification-to-dispatch separately from retrieval-to-dispatch,
 resume misses and reasoning-token share in the audit; qualify readiness and
 reload/activation evidence before attributing effects. Preserve existing safety,
 routing and acceptance rules. See [retrospective](pi-workflow-retro-2026-11-05.md).
