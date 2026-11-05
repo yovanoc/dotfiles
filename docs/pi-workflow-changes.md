@@ -127,22 +127,23 @@ Applied to `~/.pi` (coordinator.md and model-fallback/config.json); active after
   continuity are unavailable. Previous stored baseline covers only
   about five minutes and is not a useful control. October 20 values
   are an overlapping interim observation, not a previous period.
-  Treatment timing remains ambiguous: credit-anchor-provider-health
-  is PENDING despite commit b150ed1 and matching current coordinator
-  source/runtime files; application time is not established. The user
-  confirmed keeping this entry's timestamp as the audit start.
+  At the October 27 observation, treatment timing was unresolved and
+  credit-anchor-provider-health was PENDING. The source/runtime match observed
+  then proves neither historical application nor current state. It is now
+  HISTORICAL-UNTIMED below; no user input is pending. The user confirmed keeping
+  this entry's timestamp as the audit start.
   Original evidence: `/tmp/pi-retro-20261027.Gppe91/current.json`.
   Temporary evidence is not a durable archive; the verified aggregate
   baseline is preserved here. Different workloads, model releases,
   user choices and fallbacks confound causal comparisons.
 
-## PENDING — credit-anchor-provider-health
+## HISTORICAL-UNTIMED — credit-anchor-provider-health
 
-Application time unverified as of the October 27 retrospective. Commit `b150ed1`
-(2026-10-21) carries the trailer, and current coordinator source/runtime files
-match, but neither proves the full treatment's apply time. Keep PENDING until
-the user supplies that time or a new scoped apply establishes a known boundary;
-source edits and commits are not application.
+Application time is unknown; no user input is pending. Commit `b150ed1`
+(2026-10-21) carries the trailer. The October 27 retrospective recorded a
+source/runtime match at that time; later changes superseded those files. Neither
+establishes the full treatment's apply time. Do not use the commit date as an
+application or measurement boundary.
 
 - Coordinator: Sol medium, respecting user subscription choices. Workers:
   Go Haiku and Copilot Luna for bounded leaves, Sonnet for substantive work;
@@ -382,3 +383,54 @@ claimed from disk application.
   boundary is **2026-11-04T20:40:54.521288+00:00**, recorded above, not backdated
   to scan end. **Loaded-version/policy-consumption evidence unavailable/not
   observed; existing sessions NOT reloaded.** Disk writes do not prove activation.
+
+- Commit linkage: `e084e43` carries `Pi-Workflow: dispatch-ready-task-packets`;
+  that trailer identifies this fast-dispatch coordination entry.
+
+- Measured (current mixed-exposure snapshot, `--since
+  2026-11-04T20:40:54.521288+00:00`, no end bound; scan
+  2026-11-05T15:20:21Z–15:20:57Z): 364 session files, 363 with activity
+  (8 main, 355 workers), 1 without. Workers: **6,842 requests, $116.48525823**
+  ($0.017025/request); coordinators: **2,667 requests, $113.5186148**
+  ($0.042564/request). Costs are Pi-local estimates, not billing or debit.
+  Coordinator response p50/p90 35,171/126,411ms (2,667 samples); 2,699 tool
+  calls/2,667 assistant messages. Pre-compaction proxy p50/p90 257,488/261,644
+  (52 coordinator events; 53 all-session events).
+  Terminal tasks: 352 (316 done, 35 turn_limit, 1 error). Notifications are a
+  different population: 230 raw, 229 normalized; the discrepancy is unexplained.
+  269 valid receipts cover 191 tasks; latest 145 accepted, 43 reworked, 3
+  rejected; 67/191 have rework history. Terminal receipt coverage is 65/352;
+  126 receipted tasks lack terminal evidence. Receipts are coordinator claims,
+  not runtime proof. Dispatches: 565 (393 fresh, 172 resumed); zero lifecycle
+  attempts observed. Of 17 direct unattended checkpoint attempts, 16 succeeded
+  (11 continue, 3 blocked, 2 done), 1 errored; 6/11 continue successes link
+  temporally to continuation entries, not proven useful or accepted.
+  Scan has no fixed end and is non-atomic; this shorter, differently scoped
+  population is not comparable as a controlled prior-period rerun. Existing
+  sessions were not reloaded; activation and throughput improvement unproven.
+  Details and caveats: [retrospective](pi-workflow-retro-2026-11-05.md).
+
+## APPLIED 2026-11-05 — control-plane-dispatch-recovery
+
+Approved treatment: keep the root on bookkeeping and dispatch while notifications
+are pending, delegate reconciliation; retrieve completed workers promptly and
+use fresh handoff packets rather than resuming workers idle beyond the retention
+window. Measure notification-to-dispatch separately from retrieval-to-dispatch,
+resume misses and reasoning-token share in the audit; qualify readiness and
+reload/activation evidence before attributing effects. Preserve existing safety,
+routing and acceptance rules. See [retrospective](pi-workflow-retro-2026-11-05.md).
+Scoped disk apply ran 2026-11-05T16:39:19.418484+00:00 through
+2026-11-05T16:39:19.506582+00:00; the last target write was
+2026-11-05T16:39:19.492119745+00:00 (mtime_ns 1793896759492119745).
+The four targets under `~/.pi/agent/` were `docs/coordinator.md`,
+`docs/coordinator-execution.md`, `extensions/agent-prompt-guard.ts`, and
+`extensions/fast-task-dispatch.ts`. Scoped chezmoi verify and byte comparison
+passed. Independent runtime review accepted dispatch, preflight, prompt guard,
+routing and mapped strict TypeScript checks; accepted offline readiness evidence
+covers audit, timeout, compaction, outcome and mocked quota checks. This commit
+carries the `Pi-Workflow: control-plane-dispatch-recovery` trailer.
+
+Disk apply does not activate existing sessions or prove latency improvement.
+Keep one of `fast_task_ready` or `fast_task_dispatch` active for resumes; after
+workers settle, use `/reload` in each affected session to activate its current
+disk source. No cross-session reload is claimed.

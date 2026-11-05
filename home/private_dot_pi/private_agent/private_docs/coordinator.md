@@ -71,19 +71,24 @@ Tool names in source do not establish that the tools are loaded or approved for 
 
 On each completion, refill independent ready packets first as in Dispatch, then
 retrieve each finished worker once with `get_subagent_result(wait: false)` and
-update the ledger once. Accept required evidence before unblocking dependents;
-recompute readiness and refill again after acceptance. If unfinished backlog has
-no ready packets, name its actual blockers instead of declaring it done.
-Batch ready result retrievals, task reads, already-verified updates and the next
-dispatch batch's quota check in one `codemode` call. Run independent reads
-together; chain updates after their required reads and inspect each failure
-separately. Keep `Agent` dispatches native. Handle all completions already available in one bookkeeping pass, without waiting
-to form a batch; running workers need no poll.
-Results expire around ten minutes: if missing, read the notification's
-`<output-file>` final answer instead of rerunning. Leave unavailable results/tasks open and report gaps.
-Inspect actual runtime (including fallback switches) and partial edits before
-retrying. Resume failed/partial/steered/aborted work when context fits; otherwise
-re-split remaining scope. Changing runtime requires a fresh worker, not a resume.
+update the ledger once. While notifications are pending, root does compact
+bookkeeping and dispatch; delegate substantive reconciliation in a bounded packet.
+Accept required evidence before unblocking dependents; recompute readiness and refill again after acceptance.
+If unfinished backlog has no ready packets, name its actual blockers instead of declaring it done.
+Batch available result retrievals, task reads, already-verified updates and quota
+checks in one `codemode` call; return compact IDs, states, blockers and evidence
+paths, not full task histories or results. Run independent reads together, chain
+updates after required reads and inspect failures separately. Keep `Agent`
+dispatches native. Handle available completions now, without waiting to form a
+batch; running workers need no poll.
+Live records may be cleaned up around ten minutes; saved results can survive.
+Resume only a live session, regardless of notification age. If the record is gone,
+retrieve the saved result or notification's `<output-file>`, inspect partial edits
+and prepare an explicitly approved fresh handoff packet; never silently redispatch.
+See [recovery details and packet example](coordinator-execution.md) on rejection.
+Inspect actual runtime (including fallback switches) before retrying. Resume
+failed/partial/steered/aborted work when live context fits; otherwise re-split
+remaining scope. Changing runtime requires a fresh worker, not a resume.
 Allow at most one safe recoverable retry; stop affected hard auth/quota/config
 failures and report them. Stop workers silent far beyond expected duration;
 steer only with information they cannot find. Keep coordinator turns short;

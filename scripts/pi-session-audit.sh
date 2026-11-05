@@ -86,8 +86,9 @@ fi
 
 local_time() {
   "$JQ" -nr --argjson cutoff "$1" '
-  ($cutoff | localtime) as $local
-  | ($cutoff - ($local | mktime)) as $west
+  ($cutoff | floor) as $second
+  | ($second | localtime) as $local
+  | ($second - ($local | mktime)) as $west
   | ($west | abs | floor) as $offset
   | ($local | strftime("%Y-%m-%dT%H:%M:%S")) as $date
   | ($offset / 3600 | floor) as $hours
@@ -148,6 +149,9 @@ else
       "Agent dispatches: \($r.agent_dispatches.total); max_turns \($r.agent_dispatches.max_turns | counts); model \($r.agent_dispatches.model | counts); thinking \($r.agent_dispatches.thinking | counts); background \($r.agent_dispatches.background | counts); resume \($r.agent_dispatches.resume | counts)",
       "Unique terminal notification statuses: \($r.terminal_notification_statuses_unique | counts)",
       "get_subagent_result: \($r.get_subagent_result.attempts) attempts, \($r.get_subagent_result.misses) misses (\($r.get_subagent_result.unique_missed_targets) unique targets, \($r.get_subagent_result.duplicate_misses) duplicate misses)",
+      "Missing-agent failures: \($r.missing_agent_failures | tojson)",
+      "Notification timing: \($r.notification_timing | tojson)",
+      "Reasoning tokens: \($r.reasoning_tokens | tojson)",
       "Observed worker-span overlap proxy: \($r.workers.max_concurrency_observed_span_upper_bound)",
       (["workers", "nonworker_coordinators"][] as $g | $r.model_metrics[$g] | to_entries | sort_by(.key)[]
         | "Model \($g) \(.key): requests=\(.value.requests), input=\(.value.input), output=\(.value.output), cache_read=\(.value.cache_read), cache_write=\(.value.cache_write), cost=\(.value.cost_total)"),

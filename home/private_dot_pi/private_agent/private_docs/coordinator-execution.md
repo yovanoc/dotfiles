@@ -27,6 +27,37 @@ the 50-lane campaign cap, turn budgets and explicit-opt-in rules still apply.
 - Use `max_turns` on each call; these settings do not establish durable
   unattended campaign operation.
 
+## Packet and resume recovery
+
+`fast_task_ready` / `fast_task_dispatch` revalidate metadata and return compact
+`reason`, `field`, `hint` on packet rejection, without echoing the packet. Correct
+the named field; approval is literal `true`, ownership uses absolute literal paths,
+and every grant appears verbatim in the prompt. Role names resolve installed agent
+definitions, not task labels. Example `metadata.fastTask` (substitute the assigned
+path, actual grants and an approved available route before launch):
+
+```json
+{
+  "schemaVersion": 1, "approved": true, "role": "implementer",
+  "model": "openai/gpt-6.1-terra", "effort": "medium", "maxTurns": 35,
+  "ownedPaths": ["/repo/scripts/check.sh"], "dependencies": [],
+  "grants": ["Local reversible edits only."], "phase": "implementation",
+  "prompt": "OUTCOME: Add an offline regression assertion to /repo/scripts/check.sh.\nREQUIRED TOOLS: read, bash\nOWNED FILES: /repo/scripts/check.sh\nINTERFACES TO PRESERVE: Existing assertions and CLI.\nEXCLUDED SCOPE: Dependencies, routing and release actions.\nCHECKS: bash -n /repo/scripts/check.sh; bash /repo/scripts/check.sh.\nAUTHORIZATION: Local reversible edits only."
+}
+```
+
+Root resume preflight checks the documented live manager, not notification age.
+Keep `fast_task_ready` or `fast_task_dispatch` active: its loadout hook installs a
+second live check at execution, before native saved-session fallback. With both
+inactive, resumes fail closed as `execution_guard_unavailable`; enable one before
+resuming. Permission and other tool-call guards still run normally.
+`saved_result_only`, `not_found` or `no_active_session` require an explicit fresh
+handoff: retrieve evidence once, retain unresolved ownership until reconciled,
+then assign remaining scope, grants, route, budget and checks. Saved results prove
+neither live resumability nor acceptance. `live_state_unavailable` requires live
+state verification, not a blind retry; `still_running` calls for steering or its
+completion notification. Cleanup explains many missing records, not every failure.
+
 ## Failure and budget details
 
 Native OpenAI usage-limit errors can arrive mid-stream without a matching HTTP

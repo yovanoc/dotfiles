@@ -99,6 +99,22 @@ export function solRationaleReason(input: { model?: unknown, prompt?: unknown, r
   return "Agent preflight rejected: a fresh Sol worker needs a `MODEL RATIONALE:` line (4+ words) naming why a lighter route is unsuitable: difficult interacting invariants, a verified lighter-route miss, explicit user choice, or no suitable eligible alternative. Root running Sol is not a reason; otherwise choose a lighter route."
 }
 
+// Root-only: the documented singleton belongs to the root, not a worker's own manager.
+export function agentResumeReason(resume: unknown, ctx: Pick<ExtensionContext, "sessionManager">): string | undefined {
+  if (resume === undefined || resume === "") return
+  type LiveRecord = { status?: string, session?: unknown }
+  const manager = (globalThis as Record<symbol, { getRecord?: (id: string) => LiveRecord | undefined } | undefined>)[Symbol.for("pi-subagents:manager")]
+  const unavailable = "Agent resume rejected: live_state_unavailable. Verify the live manager before retrying; saved results and notification age do not prove resumability. No worker was dispatched."
+  if (typeof resume !== "string" || typeof manager?.getRecord !== "function") return unavailable
+  let record: LiveRecord | undefined
+  try { record = manager.getRecord(resume) } catch { return unavailable }
+  if (record?.status === "running" || record?.status === "queued") return "Agent resume rejected: still_running. Use steer_subagent for new information or await its completion notification; no worker was dispatched."
+  if (record?.session) return
+  const saved = ctx.sessionManager.getBranch().some(e => e.type === "custom" && e.customType === "subagents:record" && (e.data as { id?: unknown } | null)?.id === resume)
+  const reason = record ? "no_active_session" : saved ? "saved_result_only" : "not_found"
+  return `Agent resume rejected: ${reason}; fresh_handoff_required. Retrieve get_subagent_result(wait: false) or the notification's <output-file>, inspect partial edits, then prepare an explicit approved fresh packet with remaining outcome, ownership, grants, route, turn budget and checks. Saved results are not a live session. No resume or fresh dispatch occurred.`
+}
+
 export default function (pi: ExtensionAPI) {
   pi.on("tool_call", (event, ctx) => {
     if (event.toolName !== "Agent") return

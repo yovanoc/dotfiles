@@ -87,6 +87,12 @@ jq -e '.main_sessions.created_within_window == 1 and .scan.unreadable_files == 0
   and .model_metrics.nonworker_coordinators["p/m"].requests == 2
   and .coordinator_activity.response_duration_ms == {count:2,p50:100,p90:900,assistant_messages:2,missing_or_invalid:0}' "$tmp_root/malformed-messages.json" >/dev/null
 
+# Fractional boundaries keep epoch filtering while labels use the correct local offset.
+TZ=Europe/Paris "$SCRIPT" --sessions-dir "$root" --since '2024-05-02T16:30:00.5Z' --until '2024-05-02T16:30:00.75Z' --json > "$tmp_root/fractional.json"
+jq -e '.window_start_local == "2024-05-02T18:30:00+02:00" and .window_end_local == "2024-05-02T18:30:00+02:00" and .agent_dispatches.total == 0' "$tmp_root/fractional.json" >/dev/null
+TZ=Europe/Paris "$SCRIPT" --sessions-dir "$root" --since '2024-11-04T20:40:54.521288Z' --json > "$tmp_root/fractional-winter.json"
+jq -e '.window_start_local == "2024-11-04T21:40:54+01:00"' "$tmp_root/fractional-winter.json" >/dev/null
+
 # A naive local cutoff must select the same events as the equivalent explicit offset.
 TZ=America/New_York "$SCRIPT" --sessions-dir "$root" --since '2024-05-02T12:00:00' --json > "$tmp_root/naive.json"
 jq -e --slurpfile expected "$tmp_root/report.json" 'del(.scan_timing) == ($expected[0] | del(.scan_timing))' "$tmp_root/naive.json" >/dev/null
@@ -849,6 +855,67 @@ jq -e '.retrospective.board_attempt_outcomes.receipt_to_dispatch.joined == 1
   and .future_evidence.accepted_board_task_cost.components.worker_id_unavailable == 1
   and .dispatch_lifecycle.rejected_events == 1' "$tmp_root/compat.json" >/dev/null
 if grep -q PRIVATE_SECRET "$tmp_root/compat.json"; then echo 'dispatch compatibility leaked metadata' >&2; exit 1; fi
+
+# Missing-agent classes never search the enclosing codemode text a second time.
+metrics="$tmp_root/remaining-metrics"
+mkdir -p "$metrics"
+cat > "$metrics/c.jsonl" <<'EOF'
+{"type":"session","timestamp":"2024-05-02T12:00:00Z"}
+{"type":"message","timestamp":"2024-05-02T11:59:59Z","message":{"role":"assistant","content":[{"type":"toolCall","id":"before","name":"Agent","arguments":{"resume":"METRIC_SECRET"}}]}}
+{"type":"message","id":"m1","timestamp":"2024-05-02T12:01:00Z","message":{"role":"assistant","usage":{"output":10,"reasoning":4},"content":[{"type":"toolCall","id":"get","name":"get_subagent_result","arguments":{"agent_id":"METRIC_SECRET"}},{"type":"toolCall","id":"resume","name":"Agent","arguments":{"resume":"METRIC_SECRET"}},{"type":"toolCall","id":"fresh","name":"Agent","arguments":{}}]}}
+{"type":"message","timestamp":"2024-05-02T12:01:01Z","message":{"role":"toolResult","toolName":"get_subagent_result","toolCallId":"get","content":[{"type":"text","text":"Agent not found: METRIC_SECRET"}]}}
+{"type":"message","timestamp":"2024-05-02T12:01:02Z","message":{"role":"toolResult","toolName":"Agent","toolCallId":"resume","isError":false,"content":[{"type":"text","text":"Agent not found: METRIC_SECRET. It may have been cleaned up."}]}}
+{"type":"message","timestamp":"2024-05-02T12:01:02Z","message":{"role":"toolResult","toolName":"Agent","toolCallId":"fresh","content":[{"type":"text","text":"Agent not found: METRIC_SECRET"}]}}
+{"type":"message","timestamp":"2024-05-02T12:01:02Z","message":{"role":"toolResult","toolName":"Agent","toolCallId":"before","content":[{"type":"text","text":"Agent not found: METRIC_SECRET"}]}}
+{"type":"message","timestamp":"2024-05-02T12:01:02Z","message":{"role":"toolResult","toolName":"Agent","toolCallId":"unknown","content":[{"type":"text","text":"Agent not found: METRIC_SECRET"}]}}
+{"type":"message","timestamp":"2024-05-02T12:01:03Z","message":{"role":"toolResult","toolName":"codemode","content":[{"type":"text","text":"Agent not found: METRIC_SECRET Agent not found: METRIC_SECRET"}],"nestedCalls":{"complete":false,"calls":[{"name":"get_subagent_result","status":"error","error":"Nested agent not found or not owned by this parent: METRIC_SECRET"},{"name":"get_subagent_result","status":"ok"},{"name":"get_subagent_result","status":"error"},{"name":"get_subagent_result","status":"unfinished"},{"name":"Agent","status":"error","arguments":{"resume":"METRIC_SECRET"},"error":"Agent not found: METRIC_SECRET"},{"name":"Agent","status":"error","argumentsBytes":50000,"error":"Agent not found: METRIC_SECRET"}]}}}
+{"type":"custom_message","customType":"subagent-notification","timestamp":"2024-05-02T12:02:00Z","content":"<task-id>metric01-aaaa</task-id><status>done</status><result>METRIC_SECRET</result>"}
+{"type":"custom_message","customType":"subagent-notification","timestamp":"2024-05-02T12:02:00Z","content":"<task-id>metric01-aaaa</task-id><status>done</status><result>METRIC_SECRET</result>"}
+{"type":"message","id":"m2","timestamp":"2024-05-02T12:02:02Z","message":{"role":"assistant","usage":{"output":20},"content":[]}}
+{"type":"message","id":"m3","timestamp":"2024-05-02T12:02:05Z","message":{"role":"assistant","usage":{"output":0,"reasoning":0},"content":[{"type":"toolCall","name":"Agent","arguments":{}}]}}
+{"type":"custom","customType":"subagents:record","timestamp":"2024-05-02T12:03:00Z","data":{"id":"metric01-aaaa","status":"completed","completedAt":1714651319000,"result":"METRIC_SECRET"}}
+{"type":"custom","customType":"subagents:record","timestamp":"2024-05-02T12:03:00Z","data":{"id":"metric01-aaaa","status":"completed","completedAt":1714651319000}}
+{"type":"custom_message","customType":"subagent-notification","timestamp":"2024-05-02T12:04:00Z","content":"<task-id>metric02-aaaa</task-id><status>done</status>"}
+{"type":"message","id":"m4","timestamp":"2024-05-02T12:03:59Z","message":{"role":"assistant","usage":{"output":5,"reasoning":-1},"content":[{"type":"toolCall","name":"Agent","arguments":{}}]}}
+{"type":"custom","customType":"subagents:record","timestamp":"2024-05-02T12:04:01Z","data":{"id":"metric02-aaaa","status":"completed","completedAt":1714651441000}}
+{"type":"message","id":"m5","timestamp":"2024-05-02T12:05:00Z","message":{"role":"assistant","usage":{"output":2,"reasoning":3},"content":[]}}
+{"type":"message","id":"m5","timestamp":"2024-05-02T12:05:00Z","message":{"role":"assistant","usage":{"output":2,"reasoning":3},"content":[]}}
+{"type":"message","id":"m6","timestamp":"2024-05-02T12:06:00Z","message":{"role":"assistant","usage":{"output":"bad","reasoning":2},"content":[]}}
+{"type":"message","id":"m7","timestamp":"2024-05-02T12:07:00Z","message":{"role":"assistant","usage":{"reasoning":null},"content":[]}}
+{"type":"custom_message","customType":"subagent-notification","timestamp":"2024-05-02T12:59:59Z","content":"<task-id>metric03-aaaa</task-id><status>done</status>"}
+{"type":"message","timestamp":"2024-05-02T13:00:01Z","message":{"role":"assistant","usage":{"reasoning":999,"output":999},"content":[{"type":"toolCall","name":"Agent","arguments":{}}]}}
+EOF
+# Same task identity in a different file must not supply the missing completion or next event.
+cat > "$metrics/w.jsonl" <<'EOF'
+{"type":"session","timestamp":"2024-05-02T12:00:00Z","parentSession":"METRIC_SECRET"}
+{"type":"session_info","timestamp":"2024-05-02T12:00:00Z","name":"implementer#worker01"}
+{"type":"custom","customType":"subagents:record","timestamp":"2024-05-02T12:59:59Z","data":{"id":"metric03-aaaa","status":"completed","completedAt":1714654799000}}
+{"type":"message","timestamp":"2024-05-02T13:00:00Z","message":{"role":"assistant","usage":{"output":8,"reasoning":2},"content":[]}}
+EOF
+"$SCRIPT" --sessions-dir "$metrics" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z --json > "$tmp_root/metrics.json"
+jq -e '.missing_agent_failures as $f | .notification_timing as $t | .reasoning_tokens.by_role as $r
+  | $f.direct_retrieval == {attempts:1,results:1,missing_agent:1}
+  and $f.agent_resume == {attempts:1,results:2,missing_agent:2}
+  and $f.nested_codemode_retrieval == {attempts:4,results:3,missing_agent:1,unfinished_or_unknown:1,errors_without_text:1}
+  and $f.nested_agent_resume == {attempts:1,results:1,missing_agent:1,unfinished_or_unknown:0,errors_without_text:0}
+  and $f.coverage == {resume_arguments_unavailable:1,unjoined_agent_results:1,incomplete_nested_records:1}
+  and $t.notifications == 3 and $t.duplicate_notifications_excluded == 1
+  and $t.completed_to_notification_ms == {count:1,p50:1000,p90:1000,denominator_notifications:3,coverage:{measured:1,inverted:1,missing_completion:1},denominator_completion_tasks:3,right_censored_completion_tasks:1}
+  and $t.notification_to_next.assistant_ms == {count:1,p50:2000,p90:2000,denominator_notifications:3,coverage:{measured:1,inverted:1,right_censored:1}}
+  and $t.notification_to_next.Agent_ms == {count:1,p50:5000,p90:5000,denominator_notifications:3,coverage:{measured:1,inverted:1,right_censored:1}}
+  and $r.nonworker_coordinators == {assistant_messages:7,duplicate_events_excluded:1,reasoning_valid:4,reasoning_missing:1,reasoning_invalid:2,
+    output_valid:5,output_missing:1,output_invalid:1,reasoning_tokens:9,output_tokens:37,comparable_messages:2,comparable_reasoning_tokens:4,
+    comparable_output_tokens:10,reasoning_exceeds_output:1,noncomparable_messages:5,output_share:0.4}
+  and $r["worker/implementer"].output_share == 0.25 and $r["worker/implementer"].assistant_messages == 1
+' "$tmp_root/metrics.json" >/dev/null || { jq '.missing_agent_failures,.notification_timing,.reasoning_tokens' "$tmp_root/metrics.json"; exit 1; }
+"$SCRIPT" --sessions-dir "$metrics" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z > "$tmp_root/metrics.txt"
+if grep -E 'METRIC_SECRET|metric0[123]|worker01' "$tmp_root/metrics.json" "$tmp_root/metrics.txt"; then echo 'new metrics leaked payload or task identity' >&2; exit 1; fi
+# A conflicting completion is unknown, never silently first/last; zero output has no share.
+jq -nc '{type:"custom",customType:"subagents:record",timestamp:"2024-05-02T12:03:01Z",data:{id:"metric01-aaaa",status:"completed",completedAt:1714651318000}}' >> "$metrics/c.jsonl"
+"$SCRIPT" --sessions-dir "$metrics" --since 2024-05-02T12:02:04Z --until 2024-05-02T12:02:05Z --json |
+  jq -e '.reasoning_tokens.by_role.nonworker_coordinators | .comparable_messages == 1 and .output_share == null' >/dev/null
+"$SCRIPT" --sessions-dir "$metrics" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z --json |
+  jq -e '.notification_timing.completed_to_notification_ms | .count == 0 and .coverage.ambiguous_completion == 1' >/dev/null
 
 # Exercise the default last-48-hour window with a current event.
 default_root="$tmp_root/default-sessions"

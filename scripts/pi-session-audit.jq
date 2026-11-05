@@ -151,6 +151,13 @@ def content_texts:
   elif type == "array" then [.[] | select(type == "object" and (.text | type) == "string") | .text]
   else [] end;
 
+# Fixed classification only; enclosing codemode output is never searched for nested failures.
+def missing_agent: content_texts | any(.[]; test("\\b(?:agent|subagent|worker)\\s+not\\s+found\\b"; "i"));
+def resumed: . != null and . != false and . != "" and . != 0 and . != [] and . != {};
+def token_count: nonnegative and floor == . and . <= 9007199254740991;
+def token_state($u; $key):
+  if ($u | has($key) | not) then "missing" elif ($u[$key] | token_count) then "valid" else "invalid" end;
+
 def timeout_label($args):
   ($args.timeout) as $timeout
   | if (($args | has("timeout") | not)) or $timeout == null or $timeout == 0 or $timeout == false then "not_set"
@@ -181,6 +188,7 @@ def handle_block($block; $in_window):
        .agent_calls[$block.id] = {
          model: (if $args.model == null then "omitted" else ($args.model | safe_label) end),
          effort: (if $args.thinking == null then "omitted" else ($args.thinking | safe_label) end)}
+       | .resume_calls[$block.id] = ($args.resume | resumed)
      elif $name == "unattended_checkpoint" or $name == "handoff_checkpoint" then .ckpt_calls[$block.id] = $name
      else . end)
   | if $name == "get_subagent_result" then
@@ -190,6 +198,7 @@ def handle_block($block; $in_window):
       .checkpoints |= bump(if $args.status == "continue" or $args.status == "blocked" or $args.status == "done" then $args.status else "other" end)
     elif $in_window and $name == "handoff_checkpoint" then .ckpt.handoff.attempts += 1
     elif $in_window and $name == "Agent" then dispatch($args)
+      | if ($args.resume | resumed) then .failure_counts.agent_resume.attempts += 1 else . end
     elif $in_window and $name == "codemode" then .codemode_calls += 1
     elif $in_window and ($name == "bash" or $name == "Bash") then
       .bash.calls += 1
@@ -304,6 +313,7 @@ def process_event($event):
       and (($event.data.status | record_status) != null) then
       .tasks[$event.data.id].r = ($event.data.status | record_status)
       | .tasks[$event.data.id].rr = ($event.data.status | raw_termination)
+      | if ($event.data.completedAt | native_time) then .completion_times[$event.data.id] |= ((. // []) + [$event.data.completedAt] | unique) else . end
     else . end
   | if $event.type == "model_change" then
       (($event.provider | safe_label) + "/" + ($event.modelId | safe_label)) as $selection
@@ -320,6 +330,7 @@ def process_event($event):
            (try ($event.content | capture("<task-id>(?<value>[^<]{0,128})</task-id>"; "i").value) catch $event.id)
          else $event.id end) as $identity
       | (if ($identity | type) == "string" or ($identity | type) == "number" or ($identity | type) == "boolean" then $identity else .line_number end) as $identity
+      | .notification_times += [{key: ([$identity, $status, $raw] | tojson), task: ($event.content | xml_field("task-id")), ts: $timestamp, line: .line_number}]
       | (if $raw != null then .raw_notifications |= (. + [([$path, $identity, $raw] | tojson)] | unique) else . end)
       | if $status == null then . else
           .notifications |= (. + [([$path, $identity, $status] | tojson)] | unique)
@@ -334,7 +345,23 @@ def process_event($event):
     else . end
   | if ($event.message | type) == "object" and $event.message.role == "assistant" then
       if $in_window then
-        if ($event.id | type) == "string" and .cost.seen[$event.id] == true then .cost.duplicate_events += 1
+        .assistant_times += [{ts: $timestamp, line: .line_number,
+          agent: (if ($event.message.content | type) == "array" then any($event.message.content[]; type == "object" and .type == "toolCall" and .name == "Agent") else false end)}]
+        | if ($event.id | type) == "string" and .cost.seen[$event.id] == true then .reasoning.duplicate_events_excluded += 1
+          else
+            ($event.message.usage | if type == "object" then . else {} end) as $u
+            | token_state($u; "reasoning") as $r | token_state($u; "output") as $o
+            | .reasoning.assistant_messages += 1
+            | .reasoning[("reasoning_" + $r)] += 1 | .reasoning[("output_" + $o)] += 1
+            | if $r == "valid" then .reasoning.reasoning_tokens += $u.reasoning else . end
+            | if $o == "valid" then .reasoning.output_tokens += $u.output else . end
+            | if $r == "valid" and $o == "valid" then
+                if $u.reasoning <= $u.output then
+                  .reasoning.comparable_messages += 1 | .reasoning.comparable_reasoning_tokens += $u.reasoning | .reasoning.comparable_output_tokens += $u.output
+                else .reasoning.reasoning_exceeds_output += 1 end
+              else . end
+          end
+        | if ($event.id | type) == "string" and .cost.seen[$event.id] == true then .cost.duplicate_events += 1
         else .cost.requests += 1
           | if ($event.id | type) == "string" then .cost.seen[$event.id] = true else .cost.requests_without_event_id += 1 end
           | if ($event.message.usage.cost.total? | nonnegative) then .cost.samples += 1 | .cost.observed += $event.message.usage.cost.total else . end
@@ -391,9 +418,24 @@ def process_event($event):
       else .quota_typed_invalid += 1 end
     else . end
   | if $in_window and ($event.message | type) == "object" and $event.message.role == "toolResult" and ($event.message.nestedCalls | type) == "object" and ($event.message.nestedCalls.calls | type) == "array" then
-      reduce $event.message.nestedCalls.calls[] as $call (. ;
+      (if $event.message.nestedCalls.complete != true then .failure_counts.incomplete_nested_records += 1 else . end)
+      | reduce $event.message.nestedCalls.calls[] as $call (. ;
         if ($call | type) == "object" and ($call.name | IN("TaskCreate", "TaskGet", "TaskList", "TaskUpdate", "TaskExecute", "TaskOutput", "TaskStop", "Agent", "get_subagent_result", "unattended_checkpoint", "handoff_checkpoint")) then
-          .nested_calls[$call.name].calls += 1
+          (if $event.message.toolName == "codemode" and $call.name == "get_subagent_result" then
+             .failure_counts.nested_codemode_retrieval.attempts += 1
+             | .failure_counts.nested_codemode_retrieval |= bump(if ($call.status | IN("ok", "error")) then "results" else "unfinished_or_unknown" end)
+             | if ($call.error | missing_agent) then .failure_counts.nested_codemode_retrieval.missing_agent += 1 else . end
+             | if $call.status == "error" and ($call.error | type) != "string" then .failure_counts.nested_codemode_retrieval.errors_without_text += 1 else . end
+           elif $call.name == "Agent" then
+             if ($call.arguments | type) != "object" then .failure_counts.resume_arguments_unavailable += 1
+             elif ($call.arguments.resume | resumed) then
+               .failure_counts.nested_agent_resume.attempts += 1
+               | .failure_counts.nested_agent_resume |= bump(if ($call.status | IN("ok", "error")) then "results" else "unfinished_or_unknown" end)
+               | if ($call.error | missing_agent) then .failure_counts.nested_agent_resume.missing_agent += 1 else . end
+               | if $call.status == "error" and ($call.error | type) != "string" then .failure_counts.nested_agent_resume.errors_without_text += 1 else . end
+             else . end
+           else . end)
+          | .nested_calls[$call.name].calls += 1
           | if ($call.durationMs | type) == "number" and $call.durationMs >= 0 then .nested_calls[$call.name].duration_ms += $call.durationMs | .nested_calls[$call.name].timed += 1 else . end
           | if $call.status == "error" or (($call | has("error")) and $call.error != null and $call.error != false) then .nested_calls[$call.name].errors += 1 else . end
         else . end)
@@ -419,6 +461,12 @@ def process_event($event):
                else .pending_continue = null end
            else .ckpt.handoff.successful += 1 end)
         else .ckpt[$bucket].invalid_results += 1 end
+    elif $in_window and $event.message.role == "toolResult" and $event.message.toolName == "Agent" then
+      (if ($event.message.toolCallId | type) == "string" then .resume_calls[$event.message.toolCallId] else null end) as $resume
+      | if $resume == true then
+          .failure_counts.agent_resume.results += 1
+          | if ($event.message.content | missing_agent) then .failure_counts.agent_resume.missing_agent += 1 else . end
+        elif $resume == null then .failure_counts.unjoined_agent_results += 1 else . end
     elif $in_window and $event.message.role == "toolResult" and $event.message.toolName == "get_subagent_result" then
       .retrieval.results += 1
       | ($event.message.content | content_texts) as $texts
@@ -447,6 +495,14 @@ def scan_file:
       nonblank: 0, worker_prefix: null, all_models: {}, agent_calls: {}, ckpt_calls: {}, tasks: {}, receipts: {}, receipts_invalid: 0, continuations: 0,
       ckpt: {unattended: {successful: {}, error_results: 0, invalid_results: 0}, handoff: {attempts: 0, successful: 0, error_results: 0, invalid_results: 0}},
       notifications: [], raw_notifications: [], models: {}, calls: {}, codemode_calls: 0, nested_calls: {},
+      resume_calls: {}, failure_counts: {agent_resume: {attempts: 0, results: 0, missing_agent: 0},
+        nested_codemode_retrieval: {attempts: 0, results: 0, missing_agent: 0, unfinished_or_unknown: 0, errors_without_text: 0},
+        nested_agent_resume: {attempts: 0, results: 0, missing_agent: 0, unfinished_or_unknown: 0, errors_without_text: 0},
+        resume_arguments_unavailable: 0, unjoined_agent_results: 0, incomplete_nested_records: 0},
+      completion_times: {}, notification_times: [], assistant_times: [],
+      reasoning: {assistant_messages: 0, duplicate_events_excluded: 0, reasoning_valid: 0, reasoning_missing: 0, reasoning_invalid: 0,
+        output_valid: 0, output_missing: 0, output_invalid: 0, reasoning_tokens: 0, output_tokens: 0,
+        comparable_messages: 0, comparable_reasoning_tokens: 0, comparable_output_tokens: 0, reasoning_exceeds_output: 0},
       pending_continue: null, link: {linked: {}, unlinked: 0, continue_successes: 0}, retrieval: {attempts: 0, results: 0, misses: 0, targets: []}
     };
     .line_number += 1
@@ -484,7 +540,9 @@ def scan_file:
       codemode_calls: $summary.codemode_calls, nested_calls: $summary.nested_calls, link: $summary.link,
       nonblank_events_header_only: ($summary.has_header and $summary.nonblank == 1),
       models: $summary.models,
-      retrieval: $summary.retrieval
+      retrieval: $summary.retrieval,
+      failure_counts: $summary.failure_counts, reasoning: $summary.reasoning,
+      completion_times: $summary.completion_times, notification_times: $summary.notification_times, assistant_times: $summary.assistant_times
     }
   + (if $summary.recent and $summary.has_header then
        ($summary.created // $summary.earliest) as $created
@@ -808,6 +866,31 @@ def checkpoint_identity($files):
      legacy_unknown: ([$files[].provenance_legacy // 0] | add // 0), invalid_metadata: ([$files[].provenance_invalid // 0] | add // 0),
      accepted_usefulness: {available: false, reason: "Consumption observes a completed turn after tagged context; it does not establish reading, acceptance, usefulness, or provider payload contents."}};
 
+# Sequence chooses the next logged event; inverted clocks are coverage gaps, not negative samples.
+def notification_timing($files):
+  [$files[] | . as $f
+    | (($f.notification_times // []) | unique_by(.key))[] as $n
+    | (($f.completion_times[$n.task // ""] // []) | unique) as $c
+    | {completion: (if ($c | length) == 0 then {state: "missing_completion"}
+                    elif ($c | length) != 1 then {state: "ambiguous_completion"}
+                    elif $c[0] > $n.ts * 1000 then {state: "inverted"}
+                    else {state: "measured", ms: ($n.ts * 1000 - $c[0])} end),
+       next: (["assistant", "Agent"] | map(. as $kind
+         | ([$f.assistant_times[]? | select(.line > $n.line and ($kind == "assistant" or .agent))] | first) as $a
+         | {key: $kind, value: (if $a == null then {state: "right_censored"}
+             elif $a.ts < $n.ts then {state: "inverted"}
+             else {state: "measured", ms: (($a.ts - $n.ts) * 1000)} end)}) | from_entries)}] as $rows
+  | ([$files[] | . as $f | (.completion_times // {} | keys[]) as $task
+       | {notified: any($f.notification_times[]?; .task == $task)}]) as $completed
+  | {notifications: ($rows | length), duplicate_notifications_excluded: (([$files[].notification_times[]?] | length) - ($rows | length)),
+     completed_to_notification_ms: (distribution([$rows[].completion | select(.state == "measured") | .ms])
+       + {denominator_notifications: ($rows | length), coverage: ([$rows[].completion.state] | tally(.)),
+          denominator_completion_tasks: ($completed | length), right_censored_completion_tasks: ([$completed[] | select(.notified | not)] | length)}),
+     notification_to_next: (["assistant", "Agent"] | map(. as $kind | {key: ($kind + "_ms"), value:
+       (distribution([$rows[].next[$kind] | select(.state == "measured") | .ms])
+        + {denominator_notifications: ($rows | length), coverage: ([$rows[].next[$kind].state] | tally(.))})}) | from_entries),
+     note: "Same-file terminal subagents:record.completedAt (epoch ms), joined by task ID; repeated equal completion times deduplicate, conflicting times are ambiguous. Next means subsequent log order within the requested window, including timestamp inversions. Right-censored means no observed notification/next event before the window/file ends; completion-task coverage includes only records with valid completedAt. Next Agent means a direct assistant tool call, not nested calls (no start timestamp contract). Descriptive timing only: no readiness, reading, causality, or refill claim."};
+
 def aggregate:
   . as $all
   | ([$all[] | select(type == "object" and has("_candidates")) | ._candidates] | first) as $candidates
@@ -1012,7 +1095,7 @@ def aggregate:
         direct_structured_unattended_checkpoint_attempts: ([$files[].checkpoints[]] | add // 0),
         nested_typed_calls: (reduce ($files[].nested_calls // {} | to_entries[]) as $e ({};
           .[$e.key].calls += $e.value.calls | .[$e.key].timed += ($e.value.timed // 0) | .[$e.key].duration_ms += ($e.value.duration_ms // 0) | .[$e.key].errors += ($e.value.errors // 0))),
-        note: "Direct counts are separate from allowlisted typed nestedCalls metadata; nested arguments and code are not parsed. Durations and errors reflect only recorded metadata."
+        note: "Direct counts are separate from allowlisted typed nestedCalls metadata; nested code and payload text are not parsed. The missing-agent metrics additionally inspect only resume presence in typed arguments and a fixed error pattern. Durations and errors reflect only recorded metadata."
       },
       scan_reconciliation: (
         ([$files[] | select(.classification != null)] | length) as $classified
@@ -1080,6 +1163,23 @@ def aggregate:
         thinking: $thinking,
         background: $background,
         resume: $resume
+      },
+      missing_agent_failures: {
+        direct_retrieval: {attempts: ([$files[].retrieval.attempts // 0] | add // 0),
+          results: ([$files[].retrieval.results // 0] | add // 0), missing_agent: ([$files[].retrieval.misses // 0] | add // 0)},
+        agent_resume: ([$files[].failure_counts.agent_resume // {}] | sum_counts(.)),
+        nested_codemode_retrieval: ([$files[].failure_counts.nested_codemode_retrieval // {}] | sum_counts(.)),
+        nested_agent_resume: ([$files[].failure_counts.nested_agent_resume // {}] | sum_counts(.)),
+        coverage: ([$files[].failure_counts // {} | del(.agent_resume, .nested_codemode_retrieval, .nested_agent_resume)] | sum_counts(.)),
+        note: "Missing-agent counts are fixed-pattern matches, not isError flags. Denominators are recorded attempts and results separately (window boundaries may differ). Nested classifications use only typed call.error, never enclosing codemode text; missing/truncated error text and incomplete records make counts lower bounds. Resume requires a joined direct call or recorded nested arguments; unknown joins are not fresh calls."
+      },
+      notification_timing: notification_timing($files),
+      reasoning_tokens: {
+        by_role: ([$files[] | select(.classification != null) | {role: (if .classification == "worker" then "worker/" + .worker_type else "nonworker_coordinators" end), counts: .reasoning}]
+          | group_by(.role) | map({key: .[0].role, value: (map(.counts) | sum_counts(.)
+              | . + {output_share: (if .comparable_output_tokens > 0 then .comparable_reasoning_tokens / .comparable_output_tokens else null end),
+                     noncomparable_messages: (.assistant_messages - .comparable_messages)})}) | from_entries),
+        note: "usage.reasoning is a subset of usage.output, never added to output or total tokens. Share uses only paired valid integer counts with reasoning <= output and positive aggregate output. Missing is not zero; invalid and missing fields, impossible pairs, and duplicate assistant event IDs are counted. Roles follow session_info worker identity, otherwise nonworker/coordinators."
       },
       terminal_notification_statuses_unique: $notifications,
       get_subagent_result: {

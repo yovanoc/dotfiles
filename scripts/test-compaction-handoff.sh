@@ -5,7 +5,7 @@ unset NODE_PATH
 
 export PI_RUNTIME="${PI_RUNTIME:-$(brew --prefix pi-coding-agent)/libexec/lib/node_modules/@earendil-works/pi-coding-agent}"
 
-# Strict type check against the installed Pi declarations; the global pnpm tsc shim is broken, so use Homebrew's.
+# Strict type check against the installed Pi declarations.
 # Owned temporary resource: test-compaction-handoff owns $types and removes it on every exit.
 types="$(mktemp -d)"
 trap 'rm -r "$types"; test ! -e "$types" && echo "Verified temporary directory removed: $types"' EXIT
@@ -15,7 +15,7 @@ cat >"$types/tsconfig.json" <<JSON
     "paths": { "@earendil-works/pi-coding-agent": ["$PI_RUNTIME/dist/index.d.ts"], "typebox": ["$PI_RUNTIME/node_modules/typebox/build/index.d.mts"] } },
   "files": ["$PWD/home/private_dot_pi/private_agent/private_extensions/compaction-handoff.ts"] }
 JSON
-"$(brew --prefix)/bin/tsc" -p "$types/tsconfig.json"
+tsc -p "$types/tsconfig.json"
 echo "Strict TypeScript check passed against installed Pi declarations"
 
 bun --no-install - <<'TS'

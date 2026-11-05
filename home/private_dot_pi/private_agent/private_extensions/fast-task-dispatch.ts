@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from "node:crypto"
 import { realpathSync } from "node:fs"
 import { basename, dirname, isAbsolute, join, resolve } from "node:path"
-import type { ExtensionAPI, ExtensionContext, ExtensionToolContext } from "@earendil-works/pi-coding-agent"
+import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, ToolLoadout } from "@earendil-works/pi-coding-agent"
 import { Type } from "typebox"
-import { agentRouteReason, gluedPromptReason, requiredToolsReason, resolveRole, solRationaleReason } from "./agent-prompt-guard"
+import { agentResumeReason, agentRouteReason, gluedPromptReason, requiredToolsReason, resolveRole, solRationaleReason } from "./agent-prompt-guard"
 
 const TYPE = "fast-task-dispatch"
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
@@ -22,19 +22,19 @@ type Ownership = { self: string, ancestors: string[] }
 type Packet = { schemaVersion: 1, approved: true, prompt: string, role: string, model: string, effort: string, maxTurns: number, ownedPaths: string[], dependencies: string[], grants: string[], phase?: string, parentTaskId?: string }
 type NativeSource = "subagents:completed" | "subagents:failed" | "subagents:record"
 type Attempt = { schemaVersion: 1, coordinatorSessionId: string, taskId: string, attemptId: string, state: State, timestamp: number, reason: Reason, workerId?: string, phase?: string, parentTaskId?: string, requestedModel?: string, requestedEffort?: string, actualModel?: string, actualEffort?: string, actualSource?: "subagents:usage", ownership?: Ownership[], ownershipVersion?: 2, observationSource?: "live" | "recovered", nativeStatus?: "completed" | "steered" | "aborted" | "stopped" | "error", nativeDurationMs?: number, nativeStartedAt?: number, nativeCompletedAt?: number, nativeSource?: NativeSource }
-class Refusal extends Error { constructor(readonly code: Reason) { super(code) } }
-function refuse(code: Reason): never { throw new Refusal(code) }
+class Refusal extends Error { constructor(readonly code: Reason, readonly field?: string, readonly hint?: string) { super(code) } }
+function refuse(code: Reason, field?: string, hint?: string): never { throw new Refusal(code, field, hint) }
 const active = (a: Attempt) => a.state === "submitted" || a.state === "started" || (a.state === "ready" && a.reason === "reserved")
 const result = (rows: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(rows) }], details: rows })
 
 // Resolve the nearest existing ancestor too: two new paths behind a symlink must share a lock.
 export function ownershipKeys(paths: string[]): Ownership[] {
   return paths.map(path => {
-    if (!isAbsolute(path) || /[\0\r\n*?\[\]{}]/.test(path)) refuse("invalid_packet")
+    if (!isAbsolute(path) || /[\0\r\n*?\[\]{}]/.test(path)) refuse("invalid_packet", "ownedPaths", "absolute_literal_paths")
     let base = resolve(path), tail: string[] = []
     for (;;) {
       try { base = realpathSync(base); break } catch (err) {
-        if ((err as NodeJS.ErrnoException).code !== "ENOENT" || dirname(base) === base) refuse("invalid_packet")
+        if ((err as NodeJS.ErrnoException).code !== "ENOENT" || dirname(base) === base) refuse("invalid_packet", "ownedPaths", "resolvable_ancestor")
         tail.unshift(basename(base)); base = dirname(base)
       }
     }
@@ -47,19 +47,31 @@ export function ownershipKeys(paths: string[]): Ownership[] {
 const overlaps = (a: Ownership[], b: Ownership[]) => a.some(x => b.some(y => x.ancestors.includes(y.self) || y.ancestors.includes(x.self)))
 
 export function validatePacket(value: unknown, ctx: ExtensionToolContext): Packet {
-  if (!object(value)) refuse("invalid_packet")
+  if (!object(value)) refuse("invalid_packet", "packet", "metadata.fastTask_v1_object")
   const keys = ["schemaVersion", "approved", "prompt", "role", "model", "effort", "maxTurns", "ownedPaths", "dependencies", "grants", "phase", "parentTaskId"]
-  if (Object.keys(value).some(k => !keys.includes(k)) || value.schemaVersion !== 1 || value.approved !== true || typeof value.prompt !== "string" || !value.prompt.trim() || value.prompt.length > 64000 || typeof value.role !== "string" || !label.test(value.role) || typeof value.model !== "string" || !route.test(value.model) || value.model.length > 128 || typeof value.effort !== "string" || !EFFORTS.includes(value.effort) || typeof value.maxTurns !== "number" || !Number.isSafeInteger(value.maxTurns) || value.maxTurns < 1 || value.maxTurns > 1000) refuse("invalid_packet")
-  for (const key of ["ownedPaths", "dependencies", "grants"]) if (!Array.isArray(value[key]) || value[key].length > 100 || value[key].some((x: unknown) => typeof x !== "string" || x.length > 4096)) refuse("invalid_packet")
+  if (Object.keys(value).some(k => !keys.includes(k))) refuse("invalid_packet", "packet", "v1_keys_only")
+  if (value.schemaVersion !== 1) refuse("invalid_packet", "schemaVersion", "literal_1")
+  if (value.approved !== true) refuse("invalid_packet", "approved", "literal_true")
+  if (typeof value.prompt !== "string" || !value.prompt.trim() || value.prompt.length > 64000) refuse("invalid_packet", "prompt", "nonempty_string_max_64000")
+  if (typeof value.role !== "string" || !label.test(value.role)) refuse("invalid_packet", "role", "role_name_max_128")
+  if (typeof value.model !== "string" || !route.test(value.model) || value.model.length > 128) refuse("invalid_packet", "model", "provider/model_max_128")
+  if (typeof value.effort !== "string" || !EFFORTS.includes(value.effort)) refuse("invalid_packet", "effort", "off_minimal_low_medium_high_xhigh_max")
+  if (typeof value.maxTurns !== "number" || !Number.isSafeInteger(value.maxTurns) || value.maxTurns < 1 || value.maxTurns > 1000) refuse("invalid_packet", "maxTurns", "integer_1_to_1000")
+  for (const key of ["ownedPaths", "dependencies", "grants"]) if (!Array.isArray(value[key]) || value[key].length > 100 || value[key].some((x: unknown) => typeof x !== "string" || x.length > 4096)) refuse("invalid_packet", key, "string_array_max_100_items_4096_chars_each")
   const p = value as Packet
-  if (!p.grants.length || p.grants.some(g => !g.trim() || !p.prompt.includes(g))) refuse("missing_grants")
-  if (p.dependencies.some(id => !label.test(id)) || new Set(p.dependencies).size !== p.dependencies.length || (p.phase !== undefined && !PHASES.includes(p.phase)) || (p.parentTaskId !== undefined && (typeof p.parentTaskId !== "string" || !label.test(p.parentTaskId)))) refuse("invalid_packet")
+  if (!p.grants.length || p.grants.some(g => !g.trim() || !p.prompt.includes(g))) refuse("missing_grants", "grants", "nonempty_verbatim_in_prompt")
+  if (p.dependencies.some(id => !label.test(id)) || new Set(p.dependencies).size !== p.dependencies.length) refuse("invalid_packet", "dependencies", "unique_task_ids")
+  if (p.phase !== undefined && !PHASES.includes(p.phase)) refuse("invalid_packet", "phase", "implementation_review_repair")
+  if (p.parentTaskId !== undefined && (typeof p.parentTaskId !== "string" || !label.test(p.parentTaskId))) refuse("invalid_packet", "parentTaskId", "task_id")
   const role = resolveRole(p.role, ctx.cwd)
-  if (!role?.enabled || role.inheritContext || role.runInBackground === false || (role.maxTurns !== undefined && (role.maxTurns === 0 || role.maxTurns > p.maxTurns))) refuse("preflight")
+  if (!role?.enabled || role.inheritContext || role.runInBackground === false || (role.maxTurns !== undefined && (role.maxTurns === 0 || role.maxTurns > p.maxTurns))) refuse("preflight", "role", "enabled_background_role_within_turn_cap_no_inherited_context")
   const model = role.model ?? p.model, effort = role.thinking ?? p.effort
-  if (!route.test(model) || model.length > 128 || !EFFORTS.includes(effort)) refuse("preflight")
+  if (!route.test(model) || model.length > 128 || !EFFORTS.includes(effort)) refuse("preflight", "role", "explicit_effective_route_and_effort")
   const input = { prompt: p.prompt, model: p.model, thinking: p.effort }
-  if (gluedPromptReason(p.prompt) || agentRouteReason(input, ctx, role) || requiredToolsReason(input, role) || solRationaleReason(input, role)) refuse("preflight")
+  if (gluedPromptReason(p.prompt)) refuse("preflight", "prompt", "plain_spaced_sentences")
+  if (agentRouteReason(input, ctx, role)) refuse("preflight", "model", "available_effective_route_and_supported_effort")
+  if (requiredToolsReason(input, role)) refuse("preflight", "prompt", "required_tools_allowed_by_role")
+  if (solRationaleReason(input, role)) refuse("preflight", "prompt", "model_rationale_required")
   return p
 }
 
@@ -67,6 +79,24 @@ export default function (pi: ExtensionAPI) {
   const attempts = new Map<string, Attempt>()
   let context: ExtensionContext | undefined, busy = false, epoch = 0
   const subscriptions: (() => void)[] = []
+  type Tool = ToolLoadout["registered"][number]
+  const resumeWrappers = new Map<Tool, { original: Tool["execute"], wrapped: Tool["execute"] }>()
+  const protectResumes = (loadout: ToolLoadout) => {
+    // Pi 1.5 supplies the executable registry objects, shared by direct and nested calls.
+    const tool = loadout.registered.find(t => t.name === "Agent")
+    if (tool && !resumeWrappers.has(tool)) {
+      const original = tool.execute
+      const wrapped: Tool["execute"] = (...args) => {
+        const reason = context && agentResumeReason((args[1] as { resume?: unknown }).resume, context)
+        if (reason) return Promise.resolve({ content: [{ type: "text", text: reason }], details: undefined, isError: true })
+        // No await here: native 0.23.1 selects live vs saved and admits resume synchronously.
+        return original(...args)
+      }
+      tool.execute = wrapped
+      resumeWrappers.set(tool, { original, wrapped })
+    }
+    return {}
+  }
   const pending = new Set<() => void>()
   const gates = new Map<string, { parent: string, attempt: Attempt, packet: Packet, signal?: AbortSignal }>()
   const emit = (a: Attempt, state: State, reason: Reason, locks?: Ownership[], observationSource: "live" | "recovered" = "live") => {
@@ -150,13 +180,20 @@ export default function (pi: ExtensionAPI) {
     for (const cancel of pending) cancel()
     pending.clear(); gates.clear()
     for (const off of subscriptions.splice(0)) off()
+    for (const [tool, { original, wrapped }] of resumeWrappers) if (tool.execute === wrapped) tool.execute = original
+    resumeWrappers.clear()
   })
   // Native Agent still traverses every other installed guard. This extra gate prevents a late
   // permission prompt or a mutating guard from turning cancellation into an unowned spawn.
   pi.on("tool_call", (event, ctx) => {
     if (worker(ctx)) return
     if (event.toolName === "TaskExecute") return { block: true, reason: "Use fast_task_dispatch for approved packets; native TaskExecute bypasses packet preflight and acceptance dependencies." }
-    if (event.toolName !== "Agent" || !event.parentToolCallId) return
+    if (event.toolName !== "Agent") return
+    const id = (event.input as { resume?: unknown }).resume
+    if (id !== undefined && id !== "" && !pi.getActiveTools().some(n => n === "fast_task_ready" || n === "fast_task_dispatch")) return { block: true, reason: "Agent resume rejected: execution_guard_unavailable. Enable fast_task_ready or fast_task_dispatch before resuming; no worker was dispatched." }
+    const resume = agentResumeReason(id, ctx)
+    if (resume) return { block: true, reason: resume }
+    if (!event.parentToolCallId) return
     const candidates = [...gates.values()].filter(g => g.parent === event.parentToolCallId)
     if (!candidates.length) return
     const i = event.input as Record<string, unknown>
@@ -164,6 +201,20 @@ export default function (pi: ExtensionAPI) {
     if (!gate) return { block: true, reason: "fast-task-dispatch: preflight" }
     const p = gate.packet, a = gate.attempt
     if (!context || gate.signal?.aborted || !active(a) || i.description !== `fast-task:${a.attemptId}` || i.prompt !== p.prompt || i.subagent_type !== p.role || i.model !== p.model || i.thinking !== p.effort || i.max_turns !== p.maxTurns || i.run_in_background !== true || i.inherit_context !== false || Object.keys(i).some(k => !["prompt", "description", "subagent_type", "model", "thinking", "max_turns", "run_in_background", "inherit_context"].includes(k))) return { block: true, reason: "fast-task-dispatch: preflight" }
+  })
+
+  // Native refusals have no details; structured run results may contain these same words.
+  pi.on("tool_result", (event, ctx) => {
+    if (worker(ctx) || event.toolName !== "Agent" || !(event.input as { resume?: unknown }).resume || event.isError || event.details != null || event.structuredContent !== undefined) return
+    const text = event.content.length === 1 && event.content[0].type === "text" ? event.content[0].text : ""
+    if (/^Agent "[^"\n]*" is still (?:running|queued) — it can only be resumed once its current run finishes\.\nUse steer_subagent to send it a message mid-run, or get_subagent_result to wait for it\.$/.test(text)) return {
+      isError: true,
+      content: [{ type: "text", text: "Agent resume rejected: still_running. Use steer_subagent for new information or await its completion notification; no worker was dispatched." }],
+    }
+    if (/^(?:Agent not found:|Agent "[^"\n]*" (?:has no active session to resume|cannot be resumed)|Failed to resume agent )/.test(text)) return {
+      isError: true,
+      content: [{ type: "text", text: "Agent resume failed: native_record_unavailable; fresh_handoff_required. Retrieve saved evidence or the notification's <output-file>, inspect partial edits and prepare an explicit approved fresh packet. No automatic fresh dispatch was attempted." }],
+    }
   })
 
   const toolsPresent = (ctx: ExtensionToolContext) => typeof ctx.executeTool === "function" && ["Agent", "TaskGet", "TaskUpdate"].every(n => ctx.tools.some(t => t.name === n))
@@ -194,7 +245,7 @@ export default function (pi: ExtensionAPI) {
     if (!context || busy) return result({ reason: "busy", rows: [] })
     if (!Array.isArray(ids) || ids.length < 1 || ids.length > 50 || ids.some(id => typeof id !== "string" || !label.test(id)) || new Set(ids).size !== ids.length) return result({ reason: "duplicate", rows: [] })
     busy = true
-    const run = epoch, rows: { taskId: string, attemptId: string, state: State, reason: Reason, workerId?: string }[] = []
+    const run = epoch, rows: { taskId: string, attemptId: string, state: State, reason: Reason, workerId?: string, field?: string, hint?: string }[] = []
     const row = (a: Attempt) => ({ taskId: a.taskId, attemptId: a.attemptId, state: a.state, reason: a.reason, ...(a.workerId ? { workerId: a.workerId } : {}) })
     const check = () => { if (!context || signal?.aborted || run !== epoch) refuse("cancelled") }
     try {
@@ -225,7 +276,8 @@ export default function (pi: ExtensionAPI) {
           prepared.push({ a, p }); slots--
         } catch (err) {
           if (!context || run !== epoch) break
-          emit(a, "blocked", err instanceof Refusal ? err.code : "board_unverified"); rows.push(row(a))
+          emit(a, "blocked", err instanceof Refusal ? err.code : "board_unverified")
+          rows.push({ ...row(a), ...(err instanceof Refusal && err.field ? { field: err.field, hint: err.hint } : {}) })
         }
       }
       if (!context || run !== epoch) return result({ capacitySource: capacity === undefined ? "not_checked" : "coordinator-ledger", aggregateOccupancy: "unverified", rows })
@@ -280,6 +332,6 @@ export default function (pi: ExtensionAPI) {
       return result({ capacitySource: capacity === undefined ? "not_checked" : "coordinator-ledger", aggregateOccupancy: "unverified", rows })
     } finally { if (run === epoch) busy = false }
   }
-  pi.registerTool({ name: "fast_task_ready", label: "Ready tasks", description: "Coordinator bookkeeping: compact readiness for up to 50 approved metadata.fastTask packets; writes only a metadata read nonce. Not a historic task dump or capacity proof.", parameters: Type.Object({ task_ids: idsSchema }, { additionalProperties: false }), execute: (id, p, signal, _update, ctx) => execute(id, p.task_ids, undefined, signal, ctx) })
-  pi.registerTool({ name: "fast_task_dispatch", label: "Dispatch ready tasks", description: "Coordinator-only concurrent native Agent dispatch by task ID. capacity.active is the coordinator ledger's count of all occupied/reserved campaign lanes, including this adapter's unresolved submissions; not a native/global occupancy measurement. Native Agent owns background queue/caps. No automatic retry, cascade or acceptance.", parameters: Type.Object({ task_ids: idsSchema, capacity: Type.Object({ source: Type.Literal("coordinator-ledger"), active: Type.Integer({ minimum: 0, maximum: 50 }) }, { additionalProperties: false }) }, { additionalProperties: false }), execute: (id, p, signal, _update, ctx) => execute(id, p.task_ids, p.capacity.source === "coordinator-ledger" ? p.capacity.active : 50, signal, ctx) })
+  pi.registerTool({ name: "fast_task_ready", label: "Ready tasks", description: "Coordinator bookkeeping: compact readiness for up to 50 approved metadata.fastTask packets; writes only a metadata read nonce. Not a historic task dump or capacity proof.", parameters: Type.Object({ task_ids: idsSchema }, { additionalProperties: false }), prepareLoadout: protectResumes, execute: (id, p, signal, _update, ctx) => execute(id, p.task_ids, undefined, signal, ctx) })
+  pi.registerTool({ name: "fast_task_dispatch", label: "Dispatch ready tasks", description: "Coordinator-only concurrent native Agent dispatch by task ID. capacity.active is the coordinator ledger's count of all occupied/reserved campaign lanes, including this adapter's unresolved submissions; not a native/global occupancy measurement. Native Agent owns background queue/caps. No automatic retry, cascade or acceptance.", parameters: Type.Object({ task_ids: idsSchema, capacity: Type.Object({ source: Type.Literal("coordinator-ledger"), active: Type.Integer({ minimum: 0, maximum: 50 }) }, { additionalProperties: false }) }, { additionalProperties: false }), prepareLoadout: protectResumes, execute: (id, p, signal, _update, ctx) => execute(id, p.task_ids, p.capacity.source === "coordinator-ledger" ? p.capacity.active : 50, signal, ctx) })
 }
