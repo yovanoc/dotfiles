@@ -30,7 +30,7 @@ The parser reads `usage.providerCost.balance`, sibling `usage.details` sections 
 
 A user-authorized read-only CodexBar smoke test confirmed that this host can retrieve live Console balance, grants and UTC month spend without an Admin key. Those point-in-time values are not embedded in managed source. Monthly credits are applied before purchased credits and expire each billing cycle; an absent monthly grant does not prove its next renewal amount or date. The existing Pi-local ledger is consulted only for an explicit exhausted-credit refusal, returned as `piLocalRefusal`; it never supplies a fresh balance or percentage. A refusal may be historical and does not override later verified replenishment without reconciliation.
 
-API use remains separately budget-authorized. A fresh balance does not supply a monthly spending cap or permission to spend. Missing/stale cap or reserve evidence holds API relief; subscription routes remain available. The collector performs read-only quota operations, not inference, top-ups or mutations.
+API use is paced from these observations: the coordinator spends observed grants before they expire, monthly grant first, as described in the routing reference. No separate monthly cap is required. Missing, stale or unverified Console evidence holds API work; subscription routes remain available. The collector performs read-only quota operations, not inference, top-ups or mutations.
 
 The separate subscription collector maps a verified HTTP 401 to `auth-expired` (authentication rejected, not proof of the exact expiry cause). Other HTTP failures remain `query-failed`; generic failures do not establish exhaustion.
 

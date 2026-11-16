@@ -19,8 +19,8 @@
     "npm:@narumitw/pi-usage@0.66.0"
   ],
   "theme": "tokyonight",
-  "defaultProvider": "openai",
-  "defaultModel": "gpt-6.1-sol",
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-opus-5-5",
   "defaultThinkingLevel": "medium",
   "hideThinkingBlock": true,
   "followUpMode": "all",
@@ -37,7 +37,10 @@
   "compaction": {
     "enabled": true,
     "reserveTokens": 16384,
-    "keepRecentTokens": 20000
+    "keepRecentTokens": 20000,
+    "modelOverrides": {
+      "anthropic/claude-opus-5-5": {"reserveTokens": 728000}
+    }
   },
   "quietStartup": false,
   "references": {
@@ -111,7 +114,7 @@
     }
   },
   "enabledModels": [
-    "anthropic/claude-fable-5-1",
+    "anthropic/claude-fable-5-2",
     "anthropic/claude-opus-5-5",
     "anthropic/claude-sonnet-5-5",
     "openai/gpt-6-astra",

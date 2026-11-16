@@ -9,6 +9,29 @@ The [fallback guide](model-fallback.md) describes reactive switching; the
 [managed fallback JSON](../home/private_dot_pi/private_agent/private_model-fallback/config.json)
 remains its authority.
 
+## Provider model guidance
+
+Re-read these official pages at each workflow retrospective before changing routes.
+Prices, defaults and recommended uses change with model releases.
+
+- Anthropic: [choosing a model](https://platform.claude.com/docs/en/about-claude/models/choosing-a-model),
+  [models overview](https://platform.claude.com/docs/en/models/overview),
+  [effort](https://platform.claude.com/docs/en/build-with-claude/effort),
+  [pricing](https://platform.claude.com/docs/en/about-claude/pricing), and prompting guides for
+  [Haiku 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-haiku-5-5),
+  [Sonnet 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5-5),
+  [Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5) and
+  [Fable 5.2](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2).
+  Secondary (Anthropic blog; confirm against the docs above):
+  [which Claude model should you build with](https://claude.dev/blog/which-claude-model-should-you-build-with/).
+- OpenAI: [model selection](https://developers.openai.com/api/docs/guides/model-selection),
+  [Codex models](https://developers.openai.com/codex/models),
+  [pricing](https://developers.openai.com/api/docs/pricing), and model pages for
+  [Luna](https://developers.openai.com/api/docs/models/gpt-6-luna),
+  [Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra),
+  [Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) and
+  [Astra](https://developers.openai.com/api/docs/models/gpt-6-astra).
+
 ## Model selection
 
 The seven roles in **managed source** no longer pin `model` or `thinking`.
@@ -17,7 +40,7 @@ coordinator choices. On a fresh
 coordinator-created `Agent` call, explicit user/task model and effort choices
 come first; otherwise use the coordinator's route and pass both fields. A
 resume omits both to retain the worker's established runtime. The root startup
-default is `openai/gpt-6.1-sol` medium, while Pi's active runtime
+default is `anthropic/claude-opus-5-5` medium, while Pi's active runtime
 model controls the root session. The catalog statically
 registers native `openai/gpt-6.1-sol`, `openai/gpt-6-luna`, and
 `openai/gpt-6-astra`; Pi’s refreshed catalog supplies
@@ -42,13 +65,13 @@ requested, and honor any user-selected model/effort before a default route.
 Ordinary delegation uses native `Agent` calls. The coordinator owns ordered
 task priorities, soft quota states, scope checks and reset handling; this is
 prompt policy, not an automatic routing engine. Do not duplicate that table here.
-Root handles bookkeeping, dispatch, acceptance of independent verification and concise
-status; workers prepare packets and perform all substantive work. Root model and effort do not
-default worker choices. Haiku/Luna handle bounded leaves, Terra its task-fit work,
+Root handles bookkeeping, dispatch, acceptance of worker receipts and concise
+status, and never runs `bash` or reads repository files; workers prepare packets and perform all substantive work. Root model and effort do not
+default worker choices. Haiku/Luna handle any bounded packet with a deterministic check, Terra its task-fit work,
 Sonnet substantive work, and Opus deep judgment. Sonnet `medium` is recommended
 for well-specified agentic work; its API default is `high`. Fresh explicit Sol worker calls
 require `MODEL RATIONALE:` under the coordinator's exception policy. Quota pacing is reset-aware, while
-`anthropic-api/` is budget-checked relief only (no daily credit-burning formula). Handoff checkpoints are per-session
+`anthropic-api/` is paced to spend observed prepaid grants before expiry (monthly grant first) from live Console evidence. Handoff checkpoints are per-session
 files whose exact path the notice names; legacy `tasks/handoff.md` is not authority.
 
 ## Haiku availability
@@ -97,7 +120,7 @@ pi update --models
 pi --list-models 6.1
 ```
 
-`enabledModels` includes Terra for selection/cycling; Sol medium remains startup.
+`enabledModels` includes Terra for selection/cycling; Opus 5.5 medium is startup.
 Use the native catalog’s current context limits, pricing and effort support;
 published API maximums can differ from the selected route’s limits. Refresh the
 catalog before treating a missing bundled entry as a missing supported model.
@@ -166,7 +189,8 @@ Sources: [model selection](https://developers.openai.com/api/docs/guides/model-s
 
 The managed `quota_status` tool's provider coverage, source identity and
 limitations are documented in [quota access](pi-quota-usage.md); root calls it
-before dispatch decisions when available; never wait to form a batch. Treat missing, unavailable, unknown or
+at most once per dispatch pass that launches fresh workers (`refresh` only after a
+429 or passed reset); never for resumes, retrievals or acceptance. Treat missing, unavailable, unknown or
 old observations as unknown, or use an explicit fresh user snapshot. UI `/usage`
 output and footers alone are not model-visible evidence. A native OpenAI app
 cap and a whole-plan limit are distinct; `subscription_sharing_usage_limit_exceeded`

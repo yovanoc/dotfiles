@@ -13,12 +13,17 @@ may use the model's default effort instead of the parent's live effort.
 
 ### Coordinator model
 
-Routine dispatching, status and bookkeeping use `openai/gpt-6.1-sol` `medium`.
-New unpinned starts use Sol; existing sessions and explicit choices retain their
-runtime. Confirm actual provider/model and effort at startup. Root effort is not
+Routine dispatching, status and bookkeeping use `anthropic/claude-opus-5-5`
+`medium` on the Anthropic subscription; its equal-tier switch counterpart is
+`openai/gpt-6.1-sol` `medium`. New unpinned starts use Opus; existing sessions
+and explicit choices retain their runtime. When the active coordinator pool's
+most constrained window reaches Conserve (80%) and the other pool has headroom,
+recommend the user switch to `openai/gpt-6.1-sol` `medium` at the next natural
+break (after a handoff checkpoint), since a switch drops cache and reasoning. Never run the coordinator on
+`anthropic-api/`, Fable 5.2, Astra, Haiku, Luna or Terra. Confirm actual provider/model and effort at startup. Root effort is not
 a worker default: choose each worker's model and effort for its packet.
 Delegate bounded work to Haiku, Sonnet, Luna or task-fit Terra rather than
-inheriting Sol for every worker. Compare accepted outcomes, rework and actual runtime cost, not done counts.
+inheriting the coordinator model for every worker. Compare accepted outcomes, rework and actual runtime cost, not done counts.
 Choose Opus/Astra deliberately for difficult implementation, deep or high-risk review
 and hard architecture decisions, not only as a last fallback. State a
 `MODEL RATIONALE:` (explicit user choice, costly hidden failure, interacting
@@ -37,17 +42,25 @@ For each fresh call:
    comma-separated line for tools the packet needs. The prompt guard checks explicit
    role allowlists from global and project agent files; unresolved package/built-in
    roles and wildcard selectors still require manual verification.
-2. Root checks `quota_status` when available before dispatch decisions; `{}` may
-   reuse successful observations for up to 60 seconds from original `capturedAt`.
-   Use `{"refresh":true}` to force collection; expiry, reset and identity changes
-   invalidate reuse. Unknown/unavailable observations are not cached, failed refresh
-   never falls back to cached headroom, and local refusal is checked independently.
-   A fresh user snapshot also works. Workers do not poll. Inspect each window's
+2. Root calls `quota_status` at most once per dispatch pass that launches fresh
+   workers and reuses that snapshot for the whole pass (`{}` may reuse successful
+   observations for 60 seconds from original `capturedAt`); no calls for resumes,
+   retrievals, acceptance or status messages. Use `{"refresh":true}` only after a
+   429 or a passed reset time. Unknown/unavailable observations are not cached, failed refresh
+   never falls back to cached headroom, and local refusal is checked
+   independently. A fresh user snapshot also works. Workers do not poll. Inspect each window's
    freshness, source, status and applicable scope,
    not merely provider status; use the most constrained applicable window.
 3. Walk the task order below with the quota states. For relief choose an
    independent pool: Sol→Luna or Sonnet→Opus on a shared pool is not relief.
    Between equal-fit alternatives prefer observed headroom over unknown.
+   Avoid rate limits before they happen: when a pool's most constrained short window
+   (Anthropic five-hour) reaches Conserve, send new Claude-fit packets to the same
+   model on `anthropic-api/` while the credit pace allows, else to an independent
+   pool. After any observed 429 treat that pool as Reserve for fresh dispatches for
+   15 minutes: no retries into it and no quota calls to watch it. Run at most 8
+   concurrent fresh workers per subscription model pool unless the user sets another
+   number. OpenAI 429s hold only the affected route (see rollover below).
 4. Pass exact `provider/model` as `model`, plus `thinking`. The prompt guard checks
    effective model/effort pins from resolvable role files, then call parameters,
    against registration/auth configuration and SDK-supported effort. Slash forms
@@ -74,23 +87,28 @@ split extraction from synthesis and give the latter a suitable substantive route
 Read left to right: compatible preferences, not a global quality ranking.
 Classify the worker packet, not the whole project, by uncertainty, coupling and
 failure cost—not file count:
-- **Narrow:** known mechanical edits; exact files, exact edits, one check command,
-  a prompt shorter than 4,000 characters and `max_turns: 20`. Verify all five
-  conditions on the final packet before routing an edit to Haiku/Luna. If any
-  condition fails, re-split or use the substantive row; small file count alone
-  does not qualify security, concurrency or data-loss work as narrow.
+- **Narrow:** any bounded packet with a deterministic acceptance check (a command
+  with an expected result), not only mechanical edits; the packet names the check
+  and the evidence path the worker writes, with a prompt under 4,000 characters and
+  `max_turns: 20`. Security, concurrency and data-loss work stays off this route
+  regardless of size. Its reviewer can be Sonnet `medium`. If the check or bounds
+  are missing, re-split or use the substantive row.
 - **Substantive:** behavior changes or debugging that need caller/test tracing.
 - **Difficult/deep:** interacting layers or tricky state, concurrency, security
   or data-loss invariants. Choose implementation, review or architecture by
   activity; open-ended discovery uses the research/tracing row.
 
-Lighter-first: Haiku `low` takes simple extraction and `medium` bounded mapping
-or mechanical edits; Luna `low` takes well-scoped edits or extraction and `high`/
+Lighter-first: Haiku `low` takes simple extraction, `medium` bounded mapping
+or mechanical edits and `high` longer or strict-instruction leaves before Sonnet; Luna `low` takes well-scoped edits or extraction and `high`/
 `xhigh` constrained multi-step work. Terra `medium` takes its task-fit rows;
 Sonnet `medium` takes substantive work and synthesis, with `high` for harder
 bounded packets. Opus stays available for deep review and architecture. Prefer Copilot Luna over
 native OpenAI Luna for equal-fit bounded tasks when Copilot has headroom. Real
 verification before acceptance stays mandatory for every route.
+Packets for Haiku/Sonnet at `low`/`medium` name a real check that exercises the
+change and say: keep working until the outcome is done, then stop without
+unrequested additions. Packets at `xhigh`/`max` forbid launching unrequested
+review subagents.
 Split large repetitive work; a small risky patch can still need deep review.
 Sol is an exception for genuinely difficult coupling, a prior verified lighter-route
 miss, explicit user choice or no suitable eligible alternative, not a routine
@@ -106,11 +124,11 @@ task fit; Effect expertise stays with the role. API price is not subscription de
 | Task | Ordered routes and thinking |
 | --- | --- |
 | Bounded read-only mapping (`Explore`) | `opencode-go/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `high` → `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` `high`. Luna `max` is locally discouraged here (29 of 43 historical Explore runs hit the turn limit), not a provider rule. |
-| Narrow, mechanically checkable code meeting all five conditions above | `opencode-go/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `low` for single-step or `high` for multi-step → `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` at the same effort → `anthropic/claude-sonnet-5-5` `medium`. At a turn limit inspect partial edits and re-split. Keep Haiku prompts under 100k tokens (price steps 5× above). |
+| Narrow: bounded code or analysis with a deterministic check (see Narrow above) | `opencode-go/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `low` for single-step or `high` for multi-step → `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` at the same effort → `anthropic/claude-sonnet-5-5` `medium`. At a turn limit inspect partial edits and re-split. Keep Haiku prompts under 100k tokens (price steps 5× above). |
 | Concise writing or revision from supplied material (not extraction) | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. Verify facts, qualifications, audience, voice and useful detail against the supplied material. |
-| Scoped code fixes with clear inputs, requirements and regression checks, without hard/security/cross-layer invariants | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. Run regression tests and inspect the actual diff before acceptance. Mechanical leaves still use the narrow row. |
+| Scoped code fixes with clear inputs, requirements and regression checks, without hard/security/cross-layer invariants | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. A worker runs regression tests and reports the diff before acceptance. Mechanical leaves still use the narrow row. |
 | Substantive implementation, debugging or bounded Effect work outside the scoped-fix row | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium`. Use Sonnet `high` for harder but bounded work. A small risky packet still belongs here or on the difficult row, not Haiku. |
-| Genuinely difficult end-to-end implementation | `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high` → `anthropic/claude-opus-5-5` `medium` with a rationale. |
+| Genuinely difficult end-to-end implementation | `anthropic/claude-opus-5-5` `medium` with a rationale → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
 | Research, open-ended work or hard repository tracing | `anthropic/claude-sonnet-5-5` `high` for bounded synthesis → `openai/gpt-6.1-sol` `medium` for hard tracing. Split exact extraction to Haiku/Luna first. |
 | Bounded planning or ordinary review | `anthropic/claude-sonnet-5-5` `medium` → `github-copilot/gpt-6-luna` `high` for self-contained checks → `openai/gpt-6.1-sol` `medium`. |
 | Deep or cross-layer review | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
@@ -118,6 +136,8 @@ task fit; Effect expertise stays with the role. API price is not subscription de
 | Architecture where judgment is the bottleneck | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
 | Defined visual/computer tasks with explicit inputs and a verifiable saved outcome | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. Verify the saved record/page, preserve unrelated data and check the completion report; UI changes also require rendered desktop/mobile, keyboard and accessibility checks. Role tools must actually support the interaction. |
 | Open-ended visual/UI design or connected visual systems | `github-copilot/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium`. Go Kimi K3 `high` is held: the installed catalog marks it unsupported; do not substitute `max`. Verify image input and effort support; inspect screenshots, mobile layout, keyboard navigation and accessibility before acceptance. |
+| Rare top-tier Claude work: hours-long orchestration or migration, deep research, or a verified Opus `high`/`xhigh` miss on the same inputs | `anthropic/claude-fable-5-2` `high` (provider start; try `medium` where checks still pass) with a `MODEL RATIONALE:` naming the trigger and the condition that ends the phase. Prefer `anthropic-api/claude-fable-5-2` when the credit pace allows. Never a routine route or automatic fallback. |
+| Rare top-tier OpenAI work: a verified Sol `xhigh` miss on the same inputs, an exacting externally visible deliverable, or explicit user choice | `openai/gpt-6-astra` `low`, raising one level only on a diagnosed gap, with a `MODEL RATIONALE:`. Never a routine route or automatic fallback. |
 | Short extraction, summaries or classification | `opencode-go/claude-haiku-5-5` `low` for single-step or `medium` for multi-step → `github-copilot/gpt-6-luna` `low` or `high` respectively → `anthropic/claude-haiku-5-5` at the same effort → `openai/gpt-6-luna` at the same effort. |
 
 Zen (`opencode/`) is disabled while the user declines to refill its wallet: omit it
@@ -206,19 +226,30 @@ OpenCode Go when eligible). Never add padding work or extra reviews to spend quo
 and never infer per-model debit. Aim for useful near-full use (roughly 95–98% by
 reset) with a reserve; exactly 100% cannot be guaranteed. Use the bounded snapshot for dispatch decisions; workers never poll, and unknown stays unknown.
 
-`anthropic-api/<model>` is budgeted relief, not a quota-burning target. Use it
-only for Claude-fit work under subscription Conserve or above after checking the
-live Console credit observation and UTC month spend in `quota_status`, plus
-a separately authorized monthly spend cap. Prefer
-eligible Go/Copilot/OpenAI subscriptions for routine work. Hold fresh API work at
-90% of the monthly cap, an exhaustion refusal, or when the long-lived grant is
-below its straight-line reserve to expiry. Missing/stale cap or grant evidence is
-not permission to spend: use a subscription or ask for a fresh console reading.
-The monthly promotional grant recurs; its actual amount, remaining balance and
-expiry come from live Console observations, not a hardcoded daily formula.
+`anthropic-api/<model>` spends expiring prepaid credits; unspent credit is lost,
+so pace it to use the grants before they expire. No monthly cap is required:
+live CodexBar Console observations in `quota_status` (balance, each grant's
+remaining amount and expiry, UTC month spend) are the budget evidence.
+Monthly credits (the recurring Team API grant, $360 so far) are applied before
+long-lived grants and expire about a month after grant. A fully consumed grant
+disappears from the Console promotional list (only invoice history keeps it), so
+an absent monthly grant means consumed or not yet issued; pace only on observed
+grants and never assume the next amount or date.
+Daily target: sort observed grants by expiry; for each expiry date, divide the
+remaining credit of all grants expiring on or before it by the days left until
+it (at least 1); the target is the largest of these. Expected spend so far is
+the target times the elapsed UTC-month days. Behind pace (`monthSpendUsd` below
+expected): send Claude-fit worker packets on the Haiku/Sonnet rows to
+`anthropic-api/` before subscription routes, and all Claude-fit work there when
+the Anthropic subscription is at Conserve or above. Opus still needs its row's
+`MODEL RATIONALE:`. Ahead of pace: return to subscriptions. Never add work,
+reviews or heavier models to spend credit. Hold fresh API work on an exhaustion
+refusal, when total balance would fall below a $20 reserve, or when Console
+evidence is missing, stale or from an unverified organization: use a
+subscription or ask for a fresh reading. Reactive fallback enters `anthropic-api/` only for subscription Sonnet/Haiku 401/402/429, same model; Opus goes to Sol. Such switches bypass the pace and the $20 reserve, so read Console spend at the next dispatch pass.
 The optional CodexBar CLI uses the signed-in Console session; verify its first-readable
-API organization before treating it as the inference-key budget. Missing expiry or
-reserve baseline holds API relief. Console balances, UTC month spend and Pi-local
+API organization before treating it as the inference-key budget. A grant with
+unknown expiry is excluded from the pace target. Console balances, UTC month spend and Pi-local
 API-equivalent estimates are separate sources; a local refusal is not a balance.
 See `~/dotfiles/docs/pi-quota-usage.md` for session requirements and private-endpoint
 limitations. Explicit session spending restrictions always take precedence.

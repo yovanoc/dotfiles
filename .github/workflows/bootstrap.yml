@@ -93,5 +93,7 @@ jobs:
           bash scripts/test-bash-timeout-guard.sh
           bash scripts/test-compaction-handoff.sh
           bash scripts/test-task-outcome-receipt.sh
+          bash scripts/test-root-delegation-guard.sh
+          bash scripts/test-task-graph-check.sh
           python3 scripts/test-pi-routing.py
           bash scripts/test-pi-quota-status.sh

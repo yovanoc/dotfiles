@@ -60,11 +60,18 @@
       "fallback": {"provider": "anthropic", "model": "claude-sonnet-5-5"}
     },
     {
+      "name": "anthropic-sonnet-quota-or-auth",
+      "matchModels": [{"provider": "anthropic", "model": "claude-sonnet-5-5"}],
+      "statuses": [401, 402, 429],
+      "cooldownMs": 18000000,
+      "fallback": {"provider": "anthropic-api", "model": "claude-sonnet-5-5"}
+    },
+    {
       "name": "anthropic-haiku-quota-or-auth",
       "matchModels": [{"provider": "anthropic", "model": "claude-haiku-5-5"}],
       "statuses": [401, 402, 429],
       "cooldownMs": 18000000,
-      "fallback": {"provider": "github-copilot", "model": "gpt-6-luna"}
+      "fallback": {"provider": "anthropic-api", "model": "claude-haiku-5-5"}
     },
     {
       "name": "anthropic-haiku-transient",

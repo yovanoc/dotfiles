@@ -8,14 +8,25 @@ agent = root / "home/private_dot_pi/private_agent"
 settings = json.loads((agent / "settings.json").read_text())
 config = json.loads((agent / "private_model-fallback/config.json").read_text())
 assert (settings["defaultProvider"], settings["defaultModel"], settings["defaultThinkingLevel"]) == (
-    "openai", "gpt-6.1-sol", "medium"
+    "anthropic", "claude-opus-5-5", "medium"
 )
 assert config["version"] == 1 and config["enabled"] and config["autoRetry"] is False
 rules = config["rules"]
 assert len({r["name"] for r in rules}) == len(rules)
+API_FALLBACK_MODELS = ("claude-sonnet-5-5", "claude-haiku-5-5")
+API_FALLBACK_RULES = ("anthropic-sonnet-quota-or-auth", "anthropic-haiku-quota-or-auth")
+names = [r["name"] for r in rules]
+assert all(name in names and names.index(name) < names.index("anthropic-quota-or-auth") for name in API_FALLBACK_RULES)
 for rule in rules:
     assert rule["statuses"] and rule["cooldownMs"] > 0
-    assert rule["fallback"]["provider"] not in ("anthropic-api", "opencode")
+    fallback = rule["fallback"]
+    if fallback["provider"] == "anthropic-api":
+        # Only same-model quota/auth fallback from the matching Anthropic model is approved.
+        assert rule["name"] in API_FALLBACK_RULES and fallback["model"] in API_FALLBACK_MODELS
+        assert rule.get("matchModels") == [{"provider": "anthropic", "model": fallback["model"]}]
+        assert set(rule["statuses"]) <= {401, 402, 429}
+    else:
+        assert fallback["provider"] != "opencode"
     assert "contributor" not in rule["fallback"]["model"]
     assert 400 not in rule["statuses"]  # unrelated bad requests must not cause spending elsewhere
 
@@ -34,7 +45,11 @@ for status in (401, 402, 429, 500, 502, 503, 504, 529):
     assert target("openai", "gpt-6-luna", status) == {"provider": "anthropic", "model": "claude-sonnet-5-5"}
     for model in ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"):
         result = target("anthropic", model, status)
-        assert result is not None and result["provider"] != "anthropic-api"
+        assert result is not None
+        if status in (401, 402, 429) and model in API_FALLBACK_MODELS:
+            assert result == {"provider": "anthropic-api", "model": model}
+        else:
+            assert result["provider"] != "anthropic-api"
 assert target("anthropic-api", "claude-sonnet-5-5", 400) is None
 terra_id = "openai/gpt-6.1-terra"
 assert terra_id in settings["enabledModels"]
