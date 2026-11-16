@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "1.5.0",
+  "lastChangelogVersion": "1.5.2",
   "packages": [
     "npm:@tintinweb/pi-subagents",
     "npm:@gotgenes/pi-permission-system",
@@ -39,7 +39,9 @@
     "reserveTokens": 16384,
     "keepRecentTokens": 20000,
     "modelOverrides": {
-      "anthropic/claude-opus-5-5": {"reserveTokens": 728000}
+      "anthropic/claude-opus-5-5": {
+        "reserveTokens": 728000
+      }
     }
   },
   "quietStartup": false,
@@ -127,12 +129,13 @@
   },
   "deviceId": "693181f0-899e-43bd-b7f7-3bc77a3d9a9e",
   "extensionChangelogVersions": {
-    "{\"source\":\"npm:@tintinweb/pi-subagents\",\"scope\":\"user\"}": "0.22.1",
-    "{\"source\":\"npm:@gotgenes/pi-permission-system\",\"scope\":\"user\"}": "42.0.0",
+    "{\"source\":\"npm:@tintinweb/pi-subagents\",\"scope\":\"user\"}": "0.25.0",
+    "{\"source\":\"npm:@gotgenes/pi-permission-system\",\"scope\":\"user\"}": "42.0.2",
     "{\"source\":\"npm:@tintinweb/pi-tasks\",\"scope\":\"user\"}": "0.9.1",
-    "{\"source\":\"npm:pi-lens\",\"scope\":\"user\"}": "4.4.8",
-    "{\"source\":\"npm:@gotgenes/pi-anthropic-auth\",\"scope\":\"user\"}": "3.4.4",
-    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.46.0",
-    "{\"source\":\"npm:pi-model-fallback\",\"scope\":\"user\"}": "0.5.11"
+    "{\"source\":\"npm:pi-lens\",\"scope\":\"user\"}": "4.5.1",
+    "{\"source\":\"npm:@gotgenes/pi-anthropic-auth\",\"scope\":\"user\"}": "3.6.0",
+    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.48.0",
+    "{\"source\":\"npm:pi-model-fallback\",\"scope\":\"user\"}": "0.6.2",
+    "{\"source\":\"npm:pi-context-view\",\"scope\":\"user\"}": "0.8.4"
   }
 }

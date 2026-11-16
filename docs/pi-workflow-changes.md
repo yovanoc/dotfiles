@@ -460,9 +460,9 @@ disk source. No cross-session reload is claimed.
   stored block covers about 20 hours and lacks model mix; comparisons are
   confounded by workload, the Fable 5.2 release and fallbacks, not causal.
 
-## PENDING — lighter-workers-api-pacing
+## 2026-11-16T20:27:40.336136621+00:00 — lighter-workers-api-pacing
 
-Source-only on branch `pi-retro-20261116`; not applied. Apply time: PENDING.
+Applied by targeted chezmoi apply of six targets plus a merged settings.json write that kept live runtime keys, 2026-11-16T20:27:40Z–20:27:44Z, last target write settings.json mtime_ns 1794860860336136621; merged commits b8c7e1e and 166297a (PR #3); backup /Users/yovanoc/.pi/agent/backups/pi-retro-apply-20261116T202630Z; existing sessions not reloaded, so activation is unobserved.
 
 - Coordinator startup `anthropic/claude-opus-5-5` `medium`; Sol `medium` is the
   equal-tier switch at Conserve, at a natural break; never API, Fable or Astra.
