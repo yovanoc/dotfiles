@@ -54,13 +54,20 @@ For each fresh call:
 3. Walk the task order below with the quota states. For relief choose an
    independent pool: Sol→Luna or Sonnet→Opus on a shared pool is not relief.
    Between equal-fit alternatives prefer observed headroom over unknown.
-   Avoid rate limits before they happen: when a pool's most constrained short window
-   (Anthropic five-hour) reaches Conserve, send new Claude-fit packets to the same
-   model on `anthropic-api/` while the credit pace allows, else to an independent
-   pool. After any observed 429 treat that pool as Reserve for fresh dispatches for
-   15 minutes: no retries into it and no quota calls to watch it. Run at most 8
-   concurrent fresh workers per subscription model pool unless the user sets another
-   number. OpenAI 429s hold only the affected route (see rollover below).
+   Use subscription quota to the end of each window. By a subscription pool's most
+   constrained short window (Anthropic five-hour): below 80% route normally, up to 8
+   concurrent fresh workers per subscription model pool; at 80% to below 95%
+   (Conserve) keep dispatching on the subscription with at most 3 concurrent fresh
+   workers per pool, and send only the overflow to the same model on `anthropic-api/`
+   while the credit pace allows, else to an independent pool; at 95% and above
+   (Reserve/Full) start no fresh worker on that pool (running workers and resumes
+   finish normally) and send new work to `anthropic-api/` when behind credit pace,
+   else to an independent pool. Weekly guard: when the weekly window is ahead of its
+   linear pace, apply the Conserve limits from 70% of the short window. After any
+   observed 429 the reactive fallback handles the failed request and that pool gets no
+   new fresh dispatch for 15 minutes: no retries into it and no quota calls to watch
+   it. The user may set other numbers. OpenAI 429s hold only the affected route (see
+   rollover below).
 4. Pass exact `provider/model` as `model`, plus `thinking`. The prompt guard checks
    effective model/effort pins from resolvable role files, then call parameters,
    against registration/auth configuration and SDK-supported effort. Slash forms
@@ -185,8 +192,8 @@ limits or measured model costs. Explicit user choices still take precedence.
 | Applicable usage | Dispatch behavior |
 | --- | --- |
 | Below 80% | Normal: use task priority. |
-| 80% to below 95% | Conserve: move routine work to a suitable independent pool; keep this pool for work where its task advantage matters. |
-| 95% to below 100% | Reserve: prefer independent alternatives; spend remaining allowance only for explicit user choice or essential judgment without a suitable alternative. |
+| 80% to below 95% | Conserve: keep dispatching on this pool with at most 3 concurrent fresh workers; overflow goes to `anthropic-api/` (Anthropic, credit pace permitting) or an independent pool. |
+| 95% to below 100% | Reserve: no new fresh dispatch on this pool (running workers and resumes finish); use alternatives; spend remaining allowance only for explicit user choice or essential judgment without a suitable alternative. |
 | Full window: 100% or more, or zero remaining with a known positive count limit | Hold new discretionary work on affected routes until fresh evidence or explicit user choice changes the decision. This observation is not proof of whole-provider exhaustion or failed inference. |
 | Missing, stale, unavailable or unknown-scope data | Unknown: preserve task priority and report the gap. It is neither zero use nor exhaustion; known headroom may break an equal-fit tie. |
 
@@ -220,8 +227,9 @@ reference: expected used = elapsed/`windowMinutes`, from `resetsAt`), using the 
 constrained known applicable window; a near-full five-hour window outranks weekly
 headroom. Behind pace and near reset, prefer eligible subscription `anthropic/`
 routes (Haiku/Sonnet/Opus) for real queued tasks where they fit or improve judgment;
-this may relax Conserve, never Reserve or Full. Ahead of pace or under short-window
-pressure, move compatible routine work to independent pools (OpenAI, Copilot,
+this may relax Conserve, never Reserve or Full. Ahead of weekly pace, taper from 70%
+of the short window (see step 3); otherwise use the short window to its end. Under
+short-window pressure beyond the Conserve cap, move compatible routine work to independent pools (OpenAI, Copilot,
 OpenCode Go when eligible). Never add padding work or extra reviews to spend quota
 and never infer per-model debit. Aim for useful near-full use (roughly 95–98% by
 reset) with a reserve; exactly 100% cannot be guaranteed. Use the bounded snapshot for dispatch decisions; workers never poll, and unknown stays unknown.
@@ -241,7 +249,7 @@ it (at least 1); the target is the largest of these. Expected spend so far is
 the target times the elapsed UTC-month days. Behind pace (`monthSpendUsd` below
 expected): send Claude-fit worker packets on the Haiku/Sonnet rows to
 `anthropic-api/` before subscription routes, and all Claude-fit work there when
-the Anthropic subscription is at Conserve or above. Opus still needs its row's
+the Anthropic subscription is at Conserve and the pool's 3-worker cap is full, or at Reserve or above. Opus still needs its row's
 `MODEL RATIONALE:`. Ahead of pace: return to subscriptions. Never add work,
 reviews or heavier models to spend credit. Hold fresh API work on an exhaustion
 refusal, when total balance would fall below a $20 reserve, or when Console
