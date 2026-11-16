@@ -1,12 +1,12 @@
 # Root coordinator policy
 
 Root does bookkeeping, dispatch, acceptance of independent verification and concise
-status only; its active Pi model governs the session (managed startup: Sol `medium`).
+status only; its active Pi model governs the session (managed startup: Opus 5.5 `medium`).
 Apply shared safety/authorization in `../AGENTS.md`. Workers prepare packets, explore,
 research, design architecture, implement, test and perform substantive review. Root
-may inspect compact actual diffs and check receipts to accept evidence; it delegates
-substantive verification and does not reimplement worker work. Split independent ready
-work into bounded parallel packets without inventing or duplicating tasks.
+never runs `bash` or reads repository files to do or verify work: git status, diffs,
+checks and repository reconciliation go to a worker packet, and root accepts
+from the worker's compact receipt; it delegates substantive verification. The `root-delegation-guard` extension blocks root `bash` and fresh dispatch below 5 GiB free disk; only the user can allow root bash with `/root-bash on` or `PI_ROOT_BASH=1` at launch. Split independent ready work into bounded parallel packets without inventing or duplicating tasks.
 
 ## Dispatch
 
@@ -14,6 +14,9 @@ work into bounded parallel packets without inventing or duplicating tasks.
   dependency IDs, exact ownership, state (`ready`, `running`, `blocked`, `done`),
   worker ID and concrete blocker when blocked. A dependency unblocks only after
   its required evidence is accepted; running workers are not ready-task coverage.
+- Task graph: root alone keeps it; workers cannot reach its pi-tasks store. When it creates a packet's task, root makes one batched `codemode` call per task with one `TaskCreate` and one `TaskUpdate`, filling every field it already knows. TaskCreate: subject, activeForm, a description with the outcome and acceptance check, and metadata {class, model, effort, maxTurns, ownedPaths, worktree, checkCommand, evidencePath, dependencies, parentTaskId, phase, attempt}. TaskUpdate: addBlockedBy/addBlocks, plus owner = worker ID and status once dispatched. Each completion pass then needs one batched `codemode` update: tasks are completed, blocked with a reason, or re-dispatched right away. A task with no live worker and no update for one pass is stale and handled in that same batch. Never leave `in_progress` without a live worker ID. Do not call TaskGet/TaskList to re-read or fill fields root already knows; read only after a failed update or lost context. The `task-graph-check` extension warns as a backstop after 3 passes.
+- The guard blocks fresh dispatch below 5 GiB free. `ENOSPC` is a hard blocker reported to the user, never retried.
+- If a fallback leaves root on anything other than Opus or Sol `medium` (including `anthropic-api/`), stop dispatching and ask the user to switch the model.
 - At start and each worker completion, recompute ready work and fill available safe
   slots with disjoint ready packets before lengthy acceptance or bookkeeping. One
   completion suffices to refill one eligible slot without waiting for unrelated peers.
@@ -72,11 +75,11 @@ Tool names in source do not establish that the tools are loaded or approved for 
 On each completion, refill independent ready packets first as in Dispatch, then
 retrieve each finished worker once with `get_subagent_result(wait: false)` and
 update the ledger once. While notifications are pending, root does compact
-bookkeeping and dispatch; delegate substantive reconciliation in a bounded packet.
+bookkeeping and dispatch; delegate repository reconciliation (never task-store updates) in a bounded packet.
 Accept required evidence before unblocking dependents; recompute readiness and refill again after acceptance.
 If unfinished backlog has no ready packets, name its actual blockers instead of declaring it done.
-Batch available result retrievals, task reads, already-verified updates and quota
-checks in one `codemode` call; return compact IDs, states, blockers and evidence
+Batch available result retrievals, task reads and already-verified updates in one
+`codemode` call; return compact IDs, states, blockers and evidence
 paths, not full task histories or results. Run independent reads together, chain
 updates after required reads and inspect failures separately. Keep `Agent`
 dispatches native. Handle available completions now, without waiting to form a
@@ -94,9 +97,9 @@ failures and report them. Stop workers silent far beyond expected duration;
 steer only with information they cannot find. Keep coordinator turns short;
 return when done, workers run or work is blocked, naming required user input.
 
-Use `TaskCreate`/`TaskList`/`TaskGet`/`TaskUpdate` for evidence; leave `agentType`
+Record evidence with `TaskCreate`/`TaskUpdate` as in Dispatch; use `TaskList`/`TaskGet` only to recover lost state; leave `agentType`
 unset; use task-ID dispatch when loaded and approved, otherwise native `Agent`. Record IDs, attempts and errors;
-Complete only with required evidence. After inspecting the actual diff and checks,
+Complete only with required evidence. After the worker's compact diff summary and check receipt,
 call `task_outcome` with the worker task ID, `accepted`, `reworked` or `rejected`,
 the dispatched model/effort (use `unknown` when unavailable), and a check-artifact
 path. Record rework before retry and a later verdict after verification. Receipts

@@ -434,3 +434,70 @@ Disk apply does not activate existing sessions or prove latency improvement.
 Keep one of `fast_task_ready` or `fast_task_dispatch` active for resumes; after
 workers settle, use `/reload` in each affected session to activate its current
 disk source. No cross-session reload is claimed.
+
+- Measured (`--since 2026-11-05T16:39:19.492119+00:00`, no end bound; scan
+  2026-11-16T19:36:17Z–19:45:04Z, about 11.1 days): 6,795 candidates, 6,791
+  sessions (179 main, 6,612 workers), 4 headerless, 0 unreadable, 21 malformed;
+  partition residual 0. Workers **127,201 requests, $2,432.62**
+  ($0.019124/request); coordinators **42,438, $1,909.97** ($0.045006/request).
+  Pi-local estimates, not billing or subscription debit. Worker mix: Sol 52.98%
+  (67,391; $1,318.17), Sonnet 5.5 25.99%, Terra 7.31%, OpenAI Luna 6.98%, Opus
+  4.18%, Haiku (Anthropic + Go) 2.31%, Copilot Luna 0.09%; Haiku+Luna 11,928
+  (9.38%). Coordinator mix: Sol 87.54% (37,149; $1,288.55), Luna 4.94%, Opus
+  4.27%, Fable 5.2 2.75%. Terminal tasks 6,603: done 5,636, turn_limit 894
+  (raw steered 875, aborted 19), error 39, stopped 34. 6,368 valid receipts
+  cover 5,414 tasks: latest 4,416 accepted / 970 reworked / 28 rejected; rework
+  history 1,442; terminal receipt coverage 4,115/6,603. Dispatches 8,504
+  (6,762 fresh, 1,742 resumed); resume misses 14/1,742; lifecycle attempts 315
+  (122 blocked). Notification to next `Agent` call p50/p90 138,673/698,847ms
+  (proxy). Coordinator response p50/p90 15,515/108,367ms; coordinator
+  compaction p50/p90 257,491/261,348 tokens (449 events); coordinator bash calls
+  3,987. Unattended checkpoints 786 attempts, 769 ok; handoff checkpoints 81
+  attempts, 72 ok. Stop errors 451 (rate_limit 239; Sonnet 157 of them);
+  requested Sonnet ran as Sol 119 times. anthropic-api spend is not separated
+  by the audit; Console showed $0 UTC-month spend at 2026-11-16T19:35Z.
+  Evidence: `/tmp/pi-retro-20261116-audit.json` (temporary). The previous
+  stored block covers about 20 hours and lacks model mix; comparisons are
+  confounded by workload, the Fable 5.2 release and fallbacks, not causal.
+
+## PENDING — lighter-workers-api-pacing
+
+Source-only on branch `pi-retro-20261116`; not applied. Apply time: PENDING.
+
+- Coordinator startup `anthropic/claude-opus-5-5` `medium`; Sol `medium` is the
+  equal-tier switch at Conserve, at a natural break; never API, Fable or Astra.
+- `anthropic-api/` paced to spend observed grants before expiry (monthly Team
+  grant first), no monthly cap, $20 reserve; adds `claude-fable-5-2` ($8/$40).
+- Workers: difficult implementation starts on Opus `medium` instead of Sol
+  `xhigh`; Haiku `high` before Sonnet for longer leaves; Fable 5.2 and Astra
+  only on named rare triggers with `MODEL RATIONALE:`; packet lines for real
+  checks, stop-when-done and no unrequested review subagents.
+- `enabledModels`: Fable 5.1 replaced by Fable 5.2. Routing doc lists official
+  Anthropic and OpenAI guidance pages.
+- Rate limits: at Conserve on a short window, new Claude-fit packets go to
+  `anthropic-api/` or an independent pool; a 429 holds that pool as Reserve for 15
+  minutes; at most 8 concurrent fresh workers per subscription model pool; the
+  coordinator at Conserve is told to switch to Sol `medium` at a natural break.
+- `quota_status` at most once per fresh-dispatch pass (one session made 86 calls).
+- Root never runs `bash` or reads repo files (3,987 root bash calls and about
+  32,000 nested TaskGet/TaskUpdate calls in 11 days); workers do verification.
+  Task bookkeeping stays with root: all known fields and links at creation (one
+  TaskCreate + one TaskUpdate), one batched codemode update per completion pass,
+  no re-reads.
+- Reactive fallback: subscription Sonnet/Haiku 401/402/429 → `anthropic-api`
+  same model (bypasses pace and reserve); Opus → Sol.
+- Opus compaction at about 272k (`reserveTokens` 728000), also for Opus workers.
+- `root-delegation-guard` extension blocks root `bash`; user-only escape
+  `/root-bash on` or `PI_ROOT_BASH=1`.
+- 5 GiB free-disk dispatch guard (fresh dispatch only).
+- `task-graph-check` extension warns on stale tasks after 3 passes.
+- Narrow route widened to any bounded packet with a deterministic check and named
+  evidence path (Sonnet `medium` reviewer); security/concurrency/data loss excluded.
+- `ENOSPC` is a hard blocker reported to the user, not retried.
+- Why: worker Sol 52.98% with the highest rework history at `xhigh`
+  (269/697), Haiku+Luna 9.38%, $0 API spend against $788 expiring credit,
+  ChatGPT weekly at 97% after 41% of its window.
+- Measure: worker Sol request share (target below 35%), Haiku+Luna share
+  (target above 20%), Console UTC-month spend against the pace target,
+  requested-Sonnet-ran-as-Sol count, accepted/rework per route, coordinator
+  cost/request and compaction tokens, ChatGPT weekly pace at reset.

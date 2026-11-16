@@ -8,7 +8,7 @@ This documents the managed configuration and installed `pi-model-fallback`
 - Managed source: `home/private_dot_pi/private_agent/private_model-fallback/config.json`.
 - Runtime config: `~/.pi/agent/model-fallback/config.json`.
 - Runtime cooldown state: `~/.pi/agent/model-fallback/state.json`.
-- The managed source is enabled, has `autoRetry: false`, and contains 14 ordered rules. This does not claim the runtime copy has been applied.
+- The managed source is enabled, has `autoRetry: false`, and contains 15 ordered rules. This does not claim the runtime copy has been applied.
 
 The extension records cooldowns by failing source `provider/model`, not by
 account or subscription pool. `/model-fallback:status` and
@@ -19,9 +19,9 @@ provider/source limitations are documented in [quota access](pi-quota-usage.md).
 ## Matching and switching
 
 - Rules are evaluated in order. In 0.5.2, `findFallback` selects the first rule matching the source model/provider and status.
-- Go failures route to Copilot Luna, Copilot to native OpenAI Luna, and native OpenAI to subscription Sonnet. Exact native Luna rules precede the broad OpenAI rules. Subscription Haiku routes to Copilot Luna; other Anthropic models route to native Sol.
+- Go failures route to Copilot Luna, Copilot to native OpenAI Luna, and native OpenAI to subscription Sonnet. Exact native Luna rules precede the broad OpenAI rules. Subscription Sonnet and Haiku 401/402/429 route to `anthropic-api` (same model); other Anthropic models, including Opus, route to native Sol.
 - Zen and Contributor endpoints are absent: the user is not funding Zen, and a reactive switch cannot check Contributor training consent. Go Kimi shares the Go provider failure route rather than retrying another model on an exhausted pool.
-- No automatic rule enters `anthropic-api`: a reactive status switch cannot enforce grant reserves or the monthly spending cap. The coordinator may explicitly select it only with sufficient budget evidence. Existing API sessions fail over to Sol on configured statuses. Its out-of-credit 400 is deliberately not a blanket 400 rule; use the exhaustion observation and inspect the refusal.
+- Only the Sonnet/Haiku rules enter `anthropic-api`; a reactive switch bypasses the pace and $20 reserve (there is no monthly cap), so read Console spend at the next dispatch pass. Known risk: rules cannot tell root from worker, so a cascade (Opus → Sol → Sonnet → `anthropic-api` Sonnet) can leave root off Opus/Sol; the coordinator must then stop and ask the user to switch. Existing API sessions fail over to Sol on configured statuses. Its out-of-credit 400 is deliberately not a blanket 400 rule; use the exhaustion observation and inspect the refusal.
 - Evidence and caveats: see [routing research](model-routing-research.md). These are model-recovery routes, not quota optimization. Fallback config selects a model; it neither configures per-fallback reasoning effort nor guarantees its preservation.
 - Fallbacks can chain when a selected fallback model later fails and matches another rule. The loop guard tracks visited `provider/model` pairs for the current agent run and resets at `agent_start`; it does not track shared subscription pools. A path through Copilot, native Luna and Sonnet can still revisit an exhausted provider under a different model. The loop guard prevents repeated model pairs, not every shared-pool revisit.
 - Matching non-2xx responses in `after_provider_response` and parsed assistant errors at `turn_end` can switch models. There is no automatic return to the primary model during the session; `/model-fallback:reset` clears persistent state and returns to the remembered original model when possible.
