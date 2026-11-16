@@ -130,3 +130,6 @@ _zsh_cached_eval fzf "${commands[fzf]}" -- fzf --zsh
 source ~/.config/zsh/path.zsh
 
 alias omo=omo-agent-toolkit
+
+# Vite+ bin (https://viteplus.dev)
+. "/Users/yovanoc/.config/vite-plus/env"
