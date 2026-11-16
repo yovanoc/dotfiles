@@ -61,7 +61,7 @@ Applied to `~/.pi` (coordinator.md and model-fallback/config.json); active after
 
 - Routing: expiring prepaid `anthropic-api` credits ($360 by 2026-10-21, $1,000 by
   2027-04-08; console $129.04 spent on 2026-10-14) are no longer opt-in. They take
-  Anthropic relief at 80%+ subscription windows and routine Anthropic packets while
+  Anthropic overflow at Conserve (beyond 3 concurrent fresh workers), relief at 95%+, and routine Anthropic packets while
   the Pi-local count is behind 57.56 + $35/day (to 2026-10-21), then + $6/day.
 - Fallback: subscription Opus/Sonnet/Haiku 402/429 switch to the same model on
   `anthropic-api`; `anthropic-api` 402/429 falls back to Sol.
@@ -474,9 +474,12 @@ Source-only on branch `pi-retro-20261116`; not applied. Apply time: PENDING.
   checks, stop-when-done and no unrequested review subagents.
 - `enabledModels`: Fable 5.1 replaced by Fable 5.2. Routing doc lists official
   Anthropic and OpenAI guidance pages.
-- Rate limits: at Conserve on a short window, new Claude-fit packets go to
-  `anthropic-api/` or an independent pool; a 429 holds that pool as Reserve for 15
-  minutes; at most 8 concurrent fresh workers per subscription model pool; the
+- Rate limits: use subscription quota to the end of each window. Below 80% of the
+  short window up to 8 concurrent fresh workers per subscription model pool; at
+  Conserve (80% to below 95%) at most 3, with only overflow going to `anthropic-api/`
+  (credit pace permitting) or an independent pool; at 95%+ no new fresh dispatch on
+  the pool while running work finishes; after a 429 no fresh dispatch on that pool
+  for 15 minutes; taper from 70% when the weekly window is ahead of pace; the
   coordinator at Conserve is told to switch to Sol `medium` at a natural break.
 - `quota_status` at most once per fresh-dispatch pass (one session made 86 calls).
 - Root never runs `bash` or reads repo files (3,987 root bash calls and about
