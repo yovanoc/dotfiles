@@ -15,17 +15,19 @@ may use the model's default effort instead of the parent's live effort.
 
 Routine dispatching, status and bookkeeping use `anthropic/claude-opus-5-5`
 `medium` on the Anthropic subscription; its equal-tier switch counterpart is
-`openai/gpt-6.1-sol` `medium`. New unpinned starts use Opus; existing sessions
+`openai/gpt-6.2-sol` `medium`. New unpinned starts use Opus; existing sessions
 and explicit choices retain their runtime. When the active coordinator pool's
 most constrained window reaches Conserve (80%) and the other pool has headroom,
-recommend the user switch to `openai/gpt-6.1-sol` `medium` at the next natural
+recommend the user switch to `openai/gpt-6.2-sol` `medium` at the next natural
 break (after a handoff checkpoint), since a switch drops cache and reasoning. Never run the coordinator on
 `anthropic-api/`, Fable 5.2, Astra, Haiku, Luna or Terra. Confirm actual provider/model and effort at startup. Root effort is not
 a worker default: choose each worker's model and effort for its packet.
 Delegate bounded work to Haiku, Sonnet, Luna or task-fit Terra rather than
 inheriting the coordinator model for every worker. Compare accepted outcomes, rework and actual runtime cost, not done counts.
-Choose Opus/Astra deliberately for difficult implementation, deep or high-risk review
-and hard architecture decisions, not only as a last fallback. State a
+Choose Opus deliberately for difficult implementation, deep or high-risk review
+and hard architecture decisions. Reserve Astra for rare, exceptionally polished
+work or open-ended complex projects; require a rationale and a condition that
+ends the expensive phase. State a
 `MODEL RATIONALE:` (explicit user choice, costly hidden failure, interacting
 invariants or a prior verified miss) and the condition that ends the expensive
 phase; return to the routine model when that condition is met. Preserve explicit
@@ -132,19 +134,19 @@ task fit; Effect expertise stays with the role. API price is not subscription de
 | --- | --- |
 | Bounded read-only mapping (`Explore`) | `opencode-go/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `high` → `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` `high`. Luna `max` is locally discouraged here (29 of 43 historical Explore runs hit the turn limit), not a provider rule. |
 | Narrow: bounded code or analysis with a deterministic check (see Narrow above) | `opencode-go/claude-haiku-5-5` `medium` → `github-copilot/gpt-6-luna` `low` for single-step or `high` for multi-step → `anthropic/claude-haiku-5-5` `medium` → `openai/gpt-6-luna` at the same effort → `anthropic/claude-sonnet-5-5` `medium`. At a turn limit inspect partial edits and re-split. Keep Haiku prompts under 100k tokens (price steps 5× above). |
-| Concise writing or revision from supplied material (not extraction) | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. Verify facts, qualifications, audience, voice and useful detail against the supplied material. |
-| Scoped code fixes with clear inputs, requirements and regression checks, without hard/security/cross-layer invariants | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. A worker runs regression tests and reports the diff before acceptance. Mechanical leaves still use the narrow row. |
-| Substantive implementation, debugging or bounded Effect work outside the scoped-fix row | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.1-sol` `medium`. Use Sonnet `high` for harder but bounded work. A small risky packet still belongs here or on the difficult row, not Haiku. |
-| Genuinely difficult end-to-end implementation | `anthropic/claude-opus-5-5` `medium` with a rationale → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
-| Research, open-ended work or hard repository tracing | `anthropic/claude-sonnet-5-5` `high` for bounded synthesis → `openai/gpt-6.1-sol` `medium` for hard tracing. Split exact extraction to Haiku/Luna first. |
-| Bounded planning or ordinary review | `anthropic/claude-sonnet-5-5` `medium` → `github-copilot/gpt-6-luna` `high` for self-contained checks → `openai/gpt-6.1-sol` `medium`. |
-| Deep or cross-layer review | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
-| Exceptional/adversarial review with costly hidden failure, interacting invariants or verified misses | `anthropic/claude-opus-5-5` `high` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
-| Architecture where judgment is the bottleneck | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.1-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
-| Defined visual/computer tasks with explicit inputs and a verifiable saved outcome | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`. Verify the saved record/page, preserve unrelated data and check the completion report; UI changes also require rendered desktop/mobile, keyboard and accessibility checks. Role tools must actually support the interaction. |
-| Open-ended visual/UI design or connected visual systems | `github-copilot/gpt-6-luna` `high` → `openai/gpt-6.1-sol` `medium`. Go Kimi K3 `high` is held: the installed catalog marks it unsupported; do not substitute `max`. Verify image input and effort support; inspect screenshots, mobile layout, keyboard navigation and accessibility before acceptance. |
+| Concise writing or revision from supplied material (not extraction) | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.2-sol` `medium`. Verify facts, qualifications, audience, voice and useful detail against the supplied material. |
+| Scoped code fixes with clear inputs, requirements and regression checks, without hard/security/cross-layer invariants | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.2-sol` `medium`. A worker runs regression tests and reports the diff before acceptance. Mechanical leaves still use the narrow row. |
+| Substantive implementation, debugging or bounded Effect work outside the scoped-fix row | `anthropic/claude-sonnet-5-5` `medium` → `openai/gpt-6.2-sol` `medium`. Use Sonnet `high` for harder but bounded work. A small risky packet still belongs here or on the difficult row, not Haiku. |
+| Genuinely difficult end-to-end implementation | `anthropic/claude-opus-5-5` `medium` with a rationale → `openai/gpt-6.2-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
+| Research, open-ended work or hard repository tracing | `anthropic/claude-sonnet-5-5` `high` for bounded synthesis → `openai/gpt-6.2-sol` `medium` for hard tracing. Split exact extraction to Haiku/Luna first. |
+| Bounded planning or ordinary review | `anthropic/claude-sonnet-5-5` `medium` → `github-copilot/gpt-6-luna` `high` for self-contained checks → `openai/gpt-6.2-sol` `medium`. |
+| Deep or cross-layer review | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.2-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
+| Exceptional/adversarial review with costly hidden failure, interacting invariants or verified misses | `anthropic/claude-opus-5-5` `high` → `openai/gpt-6.2-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
+| Architecture where judgment is the bottleneck | `anthropic/claude-opus-5-5` `medium` → `openai/gpt-6.2-sol` `xhigh` → `anthropic/claude-sonnet-5-5` `high`. At Anthropic Conserve prefer Sol first. |
+| Defined visual/computer tasks with explicit inputs and a verifiable saved outcome | `openai/gpt-6.1-terra` `medium` → `openai/gpt-6.2-sol` `medium`. Verify the saved record/page, preserve unrelated data and check the completion report; UI changes also require rendered desktop/mobile, keyboard and accessibility checks. Role tools must actually support the interaction. |
+| Open-ended visual/UI design or connected visual systems | `github-copilot/gpt-6-luna` `high` → `openai/gpt-6.2-sol` `medium`. Go Kimi K3 `high` is held: the installed catalog marks it unsupported; do not substitute `max`. Verify image input and effort support; inspect screenshots, mobile layout, keyboard navigation and accessibility before acceptance. |
 | Rare top-tier Claude work: hours-long orchestration or migration, deep research, or a verified Opus `high`/`xhigh` miss on the same inputs | `anthropic/claude-fable-5-2` `high` (provider start; try `medium` where checks still pass) with a `MODEL RATIONALE:` naming the trigger and the condition that ends the phase. Prefer `anthropic-api/claude-fable-5-2` when the credit pace allows. Never a routine route or automatic fallback. |
-| Rare top-tier OpenAI work: a verified Sol `xhigh` miss on the same inputs, an exacting externally visible deliverable, or explicit user choice | `openai/gpt-6-astra` `low`, raising one level only on a diagnosed gap, with a `MODEL RATIONALE:`. Never a routine route or automatic fallback. |
+| Rare top-tier OpenAI work: a verified Sol `xhigh` miss on the same inputs, an exacting externally visible deliverable, or explicit user choice | `openai/gpt-6.2-astra` `low` for polished work, `medium` for complex projects, or `xhigh` for open-ended work, with a `MODEL RATIONALE:` and a defined exit condition. Never a routine route or automatic fallback; supported efforts exclude `none`. |
 | Short extraction, summaries or classification | `opencode-go/claude-haiku-5-5` `low` for single-step or `medium` for multi-step → `github-copilot/gpt-6-luna` `low` or `high` respectively → `anthropic/claude-haiku-5-5` at the same effort → `openai/gpt-6-luna` at the same effort. |
 
 Zen (`opencode/`) is disabled while the user declines to refill its wallet: omit it
@@ -155,7 +157,8 @@ non-confidential, explicitly selected alternative only: its prompts/completions 
 zero-retention. Automatic fallback cannot enforce that boundary, so excludes it.
 
 For Luna, try `xhigh` for constrained multi-step code; `max` needs task-local
-evidence or an explicit user choice. Sol `medium` suits complex technical work;
+evidence or an explicit user choice. Sol `medium` is recommended for code fixes
+and features;
 Sol `xhigh` suits decisions from conflicting evidence or polished hard deliverables.
 Opus `medium` is the provider's starting effort; `high` is our local choice for
 high-risk work (exceptional review, security, concurrency, data loss), not a proven

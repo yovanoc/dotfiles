@@ -29,8 +29,9 @@ Prices, defaults and recommended uses change with model releases.
   [pricing](https://developers.openai.com/api/docs/pricing), and model pages for
   [Luna](https://developers.openai.com/api/docs/models/gpt-6-luna),
   [Terra](https://developers.openai.com/api/docs/models/gpt-6.1-terra),
-  [Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) and
-  [Astra](https://developers.openai.com/api/docs/models/gpt-6-astra).
+  [GPT-6.2 Sol](https://developers.openai.com/api/docs/models/gpt-6.2-sol) and
+  [GPT-6.2 Astra](https://developers.openai.com/api/docs/models/gpt-6.2-astra), plus the
+  [GPT-6.2 introduction](https://openai.com/index/introducing-gpt-6-2-astra-sol/).
 
 ## Model selection
 
@@ -41,15 +42,15 @@ coordinator-created `Agent` call, explicit user/task model and effort choices
 come first; otherwise use the coordinator's route and pass both fields. A
 resume omits both to retain the worker's established runtime. The root startup
 default is `anthropic/claude-opus-5-5` medium, while Pi's active runtime
-model controls the root session. The catalog statically
-registers native `openai/gpt-6.1-sol`, `openai/gpt-6-luna`, and
-`openai/gpt-6-astra`; Pi’s refreshed catalog supplies
-`openai/gpt-6.1-terra` over Responses without custom registration.
-Sol high and Luna max have identity thinking mappings.
-Catalog registration and mappings do not prove account entitlement, live
-runtime behavior, effort equivalence, or quota debit. Managed inference uses
-only the native route; OpenAI quota reporting uses the retained login as
-documented in [quota access](pi-quota-usage.md).
+model controls the root session. The managed source now targets `openai/gpt-6.2-sol` and
+`openai/gpt-6.2-astra`, with native Sol as the coordinator's existing medium
+counterpart and Astra reserved for rare polished or open-ended work. The
+installed Pi catalog has not yet been refreshed or verified for either 6.2 ID
+or its effort mappings; do not add custom model definitions or treat source
+configuration as proof of registration, entitlement, or runtime availability.
+This is a deployment blocker until the catalog confirms the IDs and supported
+efforts. Managed inference uses only native routes; OpenAI quota reporting uses
+the retained login as documented in [quota access](pi-quota-usage.md).
 
 A direct `@agent` mention bypasses coordinator routing. With roles unpinned it
 inherits the parent model; if thinking is omitted, the selected model's default

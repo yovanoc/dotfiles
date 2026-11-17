@@ -504,3 +504,12 @@ Applied by targeted chezmoi apply of six targets plus a merged settings.json wri
   (target above 20%), Console UTC-month spend against the pace target,
   requested-Sonnet-ran-as-Sol count, accepted/rework per route, coordinator
   cost/request and compaction tokens, ChatGPT weekly pace at reset.
+
+## PENDING — gpt62-sol-astra-guidance
+
+Source-only migration of active Sol/Astra routing to `openai/gpt-6.2-sol` and
+`openai/gpt-6.2-astra`, with the existing gates preserved and catalog/effort
+support explicitly unverified. Why: `/tmp/pi-gpt62-migration-review.md`.
+
+**NOT applied or reloaded.** No applied timestamp or measurement boundary is
+established; do not start a retro measurement period from this source change.
