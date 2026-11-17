@@ -129,7 +129,7 @@
   },
   "deviceId": "693181f0-899e-43bd-b7f7-3bc77a3d9a9e",
   "extensionChangelogVersions": {
-    "{\"source\":\"npm:@tintinweb/pi-subagents\",\"scope\":\"user\"}": "0.25.0",
+    "{\"source\":\"npm:@tintinweb/pi-subagents\",\"scope\":\"user\"}": "0.26.0",
     "{\"source\":\"npm:@gotgenes/pi-permission-system\",\"scope\":\"user\"}": "42.0.2",
     "{\"source\":\"npm:@tintinweb/pi-tasks\",\"scope\":\"user\"}": "0.9.1",
     "{\"source\":\"npm:pi-lens\",\"scope\":\"user\"}": "4.5.1",
