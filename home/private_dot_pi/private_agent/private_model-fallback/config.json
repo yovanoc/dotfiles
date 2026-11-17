@@ -85,28 +85,28 @@
       "matchProviders": ["anthropic"],
       "statuses": [401, 402, 429],
       "cooldownMs": 18000000,
-      "fallback": {"provider": "openai", "model": "gpt-6.1-sol"}
+      "fallback": {"provider": "openai", "model": "gpt-6.2-sol"}
     },
     {
       "name": "anthropic-transient",
       "matchProviders": ["anthropic"],
       "statuses": [500, 502, 503, 504, 529],
       "cooldownMs": 600000,
-      "fallback": {"provider": "openai", "model": "gpt-6.1-sol"}
+      "fallback": {"provider": "openai", "model": "gpt-6.2-sol"}
     },
     {
       "name": "anthropic-api-quota-or-auth",
       "matchProviders": ["anthropic-api"],
       "statuses": [401, 402, 429],
       "cooldownMs": 18000000,
-      "fallback": {"provider": "openai", "model": "gpt-6.1-sol"}
+      "fallback": {"provider": "openai", "model": "gpt-6.2-sol"}
     },
     {
       "name": "anthropic-api-transient",
       "matchProviders": ["anthropic-api"],
       "statuses": [500, 502, 503, 504, 529],
       "cooldownMs": 600000,
-      "fallback": {"provider": "openai", "model": "gpt-6.1-sol"}
+      "fallback": {"provider": "openai", "model": "gpt-6.2-sol"}
     }
   ]
 }

@@ -53,6 +53,15 @@ for status in (401, 402, 429, 500, 502, 503, 504, 529):
 assert target("anthropic-api", "claude-sonnet-5-5", 400) is None
 terra_id = "openai/gpt-6.1-terra"
 assert terra_id in settings["enabledModels"]
+assert "openai/gpt-6.2-sol" in settings["enabledModels"]
+assert "openai/gpt-6.2-astra" in settings["enabledModels"]
+assert "openai/gpt-6.1-sol" not in settings["enabledModels"]
+assert "openai/gpt-6-astra" not in settings["enabledModels"]
+assert all(
+    r["fallback"] == {"provider": "openai", "model": "gpt-6.2-sol"}
+    for r in rules
+    if r["name"].startswith(("anthropic-quota-or-auth", "anthropic-transient", "anthropic-api-"))
+)
 models = json.loads((agent / "private_models.json").read_text())
 # Native OpenAI metadata and authentication belong to Pi, not managed overrides.
 assert "openai" not in models["providers"]
@@ -79,7 +88,7 @@ assert "prior verified lighter-route" in sol_policy and "no suitable eligible al
 assert "qualification-only" not in routing
 for task in ("Concise writing or revision from supplied material", "Scoped code fixes with clear inputs", "Defined visual/computer tasks"):
     row = next(line for line in routing.splitlines() if line.startswith("| " + task))
-    assert "`openai/gpt-6.1-terra` `medium` → `openai/gpt-6.1-sol` `medium`" in row
+    assert "`openai/gpt-6.1-terra` `medium` → `openai/gpt-6.2-sol` `medium`" in row
 assert "verified acceptance miss" in routing
 assert "API estimates are not ChatGPT credit-debit rates" in routing
 assert "Reserve" in routing and "Full" in routing
