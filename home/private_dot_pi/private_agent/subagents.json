@@ -10,6 +10,7 @@
   "strictAgentFiles": true,
   "disableDefaultAgents": false,
   "toolDescriptionMode": "compact",
+  "workflowToolExposure": "skill",
   "fleetView": true,
   "agentMentions": "direct",
   "rememberAgents": true,
