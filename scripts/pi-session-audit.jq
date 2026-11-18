@@ -440,6 +440,10 @@ def process_event($event):
           | if $call.status == "error" or (($call | has("error")) and $call.error != null and $call.error != false) then .nested_calls[$call.name].errors += 1 else . end
         else . end)
     else . end
+  | if $in_window and ($event.message | type) == "object" and $event.message.role == "toolResult" and ($event.message.toolName | IN("bash", "read")) then
+      .tool_results[$event.message.toolName].results += 1
+      | .tool_results[$event.message.toolName].text_chars += ([$event.message.content | content_texts[] | length] | add // 0)
+    else . end
   | if ($event.message | type) != "object" then .
     elif $event.message.role == "assistant" and ($event.message.content | type) == "array" then
       reduce $event.message.content[] as $block (.;
@@ -500,6 +504,7 @@ def scan_file:
         nested_agent_resume: {attempts: 0, results: 0, missing_agent: 0, unfinished_or_unknown: 0, errors_without_text: 0},
         resume_arguments_unavailable: 0, unjoined_agent_results: 0, incomplete_nested_records: 0},
       completion_times: {}, notification_times: [], assistant_times: [],
+      tool_results: {},
       reasoning: {assistant_messages: 0, duplicate_events_excluded: 0, reasoning_valid: 0, reasoning_missing: 0, reasoning_invalid: 0,
         output_valid: 0, output_missing: 0, output_invalid: 0, reasoning_tokens: 0, output_tokens: 0,
         comparable_messages: 0, comparable_reasoning_tokens: 0, comparable_output_tokens: 0, reasoning_exceeds_output: 0},
@@ -541,7 +546,7 @@ def scan_file:
       nonblank_events_header_only: ($summary.has_header and $summary.nonblank == 1),
       models: $summary.models,
       retrieval: $summary.retrieval,
-      failure_counts: $summary.failure_counts, reasoning: $summary.reasoning,
+      failure_counts: $summary.failure_counts, reasoning: $summary.reasoning, tool_results: $summary.tool_results,
       completion_times: $summary.completion_times, notification_times: $summary.notification_times, assistant_times: $summary.assistant_times
     }
   + (if $summary.recent and $summary.has_header then
@@ -1180,6 +1185,11 @@ def aggregate:
               | . + {output_share: (if .comparable_output_tokens > 0 then .comparable_reasoning_tokens / .comparable_output_tokens else null end),
                      noncomparable_messages: (.assistant_messages - .comparable_messages)})}) | from_entries),
         note: "usage.reasoning is a subset of usage.output, never added to output or total tokens. Share uses only paired valid integer counts with reasoning <= output and positive aggregate output. Missing is not zero; invalid and missing fields, impossible pairs, and duplicate assistant event IDs are counted. Roles follow session_info worker identity, otherwise nonworker/coordinators."
+      },
+      worker_tool_result_sizes: {
+        by_role: ([$files[] | select(.classification == "worker") | .worker_type as $role | .tool_results | to_entries[] | {role: ("worker/" + $role), tool: .key, value: .value}]
+          | group_by(.role) | map({key: .[0].role, value: (group_by(.tool) | map({key: .[0].tool, value: {results: (map(.value.results) | add), text_chars: (map(.value.text_chars) | add)}}) | from_entries)}) | from_entries),
+        note: "Direct persisted bash/read toolResult messages in the window from worker sessions only; nested codemode results are excluded. text_chars is the sum of jq length (Unicode codepoints, not bytes, not billed tokens) over text content blocks; non-text blocks and empty-role buckets are omitted. Numbers only: tool text, arguments, and paths are never emitted. Role-level counts are not joined to task outcomes; compare against accepted/reworked rates separately from task_outcomes, and only for matched roles and task mix."
       },
       terminal_notification_statuses_unique: $notifications,
       get_subagent_result: {

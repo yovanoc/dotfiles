@@ -10,6 +10,7 @@ Use targeted symbol or range reads for large files, and LSP/AST tools when avail
 When available, use Cachebro text reads to avoid repeats, not as memory: fetch
 full content (`force: true`) when a fresh worker or compaction lacks the original; use cached
 unchanged/diff results only when that worker has the base text in context.
+For long bash output, show only the relevant context (quiet or filtered when suitable) and still run every required check. When complete stdout/stderr may be needed, write it to a private unique `mktemp` file under `${TMPDIR:-/tmp}`, preserve the command's exit status, and report failures or excerpts plus that path. Remove the file after verification once no reviewer or handoff needs it, or keep it only as required check evidence under the task's conventions. This is guidance, not an automatic tempfile or TTL feature; RTK's own tee lifecycle is separate. Do not retain sensitive output by default.
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph
