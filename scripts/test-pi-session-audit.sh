@@ -957,4 +957,25 @@ if PATH="$no_jq_path" /bin/bash "$SCRIPT" --sessions-dir "$root" > "$tmp_root/no
 fi
 grep -q 'jq is required' "$tmp_root/no-jq.err"
 
+# Worker bash/read result sizes: direct text blocks only, Unicode codepoints, numbers only.
+sizes="$tmp_root/sizes"
+mkdir -p "$sizes"
+cat > "$sizes/w.jsonl" <<'EOF'
+{"type":"session","timestamp":"2024-05-02T12:00:00Z","parentSession":"SIZE_PARENT_SECRET"}
+{"type":"session_info","timestamp":"2024-05-02T12:00:00Z","name":"implementer#size0001"}
+{"type":"message","timestamp":"2024-05-02T11:59:59Z","message":{"role":"toolResult","toolName":"bash","content":[{"type":"text","text":"BEFORE_WINDOW_SECRET"}]}}
+{"type":"message","timestamp":"2024-05-02T12:01:00Z","message":{"role":"toolResult","toolName":"bash","content":[{"type":"text","text":"héllo😀\nSIZE_SECRET_A"},{"type":"image","data":"IMAGE_SECRET","text":7},{"type":"text","text":"ab"}]}}
+{"type":"message","timestamp":"2024-05-02T12:01:01Z","message":{"role":"toolResult","toolName":"bash","content":[]}}
+{"type":"message","timestamp":"2024-05-02T12:01:02Z","message":{"role":"toolResult","toolName":"read","content":[{"type":"text","text":"abc"}]}}
+{"type":"message","timestamp":"2024-05-02T12:01:03Z","message":{"role":"toolResult","toolName":"grep","content":[{"type":"text","text":"OTHER_TOOL_SECRET"}]}}
+{"type":"message","timestamp":"2024-05-02T12:01:04Z","message":{"role":"toolResult","toolName":"codemode","content":[{"type":"text","text":"NESTED_SECRET"}],"nestedCalls":{"complete":true,"calls":[{"name":"bash","status":"ok"}]}}}
+EOF
+cat > "$sizes/c.jsonl" <<'EOF'
+{"type":"session","timestamp":"2024-05-02T12:00:00Z"}
+{"type":"message","timestamp":"2024-05-02T12:01:00Z","message":{"role":"toolResult","toolName":"bash","content":[{"type":"text","text":"COORDINATOR_SECRET"}]}}
+EOF
+"$SCRIPT" --sessions-dir "$sizes" --since 2024-05-02T12:00:00Z --until 2024-05-02T13:00:00Z --json > "$tmp_root/sizes.json"
+jq -e '.worker_tool_result_sizes.by_role == {"worker/implementer":{bash:{results:2,text_chars:22},read:{results:1,text_chars:3}}}' "$tmp_root/sizes.json" >/dev/null
+if grep -Eq '_SECRET|SIZE_PARENT|héllo' "$tmp_root/sizes.json"; then echo 'tool result size output leaked content' >&2; exit 1; fi
+
 echo 'pi-session-audit tests passed'
