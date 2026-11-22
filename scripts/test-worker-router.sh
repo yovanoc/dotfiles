@@ -28,12 +28,14 @@ const fresh = (windows: any[]) => ({ provider: "x", source: null, capturedAt: t,
 const win = (label: string, usedFraction: number, windowMinutes = 300, resetsAt: number | null = null) => ({ label, group: null, status: "fresh", unit: "percent", used: usedFraction * 100, remaining: null, limit: null, usedPercent: usedFraction * 100, usedFraction, windowMinutes, resetsAt })
 let quota: Record<string, any> = {}
 const observed: string[] = []
-const newStore = () => ({ leases: new Map(), cooldowns: new Map(), caches: new Map(), registry })
+// Requests come from sessions that run the extension: their run signal is registered in store.live.
+const runSignal = new AbortController().signal
+const newStore = () => ({ leases: new Map(), cooldowns: new Map(), caches: new Map(), live: new WeakSet([runSignal]), registry })
 let n = 0
 const make = (store: any) => createRoute(store, { observe: async (p: string) => { observed.push(p); return quota[p] }, now: () => t, uuid: () => `lease-${++n}` })
 // A ctx that throws like a stale extension ctx: route() must never touch it.
 const vm = (id: string) => ({ provider: "route", id, api: "pi-virtual" })
-const req = (id: string, extra: any = {}) => ({ model: vm(id), thinkingLevel: "off", reason: "user", messages: [], ...extra })
+const req = (id: string, extra: any = {}) => ({ model: vm(id), thinkingLevel: "off", reason: "user", messages: [], signal: runSignal, ...extra })
 const ref = (r: any) => `${r.model.provider}/${r.model.id}:${r.thinkingLevel}`
 
 // Pool state from real quota shapes.
@@ -147,6 +149,20 @@ assert.equal(ref(await route(req("narrow"))), "github-copilot/gpt-6-luna:high")
 const direct = await route(req("narrow", { reason: "direct", previous: { model: sonnet, thinkingLevel: "high" } }))
 assert.equal(direct.model, sonnet); assert.equal(direct.state, undefined)
 
+// Fail closed: a session whose extension never registered its run signal (or a signal-less caller) never gets or keeps a lease.
+store = newStore(); route = make(store)
+const held = await route(req("narrow"))
+const foreign = new AbortController().signal
+for (const extra of [{ signal: foreign }, { signal: undefined }]) {
+  for (const more of [{}, { reason: "continuation", state: held.state }, { reason: "retry", state: held.state, failed: failed(sonnet, "429 rate limit") }, { state: held.state }]) {
+    await assert.rejects(route(req("narrow", { ...more, ...extra })), /does not run the worker-router extension/)
+  }
+}
+assert.equal(store.leases.size, 1) // only the supported session's lease
+store.leases.clear()
+assert.equal((await route(req("narrow", { reason: "direct", signal: foreign, previous: { model: sonnet } }))).model, sonnet)
+assert.equal(store.leases.size, 0)
+
 // Extension wiring: six routes, registration in every session, route() ignores its (stale) ctx.
 const g = globalThis as any
 delete g[Symbol.for("dotfiles.worker-router.store")]
@@ -165,7 +181,11 @@ const shared = g[Symbol.for("dotfiles.worker-router.store")]
 shared.caches = new Map()
 shared.helpers = Promise.resolve(undefined) // no pi-usage helpers: other pools stay unknown
 assert.equal(shared.registry, registry)
-const wired = await registered.get("route/writing").route(req("writing"), stale)
+await assert.rejects(registered.get("route/writing").route(req("writing", { signal: new AbortController().signal }), stale), /does not run the worker-router extension/)
+const runCtx = { ...sessionCtx([]), signal: new AbortController().signal }
+for (const h of handlers.get("agent_start")!) h({}, runCtx) // only sessions that loaded the extension register their run
+assert.equal(shared.leases.size, 0)
+const wired = await registered.get("route/writing").route(req("writing", { signal: runCtx.signal }), stale)
 assert.equal(ref(wired), "openai/gpt-6.1-terra:medium")
 assert.equal(shared.leases.size, 1)
 for (const h of handlers.get("agent_settled")!) h({}, sessionCtx(branch(wired.state)))

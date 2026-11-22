@@ -73,10 +73,10 @@ try {
   };
   faux.setResponses(Array.from({ length: 16 }, () => echo));
 
-  const open = async (name, model) => {
+  const open = async (name, model, { withRouter = true } = {}) => {
     const settingsManager = SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: false } });
     const resourceLoader = new DefaultResourceLoader({
-      cwd, agentDir, settingsManager, noExtensions: true, additionalExtensionPaths: [router],
+      cwd, agentDir, settingsManager, noExtensions: true, additionalExtensionPaths: withRouter ? [router] : [],
       noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true, systemPrompt: "Smoke test.",
     });
     await resourceLoader.reload();
@@ -135,6 +135,17 @@ try {
   const w3 = callsFor("MARK-W3")[0].transcript;
   assert(!/MARK-W[12]/.test(w3), "next invocation received stale worker context");
   assert(!worker3.sessionManager.getBranch().some((entry) => /MARK-W[12]/.test(JSON.stringify(entry))), "next invocation session holds stale entries");
+
+  // A worker without the extension (extensions: false, isolated: true, allowlists...) shares the runtime's route but could never release a lease: it must fail closed.
+  const bare = await open("bare", modelRuntime.getModel("route", "narrow"), { withRouter: false });
+  await bare.prompt("MARK-BARE");
+  const refused = lastAssistant(bare);
+  assert.equal(refused.stopReason, "error", "worker without worker-router must not be routed");
+  assert.match(refused.errorMessage, /does not run the worker-router extension/);
+  assert.equal(callsFor("MARK-BARE").length, 0, "refused worker reached a provider");
+  assert.equal(leases.size, 0, "worker without worker-router took a lease");
+  dispose(bare);
+  assert.equal(leases.size, 0, "disposing a worker without worker-router changed leases");
 
   // Direct (non-agent-loop) resolution still lands on the eligible physical candidate after workers are gone.
   dispose(worker2);

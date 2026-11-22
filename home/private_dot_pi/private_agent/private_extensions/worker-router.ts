@@ -35,6 +35,8 @@ export type Store = {
   leases: Map<string, { pool: string }>
   cooldowns: Map<string, number>
   caches: Map<string, QuotaCache<Observation>>
+  // Abort signals of agent runs in sessions that loaded this extension, so their agent_settled/session_shutdown hooks release leases.
+  live: WeakSet<AbortSignal>
   registry?: Registry
   helpers?: Promise<Helpers | undefined>
 }
@@ -43,7 +45,7 @@ export type Store = {
 const KEY = Symbol.for("dotfiles.worker-router.store")
 export function sharedStore(): Store {
   const g = globalThis as Record<symbol, Store | undefined>
-  return (g[KEY] ??= { leases: new Map(), cooldowns: new Map(), caches: new Map() })
+  return (g[KEY] ??= { leases: new Map(), cooldowns: new Map(), caches: new Map(), live: new WeakSet() })
 }
 
 // Pool = provider subscription: Sol→Luna on one provider is not relief.
@@ -125,6 +127,11 @@ export function createRoute(store: Store, deps: Deps) {
       return { model: find(state)!, thinkingLevel: state.thinking, state }
     }
     const state = request.state
+    // Fail closed: route() is runtime-wide, but only a session running this extension releases its lease. A worker without it
+    // (extensions: false, isolated: true, an allowlist or exclude_extensions omitting it, an unknown role policy) would leak a slot.
+    if (request.reason !== "direct" && !(request.signal && store.live.has(request.signal))) {
+      throw new Error(`${PROVIDER}/${cls}: this session does not run the worker-router extension, so its slot could never be released; use an exact provider/model route or a role that loads worker-router.`)
+    }
     if (request.reason === "direct") {
       // Compaction summaries etc. have no state: reuse the model that answered last, else the first available route.
       if (request.previous) return { model: request.previous.model, thinkingLevel: request.previous.thinkingLevel ?? "medium" }
@@ -199,6 +206,7 @@ export default function (pi: ExtensionAPI) {
     pi.registerVirtualModel<RouterState>({ provider: PROVIDER, id: cls, name: `Worker route: ${cls}`, route: (request) => route(request) })
   }
   pi.on("session_start", (_event, ctx) => { store.registry = ctx.modelRegistry })
+  pi.on("agent_start", (_event, ctx) => { if (ctx.signal) store.live.add(ctx.signal) })
   pi.on("agent_settled", (_event, ctx) => settle(store, ctx.sessionManager.getBranch() as readonly BranchEntry[]))
   pi.on("session_shutdown", (_event, ctx) => { const lease = latestLease(ctx.sessionManager.getBranch() as readonly BranchEntry[]); if (lease) store.leases.delete(lease) })
   pi.on("model_select", (event, ctx) => {

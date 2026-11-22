@@ -131,7 +131,9 @@ export default function (pi: ExtensionAPI) {
     const a = locate(raw)
     if (!a || !bind(a, raw.id)) return
     if (name === "usage") {
-      if (typeof raw.model === "string" && route.test(raw.model) && raw.model.length <= 128 && !isRouteAlias(raw.model)) a.actualModel = raw.model
+      // A route alias reports the virtual selection (model and its virtual effort), never the physical dispatch.
+      if (isRouteAlias(raw.model)) return
+      if (typeof raw.model === "string" && route.test(raw.model) && raw.model.length <= 128) a.actualModel = raw.model
       if (typeof raw.thinking === "string" && EFFORTS.includes(raw.thinking)) a.actualEffort = raw.thinking
       if (a.actualModel || a.actualEffort) { a.actualSource = "subagents:usage"; emit(a, a.state, "runtime_observed") }
     } else if (name === "started") {
