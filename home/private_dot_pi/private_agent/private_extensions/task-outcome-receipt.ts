@@ -46,11 +46,13 @@ export function missingReceipts(entries: readonly { type: string, customType?: s
   return [...terminal].filter((id) => !receipted.has(id))
 }
 
-// Physical models that actually produced successful assistant turns for a worker, read from its persisted pi session. The path comes
-// from the durable `subagents:record` entry but is still untrusted: it must resolve (symlinks included) to a bounded regular
-// file under the agent sessions dir, and every transcript line is parsed defensively. Anything unavailable is ["unknown"], never a guess.
+// Physical models that actually produced successful assistant turns for a worker, read from its persisted pi session. pi-subagents
+// (agent-runner.ts) creates it via SessionManager.create under PI_CODING_AGENT_SESSION_DIR, else the default <agentDir>/sessions; a
+// per-agent `session_dir` or in-memory session is not a trusted location and reports unknown. The path comes from the durable
+// `subagents:record` entry but is still untrusted: it must resolve (symlinks included) to a bounded regular file under a trusted
+// root, and every transcript line is parsed defensively. Anything unavailable is ["unknown"], never a guess.
 const MAX_SESSION_BYTES = 32 * 1024 * 1024
-export function observedModels(entries: readonly { type: string, customType?: string, data?: unknown }[], workerId: string, sessionsDir = join(getAgentDir(), "sessions")): string[] {
+export function observedModels(entries: readonly { type: string, customType?: string, data?: unknown }[], workerId: string, roots: string[] = [process.env.PI_CODING_AGENT_SESSION_DIR || join(getAgentDir(), "sessions")]): string[] {
   const unknown = ["unknown"]
   try {
     let file: unknown
@@ -59,9 +61,9 @@ export function observedModels(entries: readonly { type: string, customType?: st
       if (entry.type === "custom" && entry.customType === "subagents:record" && data?.id === workerId) file = data.sessionFile
     }
     if (typeof file !== "string" || !file || file.includes("\0")) return unknown
-    const real = realpathSync(file), root = realpathSync(sessionsDir)
+    const real = realpathSync(file)
     const info = statSync(real)
-    if (!real.startsWith(root + sep) || !info.isFile() || info.size > MAX_SESSION_BYTES) return unknown
+    if (!roots.some((root) => { try { return real.startsWith(realpathSync(root) + sep) } catch { return false } }) || !info.isFile() || info.size > MAX_SESSION_BYTES) return unknown
     const seen = new Set<string>()
     for (const line of readFileSync(real, "utf8").split("\n")) {
       if (!line.includes('"assistant"')) continue
@@ -123,9 +125,8 @@ export default function (pi: ExtensionAPI) {
     async execute(_id, args, _signal, _update, ctx) {
       if (isWorker(ctx)) throw new Error("Workers cannot record coordinator task outcomes.")
       const receipt = validateReceipt(args)
-      // Aliases are not runtimes: an alias receipt always states which physical models ran (or unknown); a physical one only when evidence exists.
-      const observed = observedModels(ctx.sessionManager.getBranch(), receipt.taskId)
-      if (receipt.model.startsWith("route/") || observed[0] !== "unknown") receipt.observedModels = observed
+      // An alias is not a runtime: only alias receipts read a transcript and state which physical models ran (or unknown). Physical receipts are unchanged.
+      if (receipt.model.startsWith("route/")) receipt.observedModels = observedModels(ctx.sessionManager.getBranch(), receipt.taskId)
       pi.appendEntry("task-outcome-receipt", receipt)
       status(ctx, missingReceipts(ctx.sessionManager.getBranch()).filter((id) => id !== receipt.taskId))
       return { content: [{ type: "text", text: `Recorded ${receipt.outcome} for ${receipt.taskId}.` }], details: receipt }

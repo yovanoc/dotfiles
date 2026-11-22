@@ -15,7 +15,7 @@ export function gluedPromptReason(prompt: unknown): string | undefined {
 }
 
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
-// Opt-in virtual routes: the worker router resolves an alias to a physical model, so the guard cannot check the registry for them.
+// Opt-in virtual routes, registered as virtual models by the worker router.
 export const ROUTE_ALIASES = ["route/explore", "route/narrow", "route/writing", "route/substantive", "route/difficult", "route/review-deep"]
 const EXPENSIVE_ROUTES = ["route/difficult", "route/review-deep"]
 export const isRouteAlias = (model: unknown): model is string => typeof model === "string" && ROUTE_ALIASES.includes(model)
@@ -81,11 +81,8 @@ export function agentRouteReason(input: { model?: unknown, thinking?: unknown, r
   const model = role?.enabled ? role.model ?? input.model : input.model
   const thinking = role?.enabled ? role.thinking ?? input.thinking : input.thinking
   if (typeof model !== "string" || !model.includes("/")) return
-  if (/^route\//i.test(model)) {
-    if (!isRouteAlias(model)) return `Agent preflight rejected: unknown route alias ${model}. Use one of ${ROUTE_ALIASES.join(", ")} or an explicit provider/model.`
-    if (thinking !== undefined && (typeof thinking !== "string" || !EFFORTS.includes(thinking))) return `Agent preflight rejected: thinking must be one of ${EFFORTS.join(", ")}.`
-    return
-  }
+  // Virtual aliases are ordinary registry models (registration, auth and supported thinking are still checked below); only the name set is closed.
+  if (/^route\//i.test(model) && !isRouteAlias(model)) return `Agent preflight rejected: unknown route alias ${model}. Use one of ${ROUTE_ALIASES.join(", ")} or an explicit provider/model.`
   const slash = model.indexOf("/")
   const found = ctx.modelRegistry.find(model.slice(0, slash), model.slice(slash + 1))
   if (!found || !ctx.modelRegistry.getAvailable().some((m) => m.provider === found.provider && m.id === found.id)) {

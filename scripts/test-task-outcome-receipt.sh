@@ -146,13 +146,18 @@ const sf = join(sessions, "w.jsonl")
 writeFileSync(sf, [msg("a", "stop"), msg("b", "error"), "not json \"assistant\"", msg("c", "toolUse"), msg("a", "aborted")].join("\n"))
 writeFileSync(join(tmp, "outside.jsonl"), msg("evil", "stop")); symlinkSync(join(tmp, "outside.jsonl"), join(sessions, "link.jsonl"))
 const rec = (id: string, sessionFile?: unknown) => [{ type: "custom", customType: "subagents:record", data: { id, status: "completed", sessionFile } }]
-assert.deepEqual(observedModels(rec("w", sf), "w", sessions), ["p/a", "p/c"])
-for (const bad of [undefined, 5, "", join(sessions, "missing"), join(sessions, "link.jsonl"), join(tmp, "outside.jsonl"), join(sessions, "..", "outside.jsonl")]) assert.deepEqual(observedModels(rec("w", bad), "w", sessions), ["unknown"], String(bad))
-assert.deepEqual(observedModels(rec("other", sf), "w", sessions), ["unknown"])
-// Alias receipts always carry observedModels; physical receipts without evidence keep the preexisting shape.
+assert.deepEqual(observedModels(rec("w", sf), "w", [sessions]), ["p/a", "p/c"])
+for (const bad of [undefined, 5, "", join(sessions, "missing"), join(sessions, "link.jsonl"), join(tmp, "outside.jsonl"), join(sessions, "..", "outside.jsonl")]) assert.deepEqual(observedModels(rec("w", bad), "w", [sessions]), ["unknown"], String(bad))
+assert.deepEqual(observedModels(rec("other", sf), "w", [sessions]), ["unknown"])
+// A second trusted root (env session dir) is honored; an untrusted root is not.
+assert.deepEqual(observedModels(rec("w", sf), "w", [join(tmp, "other"), sessions]), ["p/a", "p/c"])
+assert.deepEqual(observedModels(rec("w", sf), "w", [join(tmp, "other")]), ["unknown"])
+// Alias receipts carry observedModels; physical receipts never do, even with a readable transcript.
 entries.length = 0
 await tool.execute("1", { ...good, model: "route/difficult", effort: "off", taskId: "no-record" }, undefined, undefined, coord)
 assert.deepEqual(entries.at(-1)[1].observedModels, ["unknown"])
 assert.equal(entries.at(-1)[1].model, "route/difficult")
+await tool.execute("1", { ...good, taskId: "w" }, undefined, undefined, coord)
+assert.equal("observedModels" in entries.at(-1)[1], false)
 console.log("Task outcome receipt checks passed")
 TS

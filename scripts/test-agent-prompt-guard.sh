@@ -140,13 +140,24 @@ assert.equal(solCall({ model: sol }), true)
 assert.equal(solCall({ model: sol, prompt: why + plain }), undefined)
 assert.equal(solCall({ model: sol, resume: "abc" }), undefined)
 
-// Virtual route aliases: no registry lookup, off accepted, unknown aliases refused, expensive ones need a rationale.
+// Virtual route aliases are registry models: registration, auth and declared thinking still apply; only the name set is closed.
 const { ROUTE_ALIASES } = await jiti.import(join(process.cwd(), "home/private_dot_pi/private_agent/private_extensions/agent-prompt-guard.ts"))
 assert.equal(ROUTE_ALIASES.length, 6)
-for (const a of ROUTE_ALIASES) for (const thinking of [undefined, "off", "high"]) assert.equal(route({ model: a, thinking }), undefined, a)
-assert.match(route({ model: "route/bogus" }) ?? "", /unknown route alias/)
-assert.match(route({ model: "Route/Explore" }) ?? "", /unknown route alias/)
-assert.match(route({ model: "route/explore", thinking: "bogus" }) ?? "", /thinking must be one of/)
+const virtual = (id: string, map?: Record<string, string | null>) => ({ provider: "route", id, reasoning: true, thinkingLevelMap: map })
+const vModels = [virtual("explore", { off: null, high: null }), virtual("difficult"), virtual("review-deep")] // only some aliases registered
+const vRegistry = { find: (p: string, id: string) => vModels.find((m) => m.provider === p && m.id === id), getAvailable: () => vModels }
+const vroute = (input: object, role?: object) => agentRouteReason(input, { modelRegistry: vRegistry }, role)
+assert.match(vroute({ model: "route/narrow" }) ?? "", /not registered/) // known alias name, not registered: rejected
+assert.match(vroute({ model: "route/narrow", thinking: "off" }) ?? "", /not registered/)
+assert.match(vroute({ model: "route/bogus" }) ?? "", /unknown route alias/)
+assert.match(vroute({ model: "Route/Explore" }) ?? "", /unknown route alias/)
+assert.equal(vroute({ model: "route/explore", thinking: "medium" }), undefined)
+assert.match(vroute({ model: "route/explore", thinking: "high" }) ?? "", /does not support thinking "high"/) // declared map excludes it
+assert.match(vroute({ model: "route/explore", thinking: "off" }) ?? "", /does not support thinking "off"/)
+assert.equal(vroute({ model: "route/difficult", thinking: "high" }), undefined)
+assert.match(vroute({ model: "route/difficult", thinking: "bogus" }) ?? "", /thinking must be one of/)
+assert.match(vroute({ model: "p/plain" }, { enabled: true, model: "route/narrow" }) ?? "", /not registered/) // role pin is checked
+assert.match(vroute({ model: "route/difficult", thinking: "high" }, { enabled: true, model: "route/explore", thinking: "high" }) ?? "", /does not support/)
 for (const a of ["route/difficult", "route/review-deep"]) {
   assert.match(solRationaleReason({ model: a, prompt: plain }) ?? "", /MODEL RATIONALE/)
   assert.equal(solRationaleReason({ model: a, prompt: why + plain }), undefined)
@@ -154,7 +165,10 @@ for (const a of ["route/difficult", "route/review-deep"]) {
 }
 for (const a of ["route/explore", "route/narrow", "route/writing", "route/substantive"]) assert.equal(solRationaleReason({ model: a, prompt: plain }), undefined)
 assert.match(solRationaleReason({ model: "p/plain", prompt: plain }, { enabled: true, model: "route/difficult" }) ?? "", /MODEL RATIONALE/)
-assert.equal(solCall({ model: "route/substantive", thinking: "off" }), undefined)
-assert.equal(solCall({ model: "route/difficult" }), true)
+const vCall = (input: object) => { let h: Handler; guard({ on: (_n: string, cb: Handler) => { h = cb } } as never); return h!({ toolName: "Agent", input: { prompt: plain, ...input } }, { cwd: "/x", modelRegistry: vRegistry })?.block }
+assert.equal(vCall({ model: "route/explore", thinking: "medium" }), undefined)
+assert.equal(vCall({ model: "route/narrow" }), true)
+assert.equal(vCall({ model: "route/difficult" }), true) // registered but no rationale
+assert.equal(vCall({ model: "route/difficult", prompt: why + plain }), undefined)
 console.log("Agent prompt guard checks passed")
 TS
