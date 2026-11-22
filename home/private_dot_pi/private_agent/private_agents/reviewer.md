@@ -4,7 +4,7 @@ description: Performs a fresh read-only review of an actual diff against its goa
 color: "#b540d5"
 tools: read, grep, find, ls, bash
 disallowed_tools: edit, write, model_fallback_config
-extensions: [pi-model-fallback, rtk, bash-timeout-guard]
+extensions: [pi-model-fallback, rtk, bash-timeout-guard, worker-router]
 prompt_mode: replace
 ---
 

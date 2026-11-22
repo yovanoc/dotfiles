@@ -14,7 +14,7 @@ const jiti = createJiti(join(process.cwd(), "scripts/test-task-outcome-receipt.s
   moduleCache: false, fsCache: false,
   alias: { "@earendil-works/pi-coding-agent": join(runtime, "dist/index.js"), typebox: join(runtime, "node_modules/typebox/build/index.mjs") },
 })
-const { default: extension, validateReceipt, missingReceipts } = await jiti.import(join(process.cwd(), "home/private_dot_pi/private_agent/private_extensions/task-outcome-receipt.ts"))
+const { default: extension, validateReceipt, missingReceipts, observedModels } = await jiti.import(join(process.cwd(), "home/private_dot_pi/private_agent/private_extensions/task-outcome-receipt.ts"))
 
 const good = { taskId: "task-12:a", outcome: "accepted", model: "anthropic/claude-sonnet-4.5", effort: "medium", checkArtifact: "scripts/test-x.sh" }
 assert.deepEqual(validateReceipt(good), good)
@@ -135,5 +135,24 @@ fire("session_tree")
 assert.equal(statuses.at(-1), undefined)
 assert.equal(notes.length, 0)
 assert.doesNotMatch(statuses.join(" ") + notes.join(" "), /SECRET/)
+
+// Observed physical models come only from a bounded session file under the sessions dir; everything else is unknown.
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, realpathSync } from "node:fs"
+import { tmpdir } from "node:os"
+const tmp = realpathSync(mkdtempSync(join(tmpdir(), "receipt-")))
+const sessions = join(tmp, "sessions"); mkdirSync(sessions)
+const msg = (model: string, stopReason: string) => JSON.stringify({ type: "message", message: { role: "assistant", provider: "p", model, stopReason } })
+const sf = join(sessions, "w.jsonl")
+writeFileSync(sf, [msg("a", "stop"), msg("b", "error"), "not json \"assistant\"", msg("c", "toolUse"), msg("a", "aborted")].join("\n"))
+writeFileSync(join(tmp, "outside.jsonl"), msg("evil", "stop")); symlinkSync(join(tmp, "outside.jsonl"), join(sessions, "link.jsonl"))
+const rec = (id: string, sessionFile?: unknown) => [{ type: "custom", customType: "subagents:record", data: { id, status: "completed", sessionFile } }]
+assert.deepEqual(observedModels(rec("w", sf), "w", sessions), ["p/a", "p/c"])
+for (const bad of [undefined, 5, "", join(sessions, "missing"), join(sessions, "link.jsonl"), join(tmp, "outside.jsonl"), join(sessions, "..", "outside.jsonl")]) assert.deepEqual(observedModels(rec("w", bad), "w", sessions), ["unknown"], String(bad))
+assert.deepEqual(observedModels(rec("other", sf), "w", sessions), ["unknown"])
+// Alias receipts always carry observedModels; physical receipts without evidence keep the preexisting shape.
+entries.length = 0
+await tool.execute("1", { ...good, model: "route/difficult", effort: "off", taskId: "no-record" }, undefined, undefined, coord)
+assert.deepEqual(entries.at(-1)[1].observedModels, ["unknown"])
+assert.equal(entries.at(-1)[1].model, "route/difficult")
 console.log("Task outcome receipt checks passed")
 TS

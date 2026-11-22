@@ -3,7 +3,7 @@ import { realpathSync } from "node:fs"
 import { basename, dirname, isAbsolute, join, resolve } from "node:path"
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, ToolLoadout } from "@earendil-works/pi-coding-agent"
 import { Type } from "typebox"
-import { agentResumeReason, agentRouteReason, gluedPromptReason, requiredToolsReason, resolveRole, solRationaleReason } from "./agent-prompt-guard"
+import { agentResumeReason, agentRouteReason, gluedPromptReason, isRouteAlias, requiredToolsReason, resolveRole, solRationaleReason } from "./agent-prompt-guard"
 
 const TYPE = "fast-task-dispatch"
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
@@ -131,7 +131,7 @@ export default function (pi: ExtensionAPI) {
     const a = locate(raw)
     if (!a || !bind(a, raw.id)) return
     if (name === "usage") {
-      if (typeof raw.model === "string" && route.test(raw.model) && raw.model.length <= 128) a.actualModel = raw.model
+      if (typeof raw.model === "string" && route.test(raw.model) && raw.model.length <= 128 && !isRouteAlias(raw.model)) a.actualModel = raw.model
       if (typeof raw.thinking === "string" && EFFORTS.includes(raw.thinking)) a.actualEffort = raw.thinking
       if (a.actualModel || a.actualEffort) { a.actualSource = "subagents:usage"; emit(a, a.state, "runtime_observed") }
     } else if (name === "started") {

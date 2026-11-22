@@ -139,5 +139,22 @@ const solCall = (input: object) => { let h: Handler; guard({ on: (_n: string, cb
 assert.equal(solCall({ model: sol }), true)
 assert.equal(solCall({ model: sol, prompt: why + plain }), undefined)
 assert.equal(solCall({ model: sol, resume: "abc" }), undefined)
+
+// Virtual route aliases: no registry lookup, off accepted, unknown aliases refused, expensive ones need a rationale.
+const { ROUTE_ALIASES } = await jiti.import(join(process.cwd(), "home/private_dot_pi/private_agent/private_extensions/agent-prompt-guard.ts"))
+assert.equal(ROUTE_ALIASES.length, 6)
+for (const a of ROUTE_ALIASES) for (const thinking of [undefined, "off", "high"]) assert.equal(route({ model: a, thinking }), undefined, a)
+assert.match(route({ model: "route/bogus" }) ?? "", /unknown route alias/)
+assert.match(route({ model: "Route/Explore" }) ?? "", /unknown route alias/)
+assert.match(route({ model: "route/explore", thinking: "bogus" }) ?? "", /thinking must be one of/)
+for (const a of ["route/difficult", "route/review-deep"]) {
+  assert.match(solRationaleReason({ model: a, prompt: plain }) ?? "", /MODEL RATIONALE/)
+  assert.equal(solRationaleReason({ model: a, prompt: why + plain }), undefined)
+  assert.equal(solRationaleReason({ model: a, prompt: plain, resume: "abc" }), undefined)
+}
+for (const a of ["route/explore", "route/narrow", "route/writing", "route/substantive"]) assert.equal(solRationaleReason({ model: a, prompt: plain }), undefined)
+assert.match(solRationaleReason({ model: "p/plain", prompt: plain }, { enabled: true, model: "route/difficult" }) ?? "", /MODEL RATIONALE/)
+assert.equal(solCall({ model: "route/substantive", thinking: "off" }), undefined)
+assert.equal(solCall({ model: "route/difficult" }), true)
 console.log("Agent prompt guard checks passed")
 TS
