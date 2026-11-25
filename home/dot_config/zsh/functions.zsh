@@ -80,14 +80,14 @@ function cdgr() {
     cd "$(git rev-parse --show-toplevel)" || echo "Not a git repository"
 }
 
-# Purge build artefacts recursively from the current directory down.
+# Purge build artefacts recursively from the current directory down, including hidden trees.
 # Go module caches contain read-only directories; make artefacts writable first.
-# Skip unrelated hidden trees such as ~/.rustup when run from $HOME.
+# Run from the intended project root: hidden trees beyond it are included too.
 function rmall() {
     find . -mindepth 1 \( \
         -type d \( -name node_modules -o -name .next -o -name dist -o -name .turbo -o -name target \) -prune -exec chmod -R -P u+w '{}' \; -exec rm -rf '{}' + \
         -o \
-        -type d -name '.*' -prune \
+        -type d -name .git -prune \
         -o \
         -type f \( -name .DS_Store -o -name tsconfig.tsbuildinfo \) -exec rm -f '{}' + \
     \)
