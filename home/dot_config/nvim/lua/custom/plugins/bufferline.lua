@@ -1,7 +1,7 @@
 return {
   'akinsho/bufferline.nvim',
   version = '*',
-  dependencies = 'nvim-tree/nvim-web-devicons',
+  -- Icons: mini.icons mocks nvim-web-devicons (see kickstart/plugins/mini.lua)
   event = 'VeryLazy',
   keys = {
     { '<leader>bp', '<Cmd>BufferLineTogglePin<CR>', desc = 'Toggle Pin' },
@@ -15,31 +15,28 @@ return {
     { '[B', '<cmd>BufferLineMovePrev<cr>', desc = 'Move buffer prev' },
     { ']B', '<cmd>BufferLineMoveNext<cr>', desc = 'Move buffer next' },
   },
-  opts = {
-    options = {
-      diagnostics = 'nvim_lsp',
+  config = function()
+    require('bufferline').setup {
+      options = {
+        diagnostics = 'nvim_lsp',
 
-      diagnostics_indicator = function(count, level, diagnostics_dict, context)
-        local s = ' '
-        for e, n in pairs(diagnostics_dict) do
-          local sym = e == 'error' and ' ' or (e == 'warning' and ' ' or ' ')
-          s = s .. n .. sym
-        end
-        return s
-      end,
-      offsets = {
-        {
-          filetype = 'neo-tree',
-          text = 'Neo-tree',
-          highlight = 'Directory',
-          text_align = 'left',
+        diagnostics_indicator = function(_, _, diagnostics_dict)
+          local s = ' '
+          for e, n in pairs(diagnostics_dict) do
+            local sym = e == 'error' and ' ' or (e == 'warning' and ' ' or ' ')
+            s = s .. n .. sym
+          end
+          return s
+        end,
+        offsets = {
+          {
+            filetype = 'neo-tree',
+            text = 'Neo-tree',
+            highlight = 'Directory',
+            text_align = 'left',
+          },
         },
       },
-    },
-  },
-  config = function(_, opts)
-    vim.opt.termguicolors = true
-
-    require('bufferline').setup(opts)
+    }
   end,
 }

@@ -27,8 +27,11 @@ local function gh(repo) return 'https://github.com/' .. repo end
 -- and elegantly composed help section, `:help lsp-vs-treesitter`
 
 -- Useful status updates for LSP.
-vim.pack.add { gh 'j-hui/fidget.nvim' }
-require('fidget').setup {}
+require('lazyload').add {
+  plugins = { gh 'j-hui/fidget.nvim' },
+  event = 'VeryLazy',
+  config = function() require('fidget').setup {} end,
+}
 
 --  This function gets run when an LSP attaches to a particular buffer.
 --    That is to say, every time a new file is opened that is associated with
@@ -126,7 +129,8 @@ local servers = {
         if path ~= vim.fn.stdpath 'config' and (vim.uv.fs_stat(path .. '/.luarc.json') or vim.uv.fs_stat(path .. '/.luarc.jsonc')) then return end
       end
 
-      client.config.settings.Lua = vim.tbl_deep_extend('force', client.config.settings.Lua, {
+      local current_settings = client.config.settings --[[@as lspconfig.settings.lua_ls]]
+      client.config.settings.Lua = vim.tbl_deep_extend('force', current_settings.Lua, {
         runtime = {
           version = 'LuaJIT',
           path = { 'lua/?.lua', 'lua/?/init.lua' },
@@ -135,10 +139,7 @@ local servers = {
           checkThirdParty = false,
           -- NOTE: this is a lot slower and will cause issues when working on your own configuration.
           --  See https://github.com/neovim/nvim-lspconfig/issues/3189
-          library = vim.tbl_extend('force', vim.api.nvim_get_runtime_file('', true), {
-            '${3rd}/luv/library',
-            '${3rd}/busted/library',
-          }),
+          library = vim.api.nvim_get_runtime_file('', true),
         },
       })
     end,
@@ -151,20 +152,13 @@ local servers = {
   },
 }
 
-vim.pack.add {
-  gh 'neovim/nvim-lspconfig',
-  gh 'mason-org/mason.nvim',
-  gh 'mason-org/mason-lspconfig.nvim',
-  gh 'WhoIsSethDaniel/mason-tool-installer.nvim',
-}
+-- nvim-lspconfig only ships `lsp/*.lua` server defaults, so it is cheap to load right away
+require('lazyload').add { plugins = { gh 'neovim/nvim-lspconfig' } }
 
--- Automatically install LSPs and related tools to stdpath for Neovim
-require('mason').setup {}
-
--- Translates between nvim-lspconfig server names and mason.nvim package names (e.g. lua_ls <-> lua-language-server)
-require('mason-lspconfig').setup {
-  automatic_enable = false, -- Change this to true if you want to automatically enable servers that are installed manually (e.g. via :Mason / :MasonInstall)
-}
+-- Mason installs the servers/tools below into stdpath('data')/mason and prepends its bin dir to $PATH.
+-- Do the $PATH part now: servers start on FileType, which can happen before mason is set up on VeryLazy.
+local mason_bin = vim.fs.joinpath(vim.fn.stdpath 'data', 'mason', 'bin')
+if not vim.env.PATH:find(mason_bin, 1, true) then vim.env.PATH = mason_bin .. (vim.fn.has 'win32' == 1 and ';' or ':') .. vim.env.PATH end
 
 -- Ensure the servers and tools above are installed
 --
@@ -176,9 +170,33 @@ require('mason-lspconfig').setup {
 local ensure_installed = vim.tbl_keys(servers or {})
 vim.list_extend(ensure_installed, {
   -- You can add other tools here that you want Mason to install
+  'eslint_d', -- linter for typescript(react), see lint.lua
+  'markdownlint', -- linter for markdown, see lint.lua
+  'prettierd', -- formatter for typescript(react), see conform.lua
 })
 
-require('mason-tool-installer').setup { ensure_installed = ensure_installed }
+-- Automatically install LSPs and related tools to stdpath for Neovim
+require('lazyload').add {
+  plugins = {
+    gh 'mason-org/mason-lspconfig.nvim',
+    gh 'WhoIsSethDaniel/mason-tool-installer.nvim',
+    gh 'mason-org/mason.nvim',
+  },
+  event = 'VeryLazy',
+  cmd = { 'Mason', 'MasonUpdate', 'MasonInstall', 'MasonUninstall', 'MasonUninstallAll', 'MasonLog' },
+  config = function()
+    require('mason').setup {}
+
+    -- Translates between nvim-lspconfig server names and mason.nvim package names (e.g. lua_ls <-> lua-language-server)
+    require('mason-lspconfig').setup {
+      automatic_enable = false, -- Change this to true if you want to automatically enable servers that are installed manually (e.g. via :Mason / :MasonInstall)
+    }
+
+    require('mason-tool-installer').setup { ensure_installed = ensure_installed }
+    -- The plugin installs on VimEnter, which has already happened when this is loaded lazily
+    require('mason-tool-installer').run_on_start()
+  end,
+}
 
 for name, server in pairs(servers) do
   vim.lsp.config(name, server)

@@ -10,13 +10,21 @@ vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } 
 
 -- Ensure basic parsers are installed
 local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
-require('nvim-treesitter').install(parsers)
+-- (checks the installed parsers in the background, so do it after startup)
+vim.api.nvim_create_autocmd('VimEnter', {
+  once = true,
+  callback = function() vim.schedule(function() require('nvim-treesitter').install(parsers) end) end,
+})
 
 ---@param buf integer
 ---@param language string
 local function treesitter_try_attach(buf, language)
+  -- Check if the buffer is valid (might not be after install completes)
+  if not vim.api.nvim_buf_is_valid(buf) then return end
+
   -- Check if a parser exists and load it
   if not vim.treesitter.language.add(language) then return end
+
   -- Enable syntax highlighting and other treesitter features
   vim.treesitter.start(buf, language)
 
@@ -33,7 +41,7 @@ local function treesitter_try_attach(buf, language)
   if has_indent_query then vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end
 end
 
-local available_parsers = require('nvim-treesitter').get_available()
+local available_parsers ---@type string[]?
 vim.api.nvim_create_autocmd('FileType', {
   callback = function(args)
     local buf, filetype = args.buf, args.match
@@ -42,6 +50,7 @@ vim.api.nvim_create_autocmd('FileType', {
     if not language then return end
 
     local installed_parsers = require('nvim-treesitter').get_installed 'parsers'
+    available_parsers = available_parsers or require('nvim-treesitter').get_available()
 
     if vim.tbl_contains(installed_parsers, language) then
       -- Enable the parser if it is already installed

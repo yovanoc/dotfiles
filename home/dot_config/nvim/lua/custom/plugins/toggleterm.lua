@@ -1,6 +1,9 @@
 return {
   'akinsho/toggleterm.nvim',
   version = '*',
+  cmd = { 'ToggleTerm', 'TermExec', 'ToggleTermToggleAll' },
+  -- Stubs for the `open_mapping` below, which toggleterm creates itself on load
+  keys = { { [[<c-\>]], mode = { 'n', 'i' }, desc = 'Toggle terminal' } },
   config = function()
     require('toggleterm').setup {
       size = 20, -- Size of the terminal window
