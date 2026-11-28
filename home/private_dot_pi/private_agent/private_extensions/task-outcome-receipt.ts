@@ -1,16 +1,17 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent"
+import { getAgentDir } from "@earendil-works/pi-coding-agent"
 import { Type } from "typebox"
 import { createHash } from "node:crypto"
-import { readFileSync } from "node:fs"
+import { readFileSync, realpathSync, statSync } from "node:fs"
 import { homedir } from "node:os"
-import { join } from "node:path"
+import { join, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max", "unknown"]
 const label = /^[A-Za-z0-9_./:@+-]{1,128}$/
 const isWorker = (ctx: ExtensionContext) => /<active_agent\s+name=/.test(ctx.getSystemPrompt())
 
-export type TaskOutcomeReceipt = { taskId: string, outcome: "accepted" | "reworked" | "rejected", model: string, effort: string, checkArtifact: string, boardTaskId?: string, attemptId?: string, phase?: "implementation" | "review" | "repair", parentTaskId?: string, reviewerWorkerId?: string, coordinatorReportedDurationMs?: number }
+export type TaskOutcomeReceipt = { taskId: string, outcome: "accepted" | "reworked" | "rejected", model: string, effort: string, checkArtifact: string, boardTaskId?: string, attemptId?: string, phase?: "implementation" | "review" | "repair", parentTaskId?: string, reviewerWorkerId?: string, coordinatorReportedDurationMs?: number, observedModels?: string[] }
 
 // Coordinator-reported claim, not runtime proof; completion alone never implies acceptance.
 export function validateReceipt(args: TaskOutcomeReceipt): TaskOutcomeReceipt {
@@ -43,6 +44,39 @@ export function missingReceipts(entries: readonly { type: string, customType?: s
     else if (entry.customType === "task-outcome-receipt" && typeof data?.taskId === "string") receipted.add(data.taskId)
   }
   return [...terminal].filter((id) => !receipted.has(id))
+}
+
+// Physical models that actually produced successful assistant turns for a worker, read from its persisted pi session. pi-subagents
+// (agent-runner.ts) creates it via SessionManager.create under PI_CODING_AGENT_SESSION_DIR, else the default <agentDir>/sessions; a
+// per-agent `session_dir` or in-memory session is not a trusted location and reports unknown. The path comes from the durable
+// `subagents:record` entry but is still untrusted: it must resolve (symlinks included) to a bounded regular file under a trusted
+// root, and every transcript line is parsed defensively. Anything unavailable is ["unknown"], never a guess.
+const MAX_SESSION_BYTES = 32 * 1024 * 1024
+export function observedModels(entries: readonly { type: string, customType?: string, data?: unknown }[], workerId: string, roots: string[] = [process.env.PI_CODING_AGENT_SESSION_DIR || join(getAgentDir(), "sessions")]): string[] {
+  const unknown = ["unknown"]
+  try {
+    let file: unknown
+    for (const entry of entries) {
+      const data = entry.data as { id?: unknown, sessionFile?: unknown } | null | undefined
+      if (entry.type === "custom" && entry.customType === "subagents:record" && data?.id === workerId) file = data.sessionFile
+    }
+    if (typeof file !== "string" || !file || file.includes("\0")) return unknown
+    const real = realpathSync(file)
+    const info = statSync(real)
+    if (!roots.some((root) => { try { return real.startsWith(realpathSync(root) + sep) } catch { return false } }) || !info.isFile() || info.size > MAX_SESSION_BYTES) return unknown
+    const seen = new Set<string>()
+    for (const line of readFileSync(real, "utf8").split("\n")) {
+      if (!line.includes('"assistant"')) continue
+      let entry: { type?: unknown, message?: { role?: unknown, provider?: unknown, model?: unknown, stopReason?: unknown } }
+      try { entry = JSON.parse(line) } catch { continue }
+      const m = entry?.type === "message" ? entry.message : undefined
+      if (m?.role !== "assistant" || (m.stopReason !== "stop" && m.stopReason !== "toolUse" && m.stopReason !== "length")) continue
+      if (typeof m.provider !== "string" || typeof m.model !== "string") continue
+      const id = `${m.provider}/${m.model}`
+      if (label.test(id)) seen.add(id)
+    }
+    return seen.size ? [...seen].sort() : unknown
+  } catch { return unknown }
 }
 
 function sha256(path: string): string | null {
@@ -91,6 +125,8 @@ export default function (pi: ExtensionAPI) {
     async execute(_id, args, _signal, _update, ctx) {
       if (isWorker(ctx)) throw new Error("Workers cannot record coordinator task outcomes.")
       const receipt = validateReceipt(args)
+      // An alias is not a runtime: only alias receipts read a transcript and state which physical models ran (or unknown). Physical receipts are unchanged.
+      if (receipt.model.startsWith("route/")) receipt.observedModels = observedModels(ctx.sessionManager.getBranch(), receipt.taskId)
       pi.appendEntry("task-outcome-receipt", receipt)
       status(ctx, missingReceipts(ctx.sessionManager.getBranch()).filter((id) => id !== receipt.taskId))
       return { content: [{ type: "text", text: `Recorded ${receipt.outcome} for ${receipt.taskId}.` }], details: receipt }

@@ -15,6 +15,10 @@ export function gluedPromptReason(prompt: unknown): string | undefined {
 }
 
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
+// Opt-in virtual routes, registered as virtual models by the worker router.
+export const ROUTE_ALIASES = ["route/explore", "route/narrow", "route/writing", "route/substantive", "route/difficult", "route/review-deep"]
+const EXPENSIVE_ROUTES = ["route/difficult", "route/review-deep"]
+export const isRouteAlias = (model: unknown): model is string => typeof model === "string" && ROUTE_ALIASES.includes(model)
 const str = (value: unknown) => typeof value === "string" ? value : undefined
 // Mirrors pi-subagents parseCsvField: arrays and scalars stringify, "none"/empty mean nothing.
 const csv = (value: unknown) => { const text = String(value).trim(); return text === "none" ? [] : text.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean) }
@@ -77,6 +81,8 @@ export function agentRouteReason(input: { model?: unknown, thinking?: unknown, r
   const model = role?.enabled ? role.model ?? input.model : input.model
   const thinking = role?.enabled ? role.thinking ?? input.thinking : input.thinking
   if (typeof model !== "string" || !model.includes("/")) return
+  // Virtual aliases are ordinary registry models (registration, auth and supported thinking are still checked below); only the name set is closed.
+  if (/^route\//i.test(model) && !isRouteAlias(model)) return `Agent preflight rejected: unknown route alias ${model}. Use one of ${ROUTE_ALIASES.join(", ")} or an explicit provider/model.`
   const slash = model.indexOf("/")
   const found = ctx.modelRegistry.find(model.slice(0, slash), model.slice(slash + 1))
   if (!found || !ctx.modelRegistry.getAvailable().some((m) => m.provider === found.provider && m.id === found.id)) {
@@ -88,15 +94,15 @@ export function agentRouteReason(input: { model?: unknown, thinking?: unknown, r
   if (!levels.includes(thinking as never)) return `Agent preflight rejected: ${model} does not support thinking "${thinking}" (supported: ${levels.join(", ")}). No substitute level is applied; choose a supported level or another model.`
 }
 
-// Fresh explicit Sol routes must justify themselves; root runtime Sol is not a reason. The effective pin (role over call) is the same
+// Fresh explicit Sol routes and expensive route aliases must justify themselves; root runtime Sol is not a reason. The effective pin (role over call) is the same
 // one agentRouteReason validates. Omitted models and resumes are untouched, and rationale text is never judged for truth.
 export function solRationaleReason(input: { model?: unknown, prompt?: unknown, resume?: unknown }, role?: Role): string | undefined {
   if (input.resume !== undefined && input.resume !== "") return
   const model = role?.enabled ? role.model ?? input.model : input.model
-  if (typeof model !== "string" || !/(^|[/:-])sol$/i.test(model.trim())) return
+  if (typeof model !== "string" || !(/(^|[/:-])sol$/i.test(model.trim()) || EXPENSIVE_ROUTES.includes(model))) return
   const line = typeof input.prompt === "string" ? input.prompt.match(/^MODEL RATIONALE:[ \t]*(.*)$/m)?.[1]?.trim() : undefined
   if (line && line.length >= 20 && line.split(/\s+/).length >= 4) return
-  return "Agent preflight rejected: a fresh Sol worker needs a `MODEL RATIONALE:` line (4+ words) naming why a lighter route is unsuitable: difficult interacting invariants, a verified lighter-route miss, explicit user choice, or no suitable eligible alternative. Root running Sol is not a reason; otherwise choose a lighter route."
+  return "Agent preflight rejected: a fresh Sol or expensive route (route/difficult, route/review-deep) worker needs a `MODEL RATIONALE:` line (4+ words) naming why a lighter route is unsuitable: difficult interacting invariants, a verified lighter-route miss, explicit user choice, or no suitable eligible alternative. Root running Sol is not a reason; otherwise choose a lighter route."
 }
 
 // Root-only: the documented singleton belongs to the root, not a worker's own manager.

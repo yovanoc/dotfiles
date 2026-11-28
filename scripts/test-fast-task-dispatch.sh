@@ -338,6 +338,10 @@ try {
     assert.equal(rows(await h.ready([dep]))[0].state,"ready")
     h.bus.emit("subagents:usage",{id:last(h,b).workerId,model:"offline/unit",thinking:"low",usage:{cost:99},prompt:"SECRET"})
     assert.equal(last(h,b).actualEffort,"low");assert.equal(last(h,b).actualSource,"subagents:usage")
+    // A route alias names the virtual selection (model and its off effort), not the physical dispatch: neither is actual evidence.
+    h.bus.emit("subagents:usage",{id:last(h,c).workerId,model:"route/explore",thinking:"off",usage:{cost:0}})
+    assert.equal(last(h,c).actualModel,undefined);assert.equal(last(h,c).actualEffort,undefined);assert.equal(last(h,c).actualSource,undefined)
+    assert.equal(h.entries().filter((e:any)=>e.data.taskId===c&&e.data.reason==="runtime_observed").length,0)
     const failed=await h.add(basePacket(join(h.cwd,"failed.ts")));h.mode("failure")
     assert.equal(rows(await h.dispatch([failed],46))[0].reason,"submission_unknown","an Agent error after admission retains ownership without proof of non-admission")
     const pendingId=await h.add(basePacket(join(h.cwd,"late.ts")));h.mode("held")

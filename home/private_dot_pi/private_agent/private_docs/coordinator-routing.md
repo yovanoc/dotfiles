@@ -281,3 +281,111 @@ unexplained query failure remains unknown, not a reason to disable inference.
 Separate quota/auth failures from transient/rate/loader failures; stop launches
 only on routes affected by a hard failure. Reactive fallback has a separate
 managed JSON order and does not allocate quota; cooldowns are not allowance.
+
+### Opt-in virtual worker routes (prototype)
+
+Branch `pi/virtual-worker-routing`; unmerged until the checks below pass. The
+physical policy above stays the default: nothing changes unless a fresh worker
+packet passes one of six aliases as `model`. Evidence is the source in
+`private_extensions/worker-router.ts`, the alias handling in
+`agent-prompt-guard.ts` and `task-outcome-receipt.ts`, and the offline tests
+`scripts/test-worker-router.sh` and `scripts/test-worker-router-sdk.mjs`; no live
+multi-worker run is recorded here.
+
+**Before / after.** Before: the coordinator walks the task table, reads
+`quota_status` and passes an exact `provider/model` plus `thinking`. After
+(opt-in): it classifies the packet and passes one alias; the router chooses the
+physical route when the worker's request runs. Aliases and chains mirror the
+table rows (the router file notes this; edit both together):
+
+| Alias | Chain (first eligible wins) |
+| --- | --- |
+| `route/explore` | OpenCode Go Haiku → Copilot Luna → Anthropic Haiku → OpenAI Luna |
+| `route/narrow` | the explore chain, then Anthropic Sonnet `medium` |
+| `route/writing` | Terra `medium` → Sol `medium` |
+| `route/substantive` | Sonnet `medium` → Sol `medium` |
+| `route/difficult`, `route/review-deep` | Opus `medium` → Sol `xhigh` → Sonnet `high` (Sol first at Anthropic Conserve) |
+
+Efforts per entry are in `ROUTES` in the router file. No chain contains
+`anthropic-api/`, Zen or Fable/Astra, so an alias never spends API credits and
+never picks a rare top-tier route.
+
+**Activate.** Per packet, not globally: set `model` to `route/<class>` for a fresh
+worker only (not the coordinator, which warns on selecting `route/*`; not
+resumes). Resumes keep their recorded route. Omit `thinking` or pass `off`:
+an alias is an off-only selection and the router picks the physical effort per
+entry (the guard rejects any other level). `route/difficult` and
+`route/review-deep` still need `MODEL RATIONALE:` like Opus/Sol.
+
+**What the guard protects.** The preflight guard (native Agent and
+`fast_task_dispatch` alike) rejects unknown `route/` names, aliases that are not
+registered with usable auth, unsupported thinking levels and missing rationale
+for the two expensive aliases. It does not read quota and does not decide
+whether the worker loads the router.
+
+**Worker lifecycle (fail closed).** Slots are released by `worker-router`'s
+`agent_settled` and `session_shutdown` hooks inside the worker session, but the
+route function is shared by the whole Pi runtime. So the router only allocates,
+resumes or retries for a session that runs the extension (it records that
+session's run signal at `agent_start`). Any other session selecting an alias,
+by any ingress, gets an error response (`does not run the worker-router
+extension`) before a provider is called and takes no slot: native Agent,
+`fast_task_dispatch`, `isolated: true`, `extensions: false`, an `extensions:`
+allowlist or `exclude_extensions` that omits `worker-router`, and roles whose
+policy cannot be resolved (package or built-in roles). The guard cannot see
+these role settings, so the refusal happens at the first worker request, not at
+dispatch: treat it as `no eligible route`, re-dispatch on a role that loads the
+router (`reviewer.md` lists it) or on a physical route. Compaction and other
+`direct` requests never lease and are not gated. A worker in a separate
+process has its own store: it needs the extension to see the alias at all, and
+its slots are not shared with the parent process. Pi reload in a live process
+keeps the old shared store; restart Pi after changing the router.
+
+**Attempted, observed, unknown.** Three different claims; keep them apart.
+- *Attempted*: the alias in the packet. It is intent, not a model.
+- *Observed*: a task-outcome receipt for a `route/*` model gets `observedModels`,
+  the `provider/model` ids of the worker's successful assistant turns (stop,
+  tool use or length) read from its transcript. Errored turns are not counted.
+- *Unknown*: `observedModels: ["unknown"]` when the worker record, session file
+  or trusted session root is missing or unreadable. Do not guess the physical
+  model; do not treat the alias as the model in comparisons. Physical receipts
+  are unchanged.
+
+**Review and monitor.** Per route-using task, read the receipt's `observedModels`
+next to `model`, outcome and `checkArtifact`; judge accepted outcomes, rework and
+runtime as for physical routes. Watch these limits:
+- *Process-local.* Caps and cooldowns live only in the current Pi process (shared
+  by root and worker sessions there): a restart or a second Pi process resets them.
+- *Caps.* They follow the quota states above (8, 3 at Conserve, 0 at
+  Reserve/Full).
+- *Unknown quota is not headroom.* A failed, missing or non-fresh quota read
+  counts as `normal` (cap 8), so a quota outage makes the router more
+  permissive, not less. OpenAI is never queried and is always `normal` under the
+  credit rollover, so its only brake is the 8-slot cap and the cooldown below.
+- *Polling latency.* Quota is read when a fresh worker is routed and reused for
+  up to 60 s per provider (one read waits up to 5 s). A burst of workers can pass
+  Conserve/Reserve thresholds crossed seconds earlier; slots are counted
+  immediately, quota is not.
+- *No route.* When nothing is eligible the dispatch fails with `no eligible
+  route` and the work stays pending; report it, don't retry in a loop.
+
+**Failures.** A retry reaches the router only if Pi core itself retries the
+request (the router adds no retry of its own). On a rate-limit-like error it
+cools the whole provider (every model of that pool, not just the failed one) for
+15 minutes and picks a fresh route; for OpenAI that means one 429 on Sol also
+removes Luna and Terra from every route for 15 minutes in this process. Hard
+limits (usage, balance, 401/402) end the run and cool the provider for later
+workers; other errors retry on the same model. Cooldown is a local reaction to
+a refusal, not quota evidence and not a reset time. This does not replace the
+manual 429 rule above or `pi-model-fallback`.
+
+**Physical fallback.** At any time pass an exact `provider/model` and `thinking`
+from the table; the router ignores those. Use it whenever you need a known
+model, a role lacks the extension (the alias is then refused, see above), an
+alias fails, or `observedModels` is `unknown` and attribution matters.
+
+**Rollback.** Stop using aliases (no state change). To remove the prototype:
+drop `worker-router` from the `extensions:` lines, delete the managed
+`worker-router.ts`, run `chezmoi apply`, restart Pi. Receipts and transcripts
+already written keep their alias names; whether a session saved on a `route/*`
+model can be resumed after removal is untested, so use a fresh worker.
