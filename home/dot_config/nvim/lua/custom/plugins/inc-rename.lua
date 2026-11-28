@@ -1,8 +1,6 @@
 return {
   'smjonas/inc-rename.nvim',
-  config = function()
-    require('inc_rename').setup()
-
-    vim.keymap.set('n', '<leader>rn', ':IncRename ')
-  end,
+  cmd = 'IncRename',
+  keys = { { '<leader>rn', ':IncRename ', desc = 'Incremental [R]e[n]ame' } },
+  config = function() require('inc_rename').setup() end,
 }

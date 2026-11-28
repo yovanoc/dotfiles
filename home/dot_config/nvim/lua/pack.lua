@@ -1,23 +1,22 @@
--- [[ Intro to `vim.pack` ]]
--- `vim.pack` is a new plugin manager built into Neovim,
---  which provides a Lua interface for installing and managing plugins.
+-- [[ Managing plugins with `vim.pack` ]]
+-- `vim.pack` is Neovim's builtin plugin manager (see `:help vim.pack`, `:help vim.pack-examples`).
+-- There is no `:Lazy` command: everything is a plain Lua call.
 --
---  See `:help vim.pack`, `:help vim.pack-examples` or the
---  excellent blog post from the creator of vim.pack and mini.nvim:
---  https://echasnovski.com/blog/2026-03-13-a-guide-to-vim-pack
+--  Add     put `vim.pack.add { 'https://github.com/owner/repo' }` in a plugin file (or, for a lazy-loaded
+--          one, a spec in `lua/custom/plugins/`) and restart Nvim: it is cloned at the revision from
+--          `nvim-pack-lock.json`, or at its `version` (a branch, tag, commit or `vim.version.range`)
+--  Update  `:lua vim.pack.update()` downloads updates and opens a review buffer in a new tabpage:
+--          `:write` applies them, `:quit` discards them. Then `:restart`.
+--          Just look, without downloading: `:lua vim.pack.update(nil, { offline = true })`
+--  Remove  delete its `vim.pack.add` spec, `:restart`, then `:lua vim.pack.del { 'plugin-name' }`
+--          (removes it from disk and from the lockfile). Inactive plugins:
+--          `:lua =vim.iter(vim.pack.get()):filter(function(p) return not p.active end):map(function(p) return p.spec.name end):totable()`
+--  Restore `nvim-pack-lock.json` (commit it!) pins every plugin's revision. A fresh machine installs exactly
+--          those on startup; to move an existing one back to the lockfile (e.g. after `git checkout` of it):
+--          `:lua vim.pack.update(nil, { target = 'lockfile' })`, then review and `:write`
 --
---  To inspect plugin state and pending updates, run
---    :lua vim.pack.update(nil, { offline = true })
---
---  To update plugins, run
---    :lua vim.pack.update()
---
---
---  Throughout the rest of the config there will be examples
---  of how to install and configure plugins using `vim.pack`.
---
---  In this section we set up some autocommands to run build
---  steps for certain plugins after they are installed or updated.
+--  Plugins are installed on the very first start, which can take a minute. Some need a build step after install/update
+--  (below, see `:help vim.pack-events`).
 
 local function run_build(name, cmd, cwd)
   local result = vim.system(cmd, { cwd = cwd }):wait()

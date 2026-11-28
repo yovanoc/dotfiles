@@ -1,5 +1,8 @@
 -- autopairs
 -- https://github.com/windwp/nvim-autopairs
 
-vim.pack.add { 'https://github.com/windwp/nvim-autopairs' }
-require('nvim-autopairs').setup {}
+require('lazyload').add {
+  plugins = { 'https://github.com/windwp/nvim-autopairs' },
+  event = 'VeryLazy',
+  config = function() require('nvim-autopairs').setup {} end,
+}
