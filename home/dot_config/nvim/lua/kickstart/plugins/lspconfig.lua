@@ -200,7 +200,20 @@ require('lazyload').add {
 
 for name, server in pairs(servers) do
   vim.lsp.config(name, server)
-  vim.lsp.enable(name)
 end
+
+-- Servers must be told about blink.cmp's extra completion capabilities when they start (see `:help blink-cmp`, "LSP capabilities").
+-- blink.cmp itself is only set up on VeryLazy (blink-cmp.lua), so enable the servers on VimEnter instead: that adds blink.cmp to
+-- the 'runtimepath' first (cheap, ~2 ms) without delaying startup. Enabling also attaches to the buffers opened at startup.
+vim.api.nvim_create_autocmd('VimEnter', {
+  once = true,
+  callback = function()
+    vim.cmd.packadd 'blink.cmp'
+    vim.lsp.config('*', { capabilities = require('blink.cmp').get_lsp_capabilities(nil, true) })
+    for name in pairs(servers) do
+      vim.lsp.enable(name)
+    end
+  end,
+})
 
 -- vim: ts=2 sts=2 sw=2 et
