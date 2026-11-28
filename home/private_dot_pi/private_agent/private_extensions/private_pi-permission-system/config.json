@@ -3,14 +3,10 @@
 
   "debugLog": false,
   "permissionReviewLog": true,
-  "yoloMode": true,
   "doublePressToConfirm": true,
   "forwardingTimeoutMs": 600000,
   "piInfrastructureReadPaths": [
     "/opt/homebrew/**/@earendil-works/pi-coding-agent/**"
-  ],
-  "authorizerChain": [
-    "model-judge"
   ],
   "permission": {
     "*": "allow",
@@ -45,12 +41,18 @@
     },
     "mcp": {
       "*": "ask",
-      "mcp_status": "allow"
+      "mcp_status": "allow",
+      "mcp_list": "allow",
+      "mcp_search": "allow",
+      "mcp_describe": "allow"
     },
     "skill": {
       "*": "allow"
     },
-    "external_directory": {
+    "external_directory_read": {
+      "*": "allow"
+    },
+    "external_directory_write": {
       "*": "ask",
       "~/.cargo/registry/*": "allow",
       "~/Projects/*": "allow",
