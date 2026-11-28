@@ -8,9 +8,6 @@
   "piInfrastructureReadPaths": [
     "/opt/homebrew/**/@earendil-works/pi-coding-agent/**"
   ],
-  "authorizerChain": [
-    "model-judge"
-  ],
   "permission": {
     "*": "allow",
     "path": {
